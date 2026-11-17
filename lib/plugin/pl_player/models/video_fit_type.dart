@@ -44,3 +44,22 @@ enum VideoFitType {
     _ => 'no',
   };
 }
+
+/// Aspect ratio the video box must have so the frame is never stretched.
+///
+/// Fixed ratios (4:3, 16:9) keep their ratio; every other fit follows the
+/// media's real display size (already rotated), which is authoritative even
+/// when [VideoController.rect] is stale. Returns null when the display size is
+/// not known yet, which keeps the previous rect-based behavior.
+double? resolveVideoBoxAspect(
+  VideoFitType fit,
+  int sourceWidth,
+  int sourceHeight,
+) {
+  final fixed = fit.aspectRatio;
+  if (fixed != null) return fixed;
+  if (sourceWidth > 0 && sourceHeight > 0) {
+    return sourceWidth / sourceHeight;
+  }
+  return null;
+}

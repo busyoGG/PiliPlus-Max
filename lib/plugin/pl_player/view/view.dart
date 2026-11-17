@@ -47,6 +47,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/backward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/buffering_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/bottom_control.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/display_aspect_video.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/display_controls.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_video_output.dart';
@@ -2541,11 +2542,11 @@ if (!isLive)
                       key: ValueKey(targetController),
                       fit: videoFit.boxFit,
                       alignment: widget.alignment,
-                      child: SimpleVideo(
+                      child: DisplayAspectVideo(
                         key: ValueKey(targetController),
                         controller: targetController,
+                        fit: videoFit,
                         fill: widget.fill,
-                        aspectRatio: videoFit.aspectRatio,
                       ),
                     );
                   }
