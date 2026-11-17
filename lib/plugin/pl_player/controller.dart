@@ -438,6 +438,12 @@ final RxInt seekStartPosition = 0.obs;
   final RxBool frameSyncVideoResize = false.obs;
   bool isLive = false;
 
+  /// 直播时移：直播也可以拖动进度条（由本地时移服务器提供）。
+  bool timeShiftEnabled = false;
+
+  /// 是否允许进度条 / 快进快退等 seek 交互。
+  bool get seekEnabled => !isLive || timeShiftEnabled;
+
   bool _isVertical = false;
 
   final Rx<VideoFitType> videoFit = Rx(.contain);

@@ -1,4 +1,4 @@
-import 'dart:async' show Timer, StreamSubscription;
+import 'dart:async' show Timer, StreamSubscription, unawaited;
 import 'dart:convert' show jsonDecode;
 import 'dart:math' as math;
 
@@ -25,6 +25,7 @@ import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
+import 'package:PiliPlus/services/live_timeshift_server.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/tcp/live.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -204,6 +205,7 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> queryLiveUrl({bool autoFullScreenFlag = false}) async {
+    debugPrint('[LiveRoom] queryLiveUrl room=$roomId');
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
@@ -212,7 +214,12 @@ class LiveRoomController extends GetxController {
       qn: currentQn,
       onlyAudio: plPlayerController.onlyPlayAudio.value,
     );
+    debugPrint('[LiveRoom] playinfo res=${res.runtimeType}');
     if (res case Success(:final response)) {
+      debugPrint(
+        '[LiveRoom] liveStatus=${response.liveStatus} '
+        'formats=${response.playurlInfo?.playurl?.stream.map((s) => s.format.map((f) => f.formatName).toList()).toList()}',
+      );
       if (response.liveStatus != 1) {
         _showDialog('当前直播间未开播');
         return;
@@ -276,23 +283,81 @@ class LiveRoomController extends GetxController {
     }
   }
 
+  /// 时移只在 fmp4(HLS) 上可用。
+  ///
+  /// 当前格式不是 fmp4 时，优先在同一条流里找；找不到就跨流找（例如
+  /// http_stream/flv 与 http_hls/[ts, fmp4] 是两条不同的流）。
+  ({int streamIndex, int formatIndex, int codecIndex}) _resolveTimeShiftSource({
+    required int streamIndex,
+    required int formatIndex,
+    required int codecIndex,
+  }) {
+    ({int streamIndex, int formatIndex, int codecIndex}) current() => (
+      streamIndex: streamIndex,
+      formatIndex: formatIndex,
+      codecIndex: codecIndex,
+    );
+    if (!Pref.liveTimeShift) {
+      return current();
+    }
+    final currentFormat = stream
+        .getOrNull(streamIndex)
+        ?.format
+        .getOrNull(formatIndex);
+    final isFmp4 = currentFormat?.formatName == 'fmp4';
+    if (isFmp4) {
+      return current();
+    }
+    // 先在同一条流里找 fmp4
+    final sameStream = stream
+        .getOrNull(streamIndex)
+        ?.format
+        .indexWhere((f) => f.formatName == 'fmp4');
+    if (sameStream != null && sameStream >= 0) {
+      debugPrint('[LiveTimeshift] format $formatIndex -> $sameStream (fmp4)');
+      return (
+        streamIndex: streamIndex,
+        formatIndex: sameStream,
+        codecIndex: 0,
+      );
+    }
+    // 再跨流找 fmp4
+    for (var i = 0; i < stream.length; i++) {
+      final formats = stream[i].format;
+      final index = formats.indexWhere((f) => f.formatName == 'fmp4');
+      if (index < 0) continue;
+      debugPrint(
+        '[LiveTimeshift] stream $streamIndex/$formatIndex -> '
+        '$i/$index (fmp4)',
+      );
+      return (streamIndex: i, formatIndex: index, codecIndex: 0);
+    }
+    debugPrint('[LiveTimeshift] skipped: no fmp4 format available');
+    return current();
+  }
+
   Future<void>? initLiveUrl({
     int streamIndex = 0,
     int formatIndex = 0,
     int codecIndex = 0,
     int liveUrlIndex = 0,
   }) {
-    this.streamIndex = streamIndex;
-    this.formatIndex = formatIndex;
-    this.codecIndex = codecIndex;
+    final source = _resolveTimeShiftSource(
+      streamIndex: streamIndex,
+      formatIndex: formatIndex,
+      codecIndex: codecIndex,
+    );
+    this.streamIndex = source.streamIndex;
+    this.formatIndex = source.formatIndex;
+    this.codecIndex = source.codecIndex;
     this.liveUrlIndex = liveUrlIndex;
 
     final CodecItem item = stream
-        .getOrFirst(streamIndex)
+        .getOrFirst(this.streamIndex)
         .format
-        .getOrFirst(formatIndex)
+        .getOrFirst(this.formatIndex)
         .codec
-        .getOrFirst(codecIndex);
+        .getOrFirst(this.codecIndex);
     // 以服务端返回的码率为准
     currentQn = item.currentQn;
     acceptQnList = item.acceptQn.map((e) {
@@ -303,8 +368,143 @@ class LiveRoomController extends GetxController {
     }).toList();
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
-    videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    return playerInit()?.whenComplete(_startSizeSub);
+    final liveUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
+    debugPrint('[LiveRoom] url qn=$currentQn ${liveUrl.split('?').first}');
+    videoUrl = liveUrl;
+    final timeShift = _prepareTimeShift(liveUrl);
+    if (timeShift == null) {
+      plPlayerController.timeShiftEnabled = false;
+      return playerInit()?.whenComplete(_startSizeSub);
+    }
+    return timeShift.then((playlistUrl) {
+      _logPlaybackState();
+      videoUrl = playlistUrl ?? liveUrl;
+      plPlayerController.timeShiftEnabled = playlistUrl != null;
+      debugPrint(
+        '[LiveTimeshift] play ${playlistUrl == null ? 'plain live' : 'local playlist'} ${playlistUrl ?? ''}',
+      );
+      return playerInit()?.whenComplete(() {
+        _startSizeSub();
+        if (playlistUrl != null) {
+          _seekToLiveEdge();
+        }
+      });
+    });
+  }
+
+  Worker? _timeShiftSeekWorker;
+
+  Timer? _stateLogger;
+
+  /// 打开时移房间后打印几行播放状态，便于核对进度条是否生效。
+  void _logPlaybackState() {
+    _stateLogger?.cancel();
+    var left = 5;
+    _stateLogger = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (left-- <= 0 || isClosed) {
+        timer.cancel();
+        return;
+      }
+      final p = plPlayerController;
+      debugPrint(
+        '[LivePlayer] pos=${p.position.value} dur=${p.duration.value} '
+        'buffered=${p.buffered.value} seekEnabled=${p.seekEnabled} '
+        'isLive=${p.isLive}',
+      );
+    });
+  }
+
+  /// 时移播放列表覆盖了最近一小时：加载后跳到直播边缘，避免从一小时前开始播。
+  void _seekToLiveEdge() {
+    _timeShiftSeekWorker?.dispose();
+    _timeShiftSeekWorker = ever<int>(plPlayerController.duration, (duration) {
+      if (duration <= 3) return;
+      _timeShiftSeekWorker?.dispose();
+      _timeShiftSeekWorker = null;
+      debugPrint('[LiveTimeshift] live edge seek to $duration');
+      Future<void>.delayed(const Duration(milliseconds: 600), () {
+        if (!plPlayerController.timeShiftEnabled) return;
+        unawaited(
+          plPlayerController.seekTo(
+            Duration(seconds: duration - 2),
+            isSeek: false,
+          ),
+        );
+      });
+    });
+  }
+
+  LiveTimeshiftServer? _timeShiftServer;
+
+  /// 收集当前播放信息里所有 fmp4(HLS) 候选地址。
+  ///
+  /// 时移只对 fmp4 生效，且深历史分片只存在部分 (host, path) 组合上，
+  /// 所以候选越多成功率越高。
+  List<String> _collectFmp4Urls(List<Stream> streams) {
+    final urls = <String>[];
+    final hostOverride = VideoUtils.liveCdnUrl;
+    for (final s in streams) {
+      for (final f in s.format) {
+        if (f.formatName != 'fmp4') continue;
+        for (final c in f.codec) {
+          for (final ui in c.urlInfo) {
+            urls.add((hostOverride ?? ui.host) + c.baseUrl + ui.extra);
+          }
+        }
+      }
+    }
+    return urls;
+  }
+
+  /// 准备时移服务器；返回时移播放列表地址，null 表示走普通直播。
+  Future<String?>? _prepareTimeShift(String liveUrl) {
+    if (!Pref.liveTimeShift) {
+      debugPrint('[LiveTimeshift] skipped: preference off');
+      return null;
+    }
+    if (!liveUrl.contains('index.m3u8')) {
+      debugPrint(
+        '[LiveTimeshift] skipped: not an HLS url: ${liveUrl.split('?').first}',
+      );
+      return null;
+    }
+    final urls = <String>{liveUrl, ..._collectFmp4Urls(stream)}.toList();
+    final previous = _timeShiftServer;
+    _timeShiftServer = null;
+    unawaited(previous?.dispose());
+    final server = LiveTimeshiftServer(roomId: roomId, urls: urls);
+    _timeShiftServer = server;
+    debugPrint(
+      '[LiveTimeshift] starting with ${urls.length} candidate urls, '
+      'first: ${liveUrl.split('?').first}',
+    );
+    return server.start().then((ok) {
+      if (!ok) {
+        debugPrint('[LiveTimeshift] start failed, fallback to plain live');
+        if (identical(_timeShiftServer, server)) {
+          _timeShiftServer = null;
+        }
+        return null;
+      }
+      unawaited(_augmentTimeShiftSources(server));
+      return server.playlistUrl;
+    });
+  }
+
+  /// 多抓几次 playinfo，换出新 CDN 节点/路径，提高深历史命中率。
+  Future<void> _augmentTimeShiftSources(LiveTimeshiftServer server) async {
+    for (var i = 0; i < 6; i++) {
+      if (!identical(_timeShiftServer, server)) return;
+      final res = await LiveHttp.liveRoomInfo(roomId: roomId, qn: currentQn);
+      if (res case Success(:final response)) {
+        final playurl = response.playurlInfo?.playurl;
+        if (playurl == null) continue;
+        final urls = _collectFmp4Urls(playurl.stream);
+        if (urls.isNotEmpty) server.addSources(urls);
+      } else {
+        return;
+      }
+    }
   }
 
   Future<void> queryLiveInfoH5() async {
@@ -459,6 +659,14 @@ class LiveRoomController extends GetxController {
 
   @override
   void onClose() {
+    _stateLogger?.cancel();
+    _stateLogger = null;
+    _timeShiftSeekWorker?.dispose();
+    _timeShiftSeekWorker = null;
+    final timeShiftServer = _timeShiftServer;
+    _timeShiftServer = null;
+    unawaited(timeShiftServer?.dispose());
+    plPlayerController.timeShiftEnabled = false;
     _stopSizeSub();
     closeLiveMsg();
     cancelLikeTimer();

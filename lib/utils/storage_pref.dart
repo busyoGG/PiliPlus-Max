@@ -1620,6 +1620,10 @@ static int get playerControlDisplayDurationSeconds {
 
   static String? get liveCdnUrl => _setting.get(SettingBoxKey.liveCdnUrl);
 
+  /// 直播时移（进度条）：赛事直播可回看约一小时。
+  static bool get liveTimeShift =>
+      _setting.get(SettingBoxKey.liveTimeShift, defaultValue: true);
+
   static bool get showBatteryLevel => _setting.get(
     SettingBoxKey.showBatteryLevel,
     defaultValue: PlatformUtils.isMobile,

@@ -156,6 +156,13 @@ List<SettingsModel> get videoSettings => [
         '当前画质：${LiveQuality.fromCode(Pref.liveQualityCellular)?.desc}',
     onTap: _showLiveCellularQaDialog,
   ),
+  const SwitchModel(
+    title: '直播时移（进度条）',
+    subtitle: '赛事直播可拖动进度条回看约一小时；关闭后恢复普通直播',
+    leading: Icon(Icons.history_outlined),
+    setKey: SettingBoxKey.liveTimeShift,
+    defaultVal: true,
+  ),
   NormalModel(
     title: '首选解码格式',
     leading: const Icon(Icons.movie_creation_outlined),

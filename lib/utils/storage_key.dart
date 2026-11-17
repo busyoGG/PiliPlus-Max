@@ -351,6 +351,7 @@ verticalScrollDecelerationScale = 'verticalScrollDecelerationScale',
       tempPlayerConf = 'tempPlayerConf',
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
+      liveTimeShift = 'liveTimeShift',
       saveReply = 'saveReply';
 }
 

@@ -1270,7 +1270,7 @@ if (_initialFocalPoint case final initial?) {
 
     if (_gestureType == .horizontal) {
       // live模式下禁用
-      if (plPlayerController.isLive) return;
+      if (!plPlayerController.seekEnabled) return;
 
       final height = maxHeight * 0.125;
       if (details.localFocalPoint.dy <= height &&
@@ -1422,7 +1422,8 @@ _gesturePointerKind = null;
   }
 
   void onDoubleTapDownMobile(TapDownDetails details) {
-    if (plPlayerController.isLive || plPlayerController.controlsLock.value) {
+    if (!plPlayerController.seekEnabled ||
+        plPlayerController.controlsLock.value) {
       return;
     }
     final double tapPosition = details.localPosition.dx;
@@ -1566,7 +1567,7 @@ void _handleProgressBarExpandedPointerDown(
     if (PlatformUtils.isMobile) {
       _tapGestureRecognizer.addPointer(event);
       if (controlsUnlock) {
-        if (!plPlayerController.isLive) {
+        if (plPlayerController.seekEnabled) {
           _doubleTapGestureRecognizer.addPointer(event);
           longPressRecognizer.addPointer(event);
         }
@@ -1608,7 +1609,7 @@ void _handleProgressBarExpandedPointerDown(
     }
 
     if (_gestureType == .horizontal) {
-      if (plPlayerController.isLive) return;
+      if (!plPlayerController.seekEnabled) return;
 
       _onHorizontalDragUpdate(event.localPanDelta.dx);
     } else if (_gestureType == .right) {
@@ -1718,6 +1719,7 @@ void _handleProgressBarExpandedPointerDown(
   );
 }
     final isLive = plPlayerController.isLive;
+    final seekEnabled = plPlayerController.seekEnabled;
     final showMpvOutputFps =
         _showMpvOutputFps &&
         (!isLive || isFullScreen || plPlayerController.isDesktopPip);
@@ -1941,7 +1943,7 @@ backgroundColor: gestureProgressColor.withValues(alpha: 0.24),
           ),
 /// 相对快进/快退时间 toast。
 /// 仅在“当前时间浮窗集成到预览窗”开启时显示。
-if (!isLive)
+if (seekEnabled)
   IgnorePointer(
     ignoring: true,
     child: Align(
@@ -1951,7 +1953,7 @@ if (!isLive)
   ),
         /// 独立时间进度 toast
         /// 集成模式下，仅在本次操作没有预览窗时作为回退显示。
-        if (!isLive)
+        if (seekEnabled)
           IgnorePointer(
             ignoring: true,
             child: Align(
@@ -2176,7 +2178,7 @@ if (!isLive)
         ),
 
         /// 进度条 live模式下禁用
-        if (!isLive)
+        if (seekEnabled)
           Positioned(
             bottom: -2.2,
             left: 0,
@@ -2224,7 +2226,9 @@ if (!isLive)
                         ),
                       ),
                       if (plPlayerController.enableBlock &&
-                          videoDetailController.segmentProgressList.isNotEmpty)
+                          (widget.videoDetailController?.segmentProgressList
+                                  .isNotEmpty ??
+                              false))
                         Positioned(
                           left: 0,
                           right: 0,
@@ -2234,7 +2238,9 @@ if (!isLive)
                           ),
                         ),
                       if (plPlayerController.showViewPoints &&
-                          videoDetailController.viewPointList.isNotEmpty &&
+                          (widget.videoDetailController?.viewPointList
+                                  .isNotEmpty ??
+                              false) &&
                           videoDetailController.showVP.value)
                         Padding(
                           padding: const .only(bottom: 4.25),
@@ -2259,7 +2265,9 @@ if (!isLive)
                           ),
                         ),
                       if (plPlayerController.showDmChart &&
-                          videoDetailController.showDmTrendChart.value)
+                          (widget.videoDetailController?.showDmTrendChart
+                                  .value ??
+                              false))
                         if (videoDetailController.dmTrend.value?.dataOrNull
                             case final list?)
                           buildDmChart(primary, list, videoDetailController),
@@ -2270,7 +2278,7 @@ if (!isLive)
             ),
           ),
 
-        if (!isLive && plPlayerController.showAnySeekPreview)
+        if (seekEnabled && plPlayerController.showAnySeekPreview)
           buildSeekPreviewWidget(
             plPlayerController,
             maxWidth,
@@ -2395,7 +2403,7 @@ if (!isLive)
         PlayerBufferingOverlay(controller: plPlayerController),
 
         /// 点击 快进/快退
-        if (!isLive)
+        if (seekEnabled)
           Obx(() {
             final mountSeekBackwardButton =
                 plPlayerController.mountSeekBackwardButton.value;

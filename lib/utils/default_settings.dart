@@ -113,6 +113,7 @@ const Map<String, Object> defaultSettingValues = {
   'horizontalSeekGestureThreshold': 5.0,
   'historyArchiveIntervalDays': 7,
   'liveQualityCellular': 10000,
+  'liveTimeShift': true,
   'longPressSpeedToastVerticalPercent': 26.0,
   'longPressSpeedTriggerDelay': 400,
   'mergeDanmaku': false,
