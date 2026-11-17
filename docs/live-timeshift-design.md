@@ -50,11 +50,13 @@ playinfo(fmp4) ──┐
 | 本地缓存 | 每片回源成功后写盘 `live_dvr/<roomId>/<epoch>/<seq>.m4s`，环形淘汰 | 暂停/回拖不再重复回源；CDN 拿不到的区间靠它兜底 |
 | 降级 | 拿不到 fmp4 或 `start()` 失败 → `videoUrl` 用原地址、`timeShiftEnabled=false` | 不影响普通直播 |
 | 进度条解锁 | `PlPlayerController.seekEnabled => !isLive || timeShiftEnabled`，view 层门禁改用它 | 直播默认仍禁拖，时移房间才放开 |
-| 起播位置 | `_seekToLiveEdge()`：拿到 duration 后 seek 到 `duration - 2s` | 否则播放器从窗口起点（1 小时前）开始播 |
+| 起播位置 | `_watchTimeShiftPlayback()`：起播后 20 秒内，只要播放位置 < 30s 就按需 seek 到 `窗口长度 - 3s`（最多 4 次、间隔 3s），位置正常后停止；判定逻辑抽到纯函数 `timeShiftAdoptTarget()` | 安卓 mpv 起播时音频 underrun 会把播放位置重启到窗口最早的分片，表现为「打开直播停在一小时前」 |
 
 ## 5. 验证记录
 
 离线单测 `test/services/live_timeshift_server_test.dart`（本地假 CDN，8 个用例）：地址解析、seq 校准、播放列表覆盖窗口、越界 404、缓存命中、窗口滑动、seq 跳变重建、固定窗口长度。
+
+离线单测 `test/services/live_timeshift_start_test.dart`（7 个用例）：起播位置判定（已在边缘不干预、窗口过短不干预、停在开头时拉到边缘、重试上限、保护期、跳转间隔）。合计 15 个用例全部通过。
 
 PC 端真实 CDN 端到端（真实 playinfo + LiveTimeshiftServer + 外部播放器）：
 
@@ -72,12 +74,14 @@ PC 端真实 CDN 端到端（真实 playinfo + LiveTimeshiftServer + 外部播�
 | --- | --- |
 | `lib/services/live_timeshift_server.dart`（新） | HttpServer：EVENT 播放列表、窗口探测、组合池、分片代理与校验、降级 |
 | `lib/services/live_dvr_cache.dart`（新） | 分片写盘、环形淘汰、按 seq 查询 |
-| `lib/pages/live_room/controller.dart` | `_resolveTimeShiftSource` / `_prepareTimeShift` / `_augmentTimeShiftSources` / `_seekToLiveEdge`，`initLiveUrl` 走本地列表，`onClose` 清理 |
+| `lib/services/live_timeshift_start.dart`（新） | 起播位置判定纯函数 `timeShiftAdoptTarget()` |
+| `lib/pages/live_room/controller.dart` | `_prepareTimeShift` / `_augmentTimeShiftSources` / `_watchTimeShiftPlayback` / `_logPlaybackState`，`initLiveUrl` 走本地列表，`onClose` 清理 |
 | `lib/plugin/pl_player/controller.dart` | `timeShiftEnabled`、`seekEnabled` |
 | `lib/plugin/pl_player/view/view.dart` | 拖拽/双击/进度条/快进快退等门禁由 `isLive` 改为 `seekEnabled` |
 | `lib/utils/storage_key.dart`、`storage_pref.dart`、`default_settings.dart` | 开关 `liveTimeShift`，默认开 |
 | `lib/pages/setting/models/video_settings.dart` | 设置项「直播时移（进度条）」 |
 | `test/services/live_timeshift_server_test.dart`（新） | 离线单测 |
+| `test/services/live_timeshift_start_test.dart`（新） | 起播位置判定单测 |
 
 ## 7. 已知边界与风险
 
@@ -88,3 +92,4 @@ PC 端真实 CDN 端到端（真实 playinfo + LiveTimeshiftServer + 外部播�
 5. 普通主播房是否开启 tmshift 未逐一验证；未开启时自动降级为普通直播。
 6. 码率切换（换 qn）后 seq 是否连续未验证；重建窗口逻辑可兜底但会清空回看深度。
 7. 本地缓存默认 400 MB / 3600 片，退出房间清空。
+8. 起播位置兜底依赖播放器与本地服务时序：若设备在 20 秒保护期内仍未回到直播边缘，进度条会停在窗口起点，重新进房即可恢复。

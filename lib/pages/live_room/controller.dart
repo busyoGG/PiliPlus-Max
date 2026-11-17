@@ -25,6 +25,7 @@ import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
+import 'package:PiliPlus/services/live_timeshift_start.dart';
 import 'package:PiliPlus/services/live_timeshift_server.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/tcp/live.dart';
@@ -386,13 +387,21 @@ class LiveRoomController extends GetxController {
       return playerInit()?.whenComplete(() {
         _startSizeSub();
         if (playlistUrl != null) {
-          _seekToLiveEdge();
+          _watchTimeShiftPlayback();
         }
       });
     });
   }
 
-  Worker? _timeShiftSeekWorker;
+  Worker? _timeShiftDurationWorker;
+
+  Worker? _timeShiftStartWorker;
+
+  final Stopwatch _timeShiftClock = Stopwatch();
+
+  int _timeShiftStartAttempts = 0;
+
+  Duration _timeShiftLastAttempt = const Duration(seconds: -5);
 
   Timer? _stateLogger;
 
@@ -414,23 +423,48 @@ class LiveRoomController extends GetxController {
     });
   }
 
-  /// 时移播放列表覆盖了最近一小时：加载后跳到直播边缘，避免从一小时前开始播。
-  void _seekToLiveEdge() {
-    _timeShiftSeekWorker?.dispose();
-    _timeShiftSeekWorker = ever<int>(plPlayerController.duration, (duration) {
-      if (duration <= 3) return;
-      _timeShiftSeekWorker?.dispose();
-      _timeShiftSeekWorker = null;
-      debugPrint('[LiveTimeshift] live edge seek to $duration');
-      Future<void>.delayed(const Duration(milliseconds: 600), () {
-        if (!plPlayerController.timeShiftEnabled) return;
-        unawaited(
-          plPlayerController.seekTo(
-            Duration(seconds: duration - 2),
-            isSeek: false,
-          ),
-        );
-      });
+  /// 时移窗口内 mpv 回报的时长应等于窗口长度；个别设备会回报未重定基准的
+  /// 时间戳（几十万秒），这里按窗口长度兜底修正，否则进度条无法拖动。
+  void _watchTimeShiftPlayback() {
+    _timeShiftDurationWorker?.dispose();
+    _timeShiftDurationWorker = ever<int>(plPlayerController.duration, (value) {
+      final window = _timeShiftServer?.seekWindowSeconds ?? 0;
+      if (window <= 0 || value <= window + 120) {
+        return;
+      }
+      debugPrint('[LiveTimeshift] duration $value 超出窗口，按窗口修正');
+      plPlayerController.durationInMilliseconds = window * 1000;
+      plPlayerController.duration.value = window;
+    });
+    _timeShiftStartWorker?.dispose();
+    _timeShiftStartWorker = ever<int>(plPlayerController.position, (value) {
+      final window = _timeShiftServer?.seekWindowSeconds ?? 0;
+      if (value <= 0 || window < 60) {
+        return;
+      }
+      if (value >= 30) {
+        _timeShiftStartWorker?.dispose();
+        _timeShiftStartWorker = null;
+        _timeShiftClock.stop();
+        return;
+      }
+      // 安卓 mpv 起播时音频 underrun 会把播放位置重启到窗口最早的分片，
+      // 因此起播后短时间内主动跳到直播边缘；位置已经在边缘或用户
+      // 自己拖动过之后就不再干预。
+      final target = timeShiftAdoptTarget(
+        positionSeconds: value,
+        windowSeconds: window,
+        attempts: _timeShiftStartAttempts,
+        elapsed: _timeShiftClock.elapsed,
+        sinceLastAttempt: _timeShiftLastAttempt,
+      );
+      if (target == null) {
+        return;
+      }
+      _timeShiftStartAttempts++;
+      _timeShiftLastAttempt = _timeShiftClock.elapsed;
+      debugPrint('[LiveTimeshift] 起播位置 ${value}s 在窗口开头，拉到 $target');
+      plPlayerController.seekTo(target, isSeek: false);
     });
   }
 
@@ -474,6 +508,11 @@ class LiveRoomController extends GetxController {
     unawaited(previous?.dispose());
     final server = LiveTimeshiftServer(roomId: roomId, urls: urls);
     _timeShiftServer = server;
+    _timeShiftStartAttempts = 0;
+    _timeShiftLastAttempt = const Duration(seconds: -5);
+    _timeShiftClock
+      ..reset()
+      ..start();
     debugPrint(
       '[LiveTimeshift] starting with ${urls.length} candidate urls, '
       'first: ${liveUrl.split('?').first}',
@@ -661,8 +700,10 @@ class LiveRoomController extends GetxController {
   void onClose() {
     _stateLogger?.cancel();
     _stateLogger = null;
-    _timeShiftSeekWorker?.dispose();
-    _timeShiftSeekWorker = null;
+    _timeShiftDurationWorker?.dispose();
+    _timeShiftDurationWorker = null;
+    _timeShiftStartWorker?.dispose();
+    _timeShiftStartWorker = null;
     final timeShiftServer = _timeShiftServer;
     _timeShiftServer = null;
     unawaited(timeShiftServer?.dispose());
