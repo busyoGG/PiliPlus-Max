@@ -240,8 +240,8 @@ class PlPlayerController with BlockConfigMixin {
   Duration? seekToPos;
   bool hasToasted = false;
   final RxBool isSeeking = false.obs;
-  final RxBool isGestureSeeking = false.obs;
-  final RxInt seekStartPosition = 0.obs;
+    final RxBool isGestureSeeking = false.obs;
+final RxInt seekStartPosition = 0.obs;
   final RxInt position = RxInt(0);
 
   int get positionInMilliseconds =>
@@ -317,14 +317,11 @@ class PlPlayerController with BlockConfigMixin {
   void _cancelMediaLoad(String reason) {
     final load = _mediaLoad;
     if (load == null) return;
-    _logStartup(
-      'load.cancel',
-      details: {
-        'reason': reason,
-        'loadGeneration': load.generation,
-        'pendingPlay': load.pendingPlay != null,
-      },
-    );
+    _logStartup('load.cancel', details: {
+      'reason': reason,
+      'loadGeneration': load.generation,
+      'pendingPlay': load.pendingPlay != null,
+    });
     final gate = _initialPlayGate;
     if (load.loading || (gate != null && gate.active)) {
       // Returning to an unfinished source must rebuild its startup gate.
@@ -535,7 +532,8 @@ class PlPlayerController with BlockConfigMixin {
 
   String? get mainPlayerCdnName => _mainNetworkSource?.cdnService?.name;
 
-  String? get standbyPlayerCdnName => _standbyNetworkSource?.cdnService?.name;
+  String? get standbyPlayerCdnName =>
+      _standbyNetworkSource?.cdnService?.name;
 
   List<PlayerInstanceGateStatus> get playerInstanceGateStatuses => [
     _mainInstanceGateStatus,
@@ -577,8 +575,7 @@ class PlPlayerController with BlockConfigMixin {
 
   PlayerInstanceGateStatus get _mainInstanceGateStatus {
     final promoted = _promotedPlayerGateDiagnostics;
-    if (promoted != null &&
-        identical(promoted.player, _videoPlayerController)) {
+    if (promoted != null && identical(promoted.player, _videoPlayerController)) {
       return _standbyGateStatus(promoted, name: '主实例', promoted: true);
     }
 
@@ -587,7 +584,9 @@ class PlPlayerController with BlockConfigMixin {
       return PlayerInstanceGateStatus(
         name: '主实例',
         playerState: _playerStateLabel(_videoPlayerController),
-        gateState: _shouldGateInitialPlay ? '暂无起播门控' : '当前播放模式无需起播门控',
+        gateState: _shouldGateInitialPlay
+            ? '暂无起播门控'
+            : '当前播放模式无需起播门控',
       );
     }
 
@@ -671,7 +670,8 @@ class PlPlayerController with BlockConfigMixin {
         _condition(
           '首帧已渲染',
           diagnostics.firstFrameRendered,
-          bypassed: strictBypassed && !diagnostics.firstFrameRendered,
+          bypassed:
+              strictBypassed && !diagnostics.firstFrameRendered,
           failed: diagnostics.firstFrameFailed,
         ),
         _condition(
@@ -682,12 +682,14 @@ class PlPlayerController with BlockConfigMixin {
         _condition(
           '输出尺寸匹配',
           diagnostics.outputRectMatched,
-          bypassed: strictBypassed || !diagnostics.outputRectRequired,
+          bypassed:
+              strictBypassed || !diagnostics.outputRectRequired,
         ),
         _condition(
           '尺寸配置后已有新帧',
           diagnostics.renderedAfterOutputConfiguration,
-          bypassed: strictBypassed || !diagnostics.outputRectRequired,
+          bypassed:
+              strictBypassed || !diagnostics.outputRectRequired,
         ),
         _condition(
           '已识别媒体尺寸',
@@ -722,8 +724,7 @@ class PlPlayerController with BlockConfigMixin {
           '播放时钟同步',
           diagnostics.clockAligned,
           bypassed: alignmentBypassed,
-          detail:
-              '${diagnostics.clockDrift}/${diagnostics.allowedClockDrift}ms',
+          detail: '${diagnostics.clockDrift}/${diagnostics.allowedClockDrift}ms',
         ),
         _condition(
           '强制接管超时已到',
@@ -892,13 +893,12 @@ class PlPlayerController with BlockConfigMixin {
   late RuleFilter filters = Pref.danmakuFilterRule;
   // 关联弹幕控制器
   DanmakuController<DanmakuExtra>? danmakuController;
-
-  /// bool 参数为 true 时重置当前高频弹幕统计；
-  /// false 时只要求刷新显示样式。
-  ValueChanged<bool>? onDanmakuMergeSettingsChanged;
+    /// bool 参数为 true 时重置当前高频弹幕统计；
+/// false 时只要求刷新显示样式。
+ValueChanged<bool>? onDanmakuMergeSettingsChanged;
   bool showDanmaku = true;
   Set<int> dmState = <int>{};
-
+  
   late final String midHash = getCrc32(
     ascii.encode(Accounts.main.mid.toString()),
     0,
@@ -910,8 +910,8 @@ class PlPlayerController with BlockConfigMixin {
   Duration get longPressSpeedTriggerDelay =>
       Duration(milliseconds: Pref.longPressSpeedTriggerDelay);
   Duration get showControlDuration => Duration(
-    seconds: Pref.playerControlDisplayDurationSeconds,
-  );
+  seconds: Pref.playerControlDisplayDurationSeconds,
+);
   // 字幕
   late double subtitleFontScale = Pref.subtitleFontScale;
   late double subtitleFontScaleFS = Pref.subtitleFontScaleFS;
@@ -943,16 +943,19 @@ class PlPlayerController with BlockConfigMixin {
       Pref.playerControlBarThicknessScale;
   double get playerControlBarGradientExtent =>
       Pref.playerControlBarGradientExtent;
-  double get volumeGestureAngleThreshold => Pref.volumeGestureAngleThreshold;
+  double get volumeGestureAngleThreshold =>
+      Pref.volumeGestureAngleThreshold;
   double get brightnessGestureAngleThreshold =>
       Pref.brightnessGestureAngleThreshold;
   double get volumeGestureSpeed => Pref.volumeGestureSpeed;
   double get brightnessGestureSpeed => Pref.brightnessGestureSpeed;
-  double get seekTimeToastVerticalPercent => Pref.seekTimeToastVerticalPercent;
+  double get seekTimeToastVerticalPercent =>
+      Pref.seekTimeToastVerticalPercent;
   double get longPressSpeedToastVerticalPercent =>
       Pref.longPressSpeedToastVerticalPercent;
   double get seekTimeToastFontSize => Pref.seekTimeToastFontSize;
-  double get longPressSpeedToastFontSize => Pref.longPressSpeedToastFontSize;
+  double get longPressSpeedToastFontSize =>
+      Pref.longPressSpeedToastFontSize;
   late final enableSlideFS = Pref.enableSlideFS;
   late final enableDragSubtitle = Pref.enableDragSubtitle;
   late final fastForBackwardDuration = Duration(
@@ -1058,41 +1061,29 @@ class PlPlayerController with BlockConfigMixin {
   static void setPlayCallBack(PlayCallback? playCallBack, {String? ownerTag}) {
     _playCallBack = playCallBack;
     _playCallbackOwnerTag = ownerTag;
-    _instance?._logStartup(
-      'play_callback.set',
-      details: {
-        'present': playCallBack != null,
-        'callers': StartupLog.callers(),
-      },
-    );
+    _instance?._logStartup('play_callback.set', details: {
+      'present': playCallBack != null,
+      'callers': StartupLog.callers(),
+    });
   }
 
   static PlayCallback? _playCallBack;
   static String? _playCallbackOwnerTag;
 
   static Future<void>? playIfExists() {
-    _instance?._logStartup(
-      'play_callback.invoke',
-      details: {
-        'callers': StartupLog.callers(),
-      },
-    );
+    _instance?._logStartup('play_callback.invoke', details: {
+      'callers': StartupLog.callers(),
+    });
     try {
       final result = _playCallBack?.call();
-      _instance?._logStartup(
-        'play_callback.return',
-        details: {
-          'futurePresent': result != null,
-        },
-      );
+      _instance?._logStartup('play_callback.return', details: {
+        'futurePresent': result != null,
+      });
       return result;
     } catch (error) {
-      _instance?._logStartup(
-        'play_callback.error',
-        details: {
-          'errorType': error.runtimeType.toString(),
-        },
-      );
+      _instance?._logStartup('play_callback.error', details: {
+        'errorType': error.runtimeType.toString(),
+      });
       rethrow;
     }
   }
@@ -1412,16 +1403,13 @@ class PlPlayerController with BlockConfigMixin {
     bool autoFullScreenFlag = false,
     String? videoPageTag,
   }) async {
-    _logStartup(
-      'load.request',
-      details: {
-        'requestedAutoplay': autoplay,
-        'live': isLive,
-        'fileSource': dataSource is FileSource,
-        'seekMs': seekTo?.inMilliseconds,
-        'pageActive': videoPageTag == null || isVideoPageActive(videoPageTag),
-      },
-    );
+    _logStartup('load.request', details: {
+      'requestedAutoplay': autoplay,
+      'live': isLive,
+      'fileSource': dataSource is FileSource,
+      'seekMs': seekTo?.inMilliseconds,
+      'pageActive': videoPageTag == null || isVideoPageActive(videoPageTag),
+    });
     if (videoPageTag != null && !isVideoPageActive(videoPageTag)) {
       _logStartup('load.skip.inactive_page');
       return;
@@ -1433,11 +1421,7 @@ class PlPlayerController with BlockConfigMixin {
 
     _cancelMediaLoad('source_replaced');
     final dataSourceGeneration = ++_dataSourceGeneration;
-    final load = _MediaLoadSession(
-      dataSourceGeneration,
-      videoPageTag,
-      autoplay,
-    );
+    final load = _MediaLoadSession(dataSourceGeneration, videoPageTag, autoplay);
     _mediaLoad = load;
     _logStartup('load.begin', generation: dataSourceGeneration);
     bool isCurrentDataSource() =>
@@ -1519,11 +1503,8 @@ class PlPlayerController with BlockConfigMixin {
         dataSourceGeneration: dataSourceGeneration,
         isCurrentDataSource: isCurrentDataSource,
       );
-      _logStartup(
-        'load.controller_ready',
-        gate: initialPlayGate,
-        generation: dataSourceGeneration,
-      );
+      _logStartup('load.controller_ready', gate: initialPlayGate,
+          generation: dataSourceGeneration);
 
       if (_playerCount == 0 || !isCurrentDataSource()) {
         if (initialPlayGate != null) {
@@ -1552,13 +1533,9 @@ class PlPlayerController with BlockConfigMixin {
         // video output before waiting, otherwise a nested video page can wait
         // for a frame while its output widget is still unmounted.
         onVideoOutputReady?.call();
-        _logStartup(
-          'load.output_mounted',
-          gate: initialPlayGate,
-          details: {
-            'mountCallbackPresent': onVideoOutputReady != null,
-          },
-        );
+        _logStartup('load.output_mounted', gate: initialPlayGate, details: {
+          'mountCallbackPresent': onVideoOutputReady != null,
+        });
       }
 
       if (autoFullScreenFlag && autoEnterFullScreen) {
@@ -1576,12 +1553,9 @@ class PlPlayerController with BlockConfigMixin {
         loadSucceeded = true;
       }
     } catch (err, stackTrace) {
-      _logStartup(
-        'load.error',
-        gate: initialPlayGate,
-        generation: dataSourceGeneration,
-        details: {'errorType': err.runtimeType.toString()},
-      );
+      _logStartup('load.error', gate: initialPlayGate,
+          generation: dataSourceGeneration,
+          details: {'errorType': err.runtimeType.toString()});
       if (initialPlayGate != null) {
         await _cancelInitialPlayGate(initialPlayGate);
       }
@@ -1593,12 +1567,9 @@ class PlPlayerController with BlockConfigMixin {
         }
       }
     } finally {
-      _logStartup(
-        'load.end',
-        gate: initialPlayGate,
-        generation: dataSourceGeneration,
-        details: {'sourceCurrent': isCurrentDataSource()},
-      );
+      _logStartup('load.end', gate: initialPlayGate,
+          generation: dataSourceGeneration,
+          details: {'sourceCurrent': isCurrentDataSource()});
       if (identical(_mediaLoad, load) && !loadSucceeded) {
         _cancelMediaLoad('load_incomplete');
       }
@@ -1693,9 +1664,7 @@ class PlPlayerController with BlockConfigMixin {
         : _autoPlay;
     _logStartup('gate.begin', gate: gate);
     if (Platform.isAndroid) {
-      gate.diagnosticTimer = Timer.periodic(const Duration(seconds: 1), (
-        timer,
-      ) {
+      gate.diagnosticTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!gate.active || timer.tick > 20) {
           timer.cancel();
           gate.diagnosticTimer = null;
@@ -1715,11 +1684,8 @@ class PlPlayerController with BlockConfigMixin {
         },
         onError: (Object error) {
           gate.firstFrameFailed = true;
-          _logStartup(
-            'gate.first_frame.future_error',
-            gate: gate,
-            details: {'errorType': error.runtimeType.toString()},
-          );
+          _logStartup('gate.first_frame.future_error', gate: gate,
+              details: {'errorType': error.runtimeType.toString()});
         },
       ),
     );
@@ -1741,11 +1707,8 @@ class PlPlayerController with BlockConfigMixin {
   void _scheduleInitialPlayFallbackCheck(_InitialPlayGate gate) {
     if (gate.fallbackCheckScheduled) return;
     gate.fallbackCheckScheduled = true;
-    _logStartup(
-      'gate.fallback.scheduled',
-      gate: gate,
-      details: {'delayMs': 5000},
-    );
+    _logStartup('gate.fallback.scheduled', gate: gate,
+        details: {'delayMs': 5000});
     gate.fallbackReleaseTimer = Timer(const Duration(seconds: 5), () {
       gate.fallbackReleaseTimer = null;
       _tryInitialPlayFallbackRelease(gate);
@@ -1771,41 +1734,38 @@ class PlPlayerController with BlockConfigMixin {
         _mediaRecoveryTimer != null ||
         _pausedForVideoStall ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      _logStartup(
-        'gate.fallback.skip.context',
-        gate: gate,
-        details: {
-          'blockers': [
-            if (!gate.active) 'gate_inactive',
-            if (gate.fallbackReleaseAttempted) 'already_attempted',
-            if (!gate.releaseRequested) 'release_not_requested',
-            if (_mediaLoad?.readyForPlay == false) 'load_not_ready',
-            if (!gate.mediaOpenCompleted.isCompleted) 'media_open_pending',
-            if (!identical(_initialPlayGate, gate)) 'gate_replaced',
-            if (gate.generation != _dataSourceGeneration) 'generation_changed',
-            if (!gate.isCurrentDataSource()) 'source_stale',
-            if (!identical(gate.player, _videoPlayerController))
-              'player_replaced',
-            if (_playerCount == 0) 'no_player_users',
-            if (!_shouldGateInitialPlay) 'gate_not_required',
-            if (videoPlayerSwitching.value) 'switching',
-            if (_videoNetworkFailed) 'network_failed',
-            if (_mediaRecoveryRunning) 'recovering',
-            if (_mediaRecoveryTimer != null) 'recovery_scheduled',
-            if (_pausedForVideoStall) 'video_stall',
-            if (WidgetsBinding.instance.lifecycleState !=
-                AppLifecycleState.resumed)
-              'app_not_resumed',
-          ],
-        },
-      );
+      _logStartup('gate.fallback.skip.context', gate: gate, details: {
+        'blockers': [
+          if (!gate.active) 'gate_inactive',
+          if (gate.fallbackReleaseAttempted) 'already_attempted',
+          if (!gate.releaseRequested) 'release_not_requested',
+          if (_mediaLoad?.readyForPlay == false) 'load_not_ready',
+          if (!gate.mediaOpenCompleted.isCompleted) 'media_open_pending',
+          if (!identical(_initialPlayGate, gate)) 'gate_replaced',
+          if (gate.generation != _dataSourceGeneration) 'generation_changed',
+          if (!gate.isCurrentDataSource()) 'source_stale',
+          if (!identical(gate.player, _videoPlayerController)) 'player_replaced',
+          if (_playerCount == 0) 'no_player_users',
+          if (!_shouldGateInitialPlay) 'gate_not_required',
+          if (videoPlayerSwitching.value) 'switching',
+          if (_videoNetworkFailed) 'network_failed',
+          if (_mediaRecoveryRunning) 'recovering',
+          if (_mediaRecoveryTimer != null) 'recovery_scheduled',
+          if (_pausedForVideoStall) 'video_stall',
+          if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed)
+            'app_not_resumed',
+        ],
+      });
       return;
     }
 
     final player = gate.player;
     try {
       final state = player.state;
-      final currentVo = player.getProperty('current-vo').trim().toLowerCase();
+      final currentVo = player
+          .getProperty('current-vo')
+          .trim()
+          .toLowerCase();
       final pausedForCache = player.getProperty('paused-for-cache') == 'yes';
       final pauseHeld = player.getProperty('pause') == 'yes';
       gate.outputReady = currentVo.isNotEmpty && currentVo != 'null';
@@ -1817,21 +1777,17 @@ class PlPlayerController with BlockConfigMixin {
           state.height <= 0 ||
           !gate.outputReady ||
           !pauseHeld) {
-        _logStartup(
-          'gate.fallback.skip.player_state',
-          gate: gate,
-          details: {
-            'blockers': [
-              if (player.current.isEmpty) 'media_empty',
-              if (state.completed) 'completed',
-              if (state.buffering) 'state_buffering',
-              if (pausedForCache) 'paused_for_cache',
-              if (state.width <= 0 || state.height <= 0) 'dimensions_missing',
-              if (!gate.outputReady) 'output_missing',
-              if (!pauseHeld) 'pause_not_held',
-            ],
-          },
-        );
+        _logStartup('gate.fallback.skip.player_state', gate: gate, details: {
+          'blockers': [
+            if (player.current.isEmpty) 'media_empty',
+            if (state.completed) 'completed',
+            if (state.buffering) 'state_buffering',
+            if (pausedForCache) 'paused_for_cache',
+            if (state.width <= 0 || state.height <= 0) 'dimensions_missing',
+            if (!gate.outputReady) 'output_missing',
+            if (!pauseHeld) 'pause_not_held',
+          ],
+        });
         return;
       }
 
@@ -1847,11 +1803,8 @@ class PlPlayerController with BlockConfigMixin {
       _finishInitialPlayGate(gate);
     } catch (error) {
       // 播放器可能恰好被替换或释放；一次性检查不追赶新的数据源。
-      _logStartup(
-        'gate.fallback.error',
-        gate: gate,
-        details: {'errorType': error.runtimeType.toString()},
-      );
+      _logStartup('gate.fallback.error', gate: gate,
+          details: {'errorType': error.runtimeType.toString()});
     }
   }
 
@@ -1871,7 +1824,10 @@ class PlPlayerController with BlockConfigMixin {
         return false;
       }
 
-      final currentVo = player.getProperty('current-vo').trim().toLowerCase();
+      final currentVo = player
+          .getProperty('current-vo')
+          .trim()
+          .toLowerCase();
       gate.outputReady = currentVo.isNotEmpty && currentVo != 'null';
       if (gate.outputReady) {
         _logStartup('gate.output.ready', gate: gate);
@@ -1894,7 +1850,9 @@ class PlPlayerController with BlockConfigMixin {
   ) {
     _logStartup('gate.release.enter', gate: gate);
     final player = _videoPlayerController;
-    if (!gate.active || player == null || !identical(gate.player, player)) {
+    if (!gate.active ||
+        player == null ||
+        !identical(gate.player, player)) {
       _logStartup('gate.release.skip', gate: gate);
       return Future<void>.value();
     }
@@ -1902,14 +1860,13 @@ class PlPlayerController with BlockConfigMixin {
     isWaitingForInitialPlay.value = true;
     // A tap and autoplay can request the same release while open is pending.
     // Share one release operation so neither can re-pause the other's play.
-    return gate.releaseFuture ??=
-        _releaseInitialPlayGateOnce(
-          gate,
-          player,
-          isCurrentDataSource,
-        ).whenComplete(() {
-          gate.releaseFuture = null;
-        });
+    return gate.releaseFuture ??= _releaseInitialPlayGateOnce(
+      gate,
+      player,
+      isCurrentDataSource,
+    ).whenComplete(() {
+      gate.releaseFuture = null;
+    });
   }
 
   Future<void> _releaseInitialPlayGateOnce(
@@ -1951,15 +1908,11 @@ class PlPlayerController with BlockConfigMixin {
       gate.canceled.future.then((_) => false),
       Future<bool>.delayed(const Duration(seconds: 15), () => false),
     ]);
-    _logStartup(
-      'gate.first_frame.wait_result',
-      gate: gate,
-      details: {
-        'ready': firstFrameReady,
-        'canceled': gate.canceled.isCompleted,
-        'deadlineReached': !DateTime.now().isBefore(readyDeadline),
-      },
-    );
+    _logStartup('gate.first_frame.wait_result', gate: gate, details: {
+      'ready': firstFrameReady,
+      'canceled': gate.canceled.isCompleted,
+      'deadlineReached': !DateTime.now().isBefore(readyDeadline),
+    });
     final outputReady =
         firstFrameReady &&
         await _waitForInitialPlayOutput(
@@ -1968,11 +1921,8 @@ class PlPlayerController with BlockConfigMixin {
           isCurrentDataSource,
           readyDeadline,
         );
-    _logStartup(
-      'gate.release.conditions',
-      gate: gate,
-      details: {'outputReady': outputReady},
-    );
+    _logStartup('gate.release.conditions', gate: gate,
+        details: {'outputReady': outputReady});
     if (!outputReady ||
         !gate.active ||
         !gate.releaseRequested ||
@@ -2374,22 +2324,14 @@ class PlPlayerController with BlockConfigMixin {
     // 参数，避免这些原地打开路径绕过自定义设置。
     MpvUtils.applyRuntimeOverrides(player);
     beforeOpen?.call();
-    _logStartup(
-      'open.before',
-      player: player,
-      generation: generation,
-      details: {'play': play},
-    );
+    _logStartup('open.before', player: player, generation: generation,
+        details: {'play': play});
     try {
       await player.open(media, play: play);
       _logStartup('open.after', player: player, generation: generation);
     } catch (error) {
-      _logStartup(
-        'open.error',
-        player: player,
-        generation: generation,
-        details: {'errorType': error.runtimeType.toString()},
-      );
+      _logStartup('open.error', player: player, generation: generation,
+          details: {'errorType': error.runtimeType.toString()});
       rethrow;
     }
   }
@@ -2411,7 +2353,6 @@ class PlPlayerController with BlockConfigMixin {
     }
     return null;
   }
-
   void _resetMediaOpenRetry() {
     _mediaRecoveryTimer?.cancel();
     _mediaRecoveryTimer = null;
@@ -2515,7 +2456,8 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _clearPostSeekWatchdogGuard({int? generation}) {
-    if (generation != null && generation != _postSeekWatchdogGuardGeneration) {
+    if (generation != null &&
+        generation != _postSeekWatchdogGuardGeneration) {
       return;
     }
     _postSeekWatchdogGuardGeneration++;
@@ -2540,7 +2482,8 @@ class PlPlayerController with BlockConfigMixin {
     final state = player.state;
     final minimumGuardElapsed = !now.isBefore(minimumUntil);
     final videoBufferReachedTarget =
-        state.buffer > Duration.zero && state.buffer >= target;
+        state.buffer > Duration.zero &&
+        state.buffer >= target;
     if (minimumGuardElapsed && videoBufferReachedTarget) {
       _clearPostSeekWatchdogGuard();
       return false;
@@ -2571,7 +2514,8 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _checkVideoStall(NativePlayer player) {
-    final seeking = _readPlayerProperty(player, 'seeking') == 'yes';
+    final seeking =
+        _readPlayerProperty(player, 'seeking') == 'yes';
 
     if (_pausedForVideoStall ||
         !identical(player, _videoPlayerController) ||
@@ -2617,7 +2561,8 @@ class PlPlayerController with BlockConfigMixin {
     // 最后一帧附近。全局进度持续越过它，就是音频已越过视频缓存终点。
     final playbackPastVideoBuffer =
         state.buffer > Duration.zero &&
-        state.position >= state.buffer + const Duration(milliseconds: 150);
+        state.position >=
+            state.buffer + const Duration(milliseconds: 150);
 
     if (!playbackPastVideoBuffer) {
       _videoStallSince = null;
@@ -2673,7 +2618,8 @@ class PlPlayerController with BlockConfigMixin {
     // vf output EOF 已经证明视频链没有后续帧。Android ImageReader 错误
     // 可能由瞬时 Surface 变化引起，因此只在播放时钟已越过视频缓存后采用。
     final playbackPastVideoBuffer =
-        state.buffer > Duration.zero && state.position >= state.buffer;
+        state.buffer > Duration.zero &&
+        state.position >= state.buffer;
     if (!videoFilterEnded && !playbackPastVideoBuffer) {
       return;
     }
@@ -2789,7 +2735,9 @@ class PlPlayerController with BlockConfigMixin {
           targetSource: currentSource,
           width:
               width ??
-              (activePlayer.state.width > 0 ? activePlayer.state.width : null),
+              (activePlayer.state.width > 0
+                  ? activePlayer.state.width
+                  : null),
           height:
               height ??
               (activePlayer.state.height > 0
@@ -3055,19 +3003,17 @@ class PlPlayerController with BlockConfigMixin {
         !onlyPlayAudio.value &&
         !cancellation.isCompleted;
 
-    _logStartup(
-      'switch.begin',
-      details: {
-        'reloadSameSource': reloadSameSource,
-        'activeMediaNeverLoaded': activeMediaNeverLoaded,
-        'activeIdle': activeIdle,
-        'activeOutputWidth': activeOutputRect?.width,
-        'activeOutputHeight': activeOutputRect?.height,
-      },
-    );
+    _logStartup('switch.begin', details: {
+      'reloadSameSource': reloadSameSource,
+      'activeMediaNeverLoaded': activeMediaNeverLoaded,
+      'activeIdle': activeIdle,
+      'activeOutputWidth': activeOutputRect?.width,
+      'activeOutputHeight': activeOutputRect?.height,
+    });
 
     Duration activeHandoffPosition() {
-      final position = _pausedForVideoStall && _videoStallPosition != null
+      final position =
+          _pausedForVideoStall && _videoStallPosition != null
           ? _videoStallPosition!
           : activePlayer.state.position;
       final postSeekTarget =
@@ -3100,7 +3046,8 @@ class PlPlayerController with BlockConfigMixin {
       );
       standbyPlayer = pair.player;
       standbyController = pair.videoController;
-      standbyInitializationLogSubscription = pair.initializationLogSubscription;
+      standbyInitializationLogSubscription =
+          pair.initializationLogSubscription;
       standbyCreated = true;
       if (!isCurrentSwitch()) {
         return false;
@@ -3155,24 +3102,25 @@ class PlPlayerController with BlockConfigMixin {
       await standbyPlayer.setRate(activePlayer.state.rate);
       await standbyPlayer.play();
 
-      final forceTimeoutSeconds = allowForcedHandoff
-          ? Pref.videoPlayerSwitchForceTimeoutSeconds
-          : 0;
+final forceTimeoutSeconds = allowForcedHandoff
+    ? Pref.videoPlayerSwitchForceTimeoutSeconds
+    : 0;
 
-      final forceDeadline = forceTimeoutSeconds > 0
-          ? DateTime.now().add(
-              Duration(seconds: forceTimeoutSeconds),
-            )
-          : null;
+final forceDeadline = forceTimeoutSeconds > 0
+    ? DateTime.now().add(
+        Duration(seconds: forceTimeoutSeconds),
+      )
+    : null;
 
-      var forceHandoff = false;
+var forceHandoff = false;
 
-      var firstFrameRendered = false;
+var firstFrameRendered = false;
       var firstFrameFailed = false;
       final gateDiagnostics = diagnostics!;
       Rect? configuredOutputRect;
       Duration? positionWhenOutputConfigured;
-      var renderedAfterOutputConfiguration = !requireConfiguredAndroidOutput;
+      var renderedAfterOutputConfiguration =
+          !requireConfiguredAndroidOutput;
 
       bool standbyOutputReady() {
         if (!requireConfiguredAndroidOutput) {
@@ -3249,35 +3197,35 @@ class PlPlayerController with BlockConfigMixin {
           },
         ),
       );
-      bool canForceHandoff() {
-        final state = standbyPlayer.state;
+bool canForceHandoff() {
+  final state = standbyPlayer.state;
 
-        gateDiagnostics
-          ..switchCurrent = isCurrentSwitch()
-          ..mediaDimensionsReady = state.width > 0 && state.height > 0
-          ..notBuffering = !state.buffering
-          ..notPausedForCache =
-              standbyPlayer.getProperty('paused-for-cache') != 'yes'
-          ..mediaRecognized =
-              firstFrameRendered ||
-              (state.width > 0 && state.height > 0) ||
-              state.duration > Duration.zero;
+  gateDiagnostics
+    ..switchCurrent = isCurrentSwitch()
+    ..mediaDimensionsReady = state.width > 0 && state.height > 0
+    ..notBuffering = !state.buffering
+    ..notPausedForCache =
+        standbyPlayer.getProperty('paused-for-cache') != 'yes'
+    ..mediaRecognized =
+        firstFrameRendered ||
+        (state.width > 0 && state.height > 0) ||
+        state.duration > Duration.zero;
 
-        return !firstFrameFailed && gateDiagnostics.mediaRecognized;
-      }
-
+  return !firstFrameFailed &&
+      gateDiagnostics.mediaRecognized;
+}
       final configuredWait =
           double.tryParse(activePlayer.getProperty('cache-pause-wait')) ?? 1.0;
       final requiredBufferSeconds =
           max(1.0, configuredWait) * max(1.0, activePlayer.state.rate);
       final strictDeadline = DateTime.now().add(
-        Duration(
-          seconds: max(
-            strictTimeout.inSeconds,
-            (requiredBufferSeconds * 4).ceil(),
-          ),
-        ),
-      );
+  Duration(
+    seconds: max(
+      strictTimeout.inSeconds,
+      (requiredBufferSeconds * 4).ceil(),
+    ),
+  ),
+);
 
       double requiredBufferAt(Duration target) {
         final mediaDuration = activePlayer.state.duration;
@@ -3293,96 +3241,95 @@ class PlPlayerController with BlockConfigMixin {
       var bufferReady = false;
       gateDiagnostics.phase = '等待严格预缓冲门控';
 
-      while (isCurrentSwitch()) {
-        final now = DateTime.now();
+while (isCurrentSwitch()) {
+  final now = DateTime.now();
 
-        // 明确的渲染错误属于硬失败，不能强制接管。
-        if (firstFrameFailed) {
-          return false;
-        }
+  // 明确的渲染错误属于硬失败，不能强制接管。
+  if (firstFrameFailed) {
+    return false;
+  }
 
-        // 开启强制接管后，以用户设置的总等待时间为准。
-        // 到达强制接管时间后，必须先确认备用实例已经识别到媒体。
-        // 如果连首帧、分辨率和时长都没有获得，说明它可能根本没有打开成功，
-        // 此时保留仍能播放的旧实例。
-        if (forceDeadline != null && !now.isBefore(forceDeadline)) {
-          if (!canForceHandoff()) {
-            return false;
-          }
+  // 开启强制接管后，以用户设置的总等待时间为准。
+  // 到达强制接管时间后，必须先确认备用实例已经识别到媒体。
+// 如果连首帧、分辨率和时长都没有获得，说明它可能根本没有打开成功，
+// 此时保留仍能播放的旧实例。
+  if (forceDeadline != null &&
+    !now.isBefore(forceDeadline)) {
+  if (!canForceHandoff()) {
+    return false;
+  }
 
-          forceHandoff = true;
-          gateDiagnostics
-            ..forceHandoff = true
-            ..forceDeadlineReached = true
-            ..phase = '强制接管：等待媒体识别';
-          break;
-        }
+  forceHandoff = true;
+  gateDiagnostics
+    ..forceHandoff = true
+    ..forceDeadlineReached = true
+    ..phase = '强制接管：等待媒体识别';
+  break;
+}
 
-        // 设置为 0 时维持原来的严格超时逻辑。
-        if (forceDeadline == null && !now.isBefore(strictDeadline)) {
-          break;
-        }
+  // 设置为 0 时维持原来的严格超时逻辑。
+  if (forceDeadline == null &&
+      !now.isBefore(strictDeadline)) {
+    break;
+  }
 
-        final target = activeHandoffPosition();
-        final bufferedAhead =
-            (standbyPlayer.state.buffer - target).inMilliseconds /
-            Duration.millisecondsPerSecond;
-        final requiredPrebuffer = requiredBufferAt(target);
-        final state = standbyPlayer.state;
-        gateDiagnostics
-          ..switchCurrent = isCurrentSwitch()
-          ..mediaDimensionsReady = state.width > 0 && state.height > 0
-          ..notBuffering = !state.buffering
-          ..notPausedForCache =
-              standbyPlayer.getProperty('paused-for-cache') != 'yes'
-          ..prebufferedAhead = bufferedAhead
-          ..requiredPrebuffer = requiredPrebuffer
-          ..prebufferReady = bufferedAhead >= requiredPrebuffer;
+  final target = activeHandoffPosition();
+  final bufferedAhead =
+      (standbyPlayer.state.buffer - target).inMilliseconds /
+      Duration.millisecondsPerSecond;
+  final requiredPrebuffer = requiredBufferAt(target);
+  final state = standbyPlayer.state;
+  gateDiagnostics
+    ..switchCurrent = isCurrentSwitch()
+    ..mediaDimensionsReady = state.width > 0 && state.height > 0
+    ..notBuffering = !state.buffering
+    ..notPausedForCache =
+        standbyPlayer.getProperty('paused-for-cache') != 'yes'
+    ..prebufferedAhead = bufferedAhead
+    ..requiredPrebuffer = requiredPrebuffer
+    ..prebufferReady = bufferedAhead >= requiredPrebuffer;
 
-        if (firstFrameRendered &&
-            standbyOutputReady() &&
-            standbyPlayer.state.width > 0 &&
-            standbyPlayer.state.height > 0 &&
-            !standbyPlayer.state.buffering &&
-            standbyPlayer.getProperty('paused-for-cache') != 'yes' &&
-            gateDiagnostics.prebufferReady) {
-          bufferReady = true;
-          break;
-        }
+  if (firstFrameRendered &&
+      standbyOutputReady() &&
+      standbyPlayer.state.width > 0 &&
+      standbyPlayer.state.height > 0 &&
+      !standbyPlayer.state.buffering &&
+      standbyPlayer.getProperty('paused-for-cache') != 'yes' &&
+      gateDiagnostics.prebufferReady) {
+    bufferReady = true;
+    break;
+  }
 
-        final keepWaiting = await Future.any<bool>([
-          Future<bool>.delayed(
-            const Duration(milliseconds: 40),
-            () => true,
-          ),
-          cancellation.future.then((_) => false),
-        ]);
+  final keepWaiting = await Future.any<bool>([
+    Future<bool>.delayed(
+      const Duration(milliseconds: 40),
+      () => true,
+    ),
+    cancellation.future.then((_) => false),
+  ]);
 
-        if (!keepWaiting) {
-          return false;
-        }
-      }
+  if (!keepWaiting) {
+    return false;
+  }
+}
 
-      if ((!bufferReady && !forceHandoff) || !isCurrentSwitch()) {
-        _logStartup(
-          'switch.prebuffer.failed',
-          details: {
-            'switchCurrent': isCurrentSwitch(),
-            'activeMediaNeverLoaded': activeMediaNeverLoaded,
-            'standbyHandle': standbyPlayer.handle.toString(),
-            'firstFrameRendered': firstFrameRendered,
-            'firstFrameFailed': firstFrameFailed,
-            'outputRectMatched': gateDiagnostics.outputRectMatched,
-            'renderedAfterOutputConfiguration':
-                renderedAfterOutputConfiguration,
-            'prebufferReady': gateDiagnostics.prebufferReady,
-            'standbyBuffering': standbyPlayer.state.buffering,
-          },
-        );
-        return false;
-      }
+if ((!bufferReady && !forceHandoff) ||
+    !isCurrentSwitch()) {
+  _logStartup('switch.prebuffer.failed', details: {
+    'switchCurrent': isCurrentSwitch(),
+    'activeMediaNeverLoaded': activeMediaNeverLoaded,
+    'standbyHandle': standbyPlayer.handle.toString(),
+    'firstFrameRendered': firstFrameRendered,
+    'firstFrameFailed': firstFrameFailed,
+    'outputRectMatched': gateDiagnostics.outputRectMatched,
+    'renderedAfterOutputConfiguration': renderedAfterOutputConfiguration,
+    'prebufferReady': gateDiagnostics.prebufferReady,
+    'standbyBuffering': standbyPlayer.state.buffering,
+  });
+  return false;
+}
 
-      // 备用实例已经从旧实例当时的位置开始播放，并使用相同倍速。
+            // 备用实例已经从旧实例当时的位置开始播放，并使用相同倍速。
       // 正常情况下两个实例会自然保持同步，不能在短时间内循环 seek。
       // AV1/HEVC 连续 seek 会反复清空解码与缓存队列，导致备用实例
       // 一直处于 buffering，最终无法完成交接。
@@ -3400,46 +3347,47 @@ class PlPlayerController with BlockConfigMixin {
       }
 
       var target = activeHandoffPosition();
-      var drift = (standbyPlayer.state.position - target).inMilliseconds.abs();
+      var drift =
+          (standbyPlayer.state.position - target).inMilliseconds.abs();
 
       // 播放状态下只有偏差明显时才执行一次 seek。
       // 暂停状态下则必须回到旧播放器当前的静止位置。
       if (!activeMediaNeverLoaded &&
           (forceHandoff || !shouldPlay || drift > 400)) {
-        try {
-          // 强制接管时将备用实例跳到旧实例的最新位置。
-          // 之后即使缓存不足，也由新实例走正常 buffering 流程。
-          await standbyPlayer.seek(target);
-        } catch (_) {
-          // 严格模式下 seek 失败仍然中止。
-          // 强制模式下允许交接，让播放器后续自行恢复。
-          if (!forceHandoff) {
-            rethrow;
-          }
-        }
+  try {
+    // 强制接管时将备用实例跳到旧实例的最新位置。
+    // 之后即使缓存不足，也由新实例走正常 buffering 流程。
+    await standbyPlayer.seek(target);
+  } catch (_) {
+    // 严格模式下 seek 失败仍然中止。
+    // 强制模式下允许交接，让播放器后续自行恢复。
+    if (!forceHandoff) {
+      rethrow;
+    }
+  }
 
-        if (shouldPlay && !standbyPlayer.state.playing) {
-          await standbyPlayer.play();
-        }
-      }
+  if (shouldPlay && !standbyPlayer.state.playing) {
+    await standbyPlayer.play();
+  }
+}
 
-      final alignmentDeadline =
-          forceDeadline ??
-          DateTime.now().add(
-            const Duration(seconds: 3),
-          );
+      final alignmentDeadline = forceDeadline ??
+    DateTime.now().add(
+      const Duration(seconds: 3),
+    );
 
-      var aligned = forceHandoff || activeMediaNeverLoaded;
+var aligned = forceHandoff || activeMediaNeverLoaded;
       gateDiagnostics
         ..forceHandoff = forceHandoff
         ..phase = aligned ? '交接门控已满足' : '等待时钟与交接缓存门控';
 
       while (!forceHandoff &&
-          !activeMediaNeverLoaded &&
-          isCurrentSwitch() &&
-          DateTime.now().isBefore(alignmentDeadline)) {
+    !activeMediaNeverLoaded &&
+    isCurrentSwitch() &&
+    DateTime.now().isBefore(alignmentDeadline)) {
         target = activeHandoffPosition();
-        drift = (standbyPlayer.state.position - target).inMilliseconds.abs();
+        drift =
+            (standbyPlayer.state.position - target).inMilliseconds.abs();
 
         final bufferedAhead =
             (standbyPlayer.state.buffer - target).inMilliseconds /
@@ -3485,15 +3433,15 @@ class PlPlayerController with BlockConfigMixin {
           return false;
         }
       }
-      if (!aligned &&
-          forceDeadline != null &&
-          !DateTime.now().isBefore(forceDeadline)) {
-        forceHandoff = true;
-        gateDiagnostics
-          ..forceHandoff = true
-          ..forceDeadlineReached = true;
-        aligned = true;
-      }
+if (!aligned &&
+    forceDeadline != null &&
+    !DateTime.now().isBefore(forceDeadline)) {
+  forceHandoff = true;
+  gateDiagnostics
+    ..forceHandoff = true
+    ..forceDeadlineReached = true;
+  aligned = true;
+}
       if (!aligned || !isCurrentSwitch()) {
         return false;
       }
@@ -3542,20 +3490,20 @@ class PlPlayerController with BlockConfigMixin {
         ..clockAligned = handoffDrift <= allowedHandoffDrift;
 
       if (!forceHandoff &&
-          (standbyPlayer.state.buffering ||
-              standbyPlayer.getProperty('paused-for-cache') == 'yes' ||
-              (!activeMediaNeverLoaded &&
-                  handoffDrift > allowedHandoffDrift))) {
-        return false;
-      }
-      // 真正停止旧实例前再次确认切换仍有效。
-      // 强制等待期间页面、数据源或备用实例状态都可能已经发生变化。
-      if (!isCurrentSwitch() ||
-          firstFrameFailed ||
-          (!forceHandoff && !standbyOutputReady()) ||
-          (forceHandoff && !canForceHandoff())) {
-        return false;
-      }
+    (standbyPlayer.state.buffering ||
+        standbyPlayer.getProperty('paused-for-cache') == 'yes' ||
+        (!activeMediaNeverLoaded &&
+            handoffDrift > allowedHandoffDrift))) {
+  return false;
+}
+// 真正停止旧实例前再次确认切换仍有效。
+// 强制等待期间页面、数据源或备用实例状态都可能已经发生变化。
+if (!isCurrentSwitch() ||
+    firstFrameFailed ||
+    (!forceHandoff && !standbyOutputReady()) ||
+    (forceHandoff && !canForceHandoff())) {
+  return false;
+}
       // 备用实例始终静音运行。先停止旧实例，再把已经挂载的备用 Texture
       // 提升到顶层；只有 Flutter 在帧后确认该实例确实成为可见输出，才切换
       // 播放控制并恢复同一实例的音频，避免画面与音频落在不同播放器上。
@@ -3571,7 +3519,9 @@ class PlPlayerController with BlockConfigMixin {
         cancellation,
       );
       gateDiagnostics.topOutputPresented = standbyPresented;
-      if (!standbyPresented || firstFrameFailed || !isCurrentSwitch()) {
+      if (!standbyPresented ||
+          firstFrameFailed ||
+          !isCurrentSwitch()) {
         _standbyVideoOnTop = false;
         _bumpVideoOutputRevision();
         throw StateError('standby Texture was not presented');
@@ -3588,7 +3538,9 @@ class PlPlayerController with BlockConfigMixin {
         cancellation,
       );
       gateDiagnostics.standbyOnlyPresented = committedOutputPresented;
-      if (!committedOutputPresented || firstFrameFailed || !isCurrentSwitch()) {
+      if (!committedOutputPresented ||
+          firstFrameFailed ||
+          !isCurrentSwitch()) {
         _standbyVideoOnly = false;
         _bumpVideoOutputRevision();
         throw StateError('committed Texture was not presented');
@@ -3620,7 +3572,8 @@ class PlPlayerController with BlockConfigMixin {
       _standbyVideoController = null;
       _standbyNetworkSource = null;
       _standbyPlayerGateDiagnostics = null;
-      _promotedPlayerGateDiagnostics = gateDiagnostics..phase = '交接暂停门控已解除';
+      _promotedPlayerGateDiagnostics = gateDiagnostics
+        ..phase = '交接暂停门控已解除';
       _standbyVideoOnly = false;
       _videoPlayerController = standbyPlayer;
       _videoController = standbyController;
@@ -3641,8 +3594,8 @@ class PlPlayerController with BlockConfigMixin {
       committed = true;
 
       isBuffering.value =
-          standbyPlayer.state.buffering ||
-          standbyPlayer.getProperty('paused-for-cache') == 'yes';
+    standbyPlayer.state.buffering ||
+    standbyPlayer.getProperty('paused-for-cache') == 'yes';
       position.value = standbyPlayer.state.position.inSeconds;
       buffered.value = standbyPlayer.state.buffer.inSeconds;
       updateDuration(standbyPlayer.state.duration);
@@ -3655,14 +3608,14 @@ class PlPlayerController with BlockConfigMixin {
       _startListeners(standbyPlayer);
       activeListenersDetached = false;
 
-      _videoNetworkFailed = false;
-      _pausedForVideoStall = false;
-      _videoStallSince = null;
-      _videoStallPosition = null;
+_videoNetworkFailed = false;
+_pausedForVideoStall = false;
+_videoStallSince = null;
+_videoStallPosition = null;
 
-      // 必须在新播放器监听器挂载后再确定最终的界面状态，
-      // 避免监听器订阅时的初始事件覆盖该状态。
-      playerStatus.value = handoffPlaying ? .playing : .paused;
+// 必须在新播放器监听器挂载后再确定最终的界面状态，
+// 避免监听器订阅时的初始事件覆盖该状态。
+playerStatus.value = handoffPlaying ? .playing : .paused;
       _resumeAfterVideoRecovery = false;
       videoPlayerServiceHandler
         ?..onPositionChange(standbyPlayer.state.position)
@@ -3677,14 +3630,11 @@ class PlPlayerController with BlockConfigMixin {
           controls = !(loadAtSwitchStart?.hideControls ?? true);
         }
       }
-      _logStartup(
-        'switch.committed',
-        details: {
-          'activeMediaNeverLoaded': activeMediaNeverLoaded,
-          'previousHandle': activePlayer.handle.toString(),
-          'handoffPlaying': handoffPlaying,
-        },
-      );
+      _logStartup('switch.committed', details: {
+        'activeMediaNeverLoaded': activeMediaNeverLoaded,
+        'previousHandle': activePlayer.handle.toString(),
+        'handoffPlaying': handoffPlaying,
+      });
 
       // Flutter 已确认显示的是 standbyController 后，才恢复同一 mpv
       // 实例的真实音量。旧实例保持暂停，因而不存在跨实例音画组合。
@@ -3832,17 +3782,16 @@ class PlPlayerController with BlockConfigMixin {
       _logStartup('initialize.autoplay', gate: initialPlayGate);
       final gate = initialPlayGate;
       final player = _videoPlayerController;
-      if (gate == null || player == null || !identical(gate.player, player)) {
+      if (gate == null ||
+          player == null ||
+          !identical(gate.player, player)) {
         await playIfExists();
         return;
       }
       await _releaseInitialPlayGate(gate, isCurrentDataSource);
     } else {
-      _logStartup(
-        'initialize.skip.autoplay',
-        gate: initialPlayGate,
-        details: {'sourceCurrent': isCurrentDataSource()},
-      );
+      _logStartup('initialize.skip.autoplay', gate: initialPlayGate,
+          details: {'sourceCurrent': isCurrentDataSource()});
     }
   }
 
@@ -3900,7 +3849,8 @@ class PlPlayerController with BlockConfigMixin {
         }
 
         final logicalPlaying =
-            playing || (_pausedForVideoStall && _resumeAfterVideoRecovery);
+            playing ||
+            (_pausedForVideoStall && _resumeAfterVideoRecovery);
         _publishLogicalPlayingState(player, logicalPlaying);
 
         final seconds = videoPlayerController!.state.position.inSeconds;
@@ -4005,7 +3955,8 @@ class PlPlayerController with BlockConfigMixin {
           return;
         }
         final source = dataSource;
-        if (source is NetworkSource && _isExternalAudioFailure(source, event)) {
+        if (source is NetworkSource &&
+            _isExternalAudioFailure(source, event)) {
           return;
         }
         if (source is NetworkSource &&
@@ -4091,23 +4042,23 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 移除事件监听
   Future<void> _removeListeners() async {
-    _videoStallWatchdogTimer?.cancel();
-    _videoStallWatchdogTimer = null;
-    _resetVideoStallObservation();
+  _videoStallWatchdogTimer?.cancel();
+  _videoStallWatchdogTimer = null;
+  _resetVideoStallObservation();
 
-    final subscriptions = _subscriptions;
-    _subscriptions = null;
+  final subscriptions = _subscriptions;
+  _subscriptions = null;
 
-    if (subscriptions == null) {
-      return;
-    }
-
-    await Future.wait<void>(
-      subscriptions.map((subscription) => subscription.cancel()),
-    );
-
-    subscriptions.clear();
+  if (subscriptions == null) {
+    return;
   }
+
+  await Future.wait<void>(
+    subscriptions.map((subscription) => subscription.cancel()),
+  );
+
+  subscriptions.clear();
+}
 
   void _cancelSubForSeek() {
     if (_subForSeek != null) {
@@ -4296,11 +4247,8 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 暂停播放
   Future<void> pause({bool notify = true, bool isInterrupt = false}) async {
-    _logStartup(
-      'pause.request',
-      gate: _initialPlayGate,
-      details: {'interrupt': isInterrupt, 'notify': notify},
-    );
+    _logStartup('pause.request', gate: _initialPlayGate,
+        details: {'interrupt': isInterrupt, 'notify': notify});
     final load = _mediaLoad;
     if (load != null) {
       load.playRequested = false;
@@ -4354,21 +4302,19 @@ class PlPlayerController with BlockConfigMixin {
       _timer = null;
     });
   }
+void onSeekStart({bool fromGesture = false}) {
+  final currentPosition =
+      videoPlayerController?.state.position.inSeconds ?? position.value;
 
-  void onSeekStart({bool fromGesture = false}) {
-    final currentPosition =
-        videoPlayerController?.state.position.inSeconds ?? position.value;
+  seekStartPosition.value = duration.value > 0
+      ? currentPosition.clamp(0, duration.value).toInt()
+      : currentPosition < 0
+      ? 0
+      : currentPosition;
 
-    seekStartPosition.value = duration.value > 0
-        ? currentPosition.clamp(0, duration.value).toInt()
-        : currentPosition < 0
-        ? 0
-        : currentPosition;
-
-    isGestureSeeking.value = fromGesture;
-    isSeeking.value = true;
-  }
-
+  isGestureSeeking.value = fromGesture;
+  isSeeking.value = true;
+}
   void onSeekEnd() {
     if (seekToPos != null) {
       feedBack();
@@ -4379,7 +4325,7 @@ class PlPlayerController with BlockConfigMixin {
       _pendingPreviewSeconds = null;
     }
     hasToasted = false;
-    isGestureSeeking.value = false;
+      isGestureSeeking.value = false;
     isSeeking.value = false;
     hideTaskControls();
   }
@@ -4487,13 +4433,9 @@ class PlPlayerController with BlockConfigMixin {
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
-    _logStartup(
-      'toggle.request',
-      gate: _initialPlayGate,
-      details: {
-        'callers': StartupLog.callers(),
-      },
-    );
+    _logStartup('toggle.request', gate: _initialPlayGate, details: {
+      'callers': StartupLog.callers(),
+    });
     if (_pausedForVideoStall) {
       if (_resumeAfterVideoRecovery) {
         await pause();
@@ -4790,7 +4732,7 @@ class PlPlayerController with BlockConfigMixin {
     resetScreenRotation();
     cancelLongPressTimer();
     _cancelSubForSeek();
-    _resetMediaOpenRetry();
+      _resetMediaOpenRetry();
     if (!_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
@@ -4840,7 +4782,7 @@ class PlPlayerController with BlockConfigMixin {
       windowManager.setAlwaysOnTop(false);
     }
 
-    unawaited(_removeListeners());
+   unawaited(_removeListeners());
     _positionListeners.clear();
     _statusListeners.clear();
     if (playerStatus.isPlaying) {
@@ -4901,9 +4843,9 @@ class PlPlayerController with BlockConfigMixin {
   bool get showAnySeekPreview =>
       showSeekPreviewOnSlider || showSeekPreviewOnGesture;
   bool get seekPreviewFollowSlider => Pref.seekPreviewFollowSlider;
-  bool get seekPreviewFollowGesture => Pref.seekPreviewFollowGesture;
+bool get seekPreviewFollowGesture => Pref.seekPreviewFollowGesture;
 
-  late final seekPreviewScale = Pref.seekPreviewScale;
+late final seekPreviewScale = Pref.seekPreviewScale;
   late final seekPreviewProgressBarGap = Pref.seekPreviewProgressBarGap;
   late final showSeekPreviewInNonFullscreen =
       Pref.showSeekPreviewInNonFullscreen;
@@ -5103,28 +5045,26 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     late final Future<ui.Image?> task;
-    task = _decodeVideoShotImage(url, generation)
-        .then((image) {
-          if (image == null) return null;
-          if (generation != _previewGeneration) {
-            image.dispose();
-            return null;
-          }
+    task = _decodeVideoShotImage(url, generation).then((image) {
+      if (image == null) return null;
+      if (generation != _previewGeneration) {
+        image.dispose();
+        return null;
+      }
 
-          final cachedImage = previewCache[url];
-          if (cachedImage != null) {
-            image.dispose();
-            return cachedImage;
-          }
+      final cachedImage = previewCache[url];
+      if (cachedImage != null) {
+        image.dispose();
+        return cachedImage;
+      }
 
-          previewCache[url] = image;
-          return image;
-        })
-        .whenComplete(() {
-          if (identical(_previewLoadTasks[url], task)) {
-            _previewLoadTasks.remove(url);
-          }
-        });
+      previewCache[url] = image;
+      return image;
+    }).whenComplete(() {
+      if (identical(_previewLoadTasks[url], task)) {
+        _previewLoadTasks.remove(url);
+      }
+    });
     _previewLoadTasks[url] = task;
     return task;
   }
