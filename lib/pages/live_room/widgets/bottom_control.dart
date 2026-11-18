@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
+import 'package:PiliPlus/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
 import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -8,6 +9,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -51,7 +53,7 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
     final thicknessScale =
         plPlayerController.playerControlBarThicknessScale;
     final controlHeight = 30.0 * thicknessScale;
-    return AppBar(
+    final control = AppBar(
       backgroundColor: Colors.transparent,
       foregroundColor: Colors.white,
       primary: false,
@@ -229,6 +231,55 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
             ),
         ],
       ),
+    );
+    if (!plPlayerController.seekEnabled) {
+      return control;
+    }
+    final colorScheme = theme.colorScheme;
+    final primary = colorScheme.isLight
+        ? colorScheme.inversePrimary
+        : colorScheme.primary;
+    final thumbGlowColor = primary.withAlpha(80);
+    final bufferedBarColor = primary.withValues(alpha: 0.4);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Obx(() {
+            final total = plPlayerController.duration.value;
+            if (total <= 0) {
+              return const SizedBox.shrink();
+            }
+            return ProgressBar(
+              progress: plPlayerController.position.value.clamp(0, total),
+              buffered: plPlayerController.buffered.value,
+              total: total,
+              baseBarColor: const Color(0x33FFFFFF),
+              progressBarColor: primary,
+              bufferedBarColor: bufferedBarColor,
+              thumbColor: primary,
+              thumbGlowColor: thumbGlowColor,
+              barHeight: 4,
+              thumbRadius: 6,
+              verticalTouchPadding: 18,
+              onDragUpdate: (details) {
+                plPlayerController.position.value = details.seconds.clamp(
+                  0,
+                  total,
+                );
+              },
+              onSeek: (milliseconds) {
+                plPlayerController.seekTo(
+                  Duration(milliseconds: milliseconds),
+                  isSeek: false,
+                );
+              },
+            );
+          }),
+        ),
+        control,
+      ],
     );
   }
 }

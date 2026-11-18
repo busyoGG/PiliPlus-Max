@@ -1725,6 +1725,8 @@ void _handleProgressBarExpandedPointerDown(
 }
     final isLive = plPlayerController.isLive;
     final seekEnabled = plPlayerController.seekEnabled;
+    /// 直播时移时，常驻进度条本身即为可拖动控制条
+    final liveSeekBar = seekEnabled && plPlayerController.isLive;
     final showMpvOutputFps =
         _showMpvOutputFps &&
         (!isLive || isFullScreen || plPlayerController.isDesktopPip);
@@ -2217,7 +2219,7 @@ if (seekEnabled)
                     children: [
                       Obx(
                         () => ProgressBar(
-                            key: _collapsedProgressBarKey,
+                          key: _collapsedProgressBarKey,
                           progress: plPlayerController.position.value,
                           buffered: plPlayerController.buffered.value,
                           total: plPlayerController.duration.value,
@@ -2226,8 +2228,29 @@ if (seekEnabled)
                           bufferedBarColor: bufferedBarColor,
                           thumbColor: primary,
                           thumbGlowColor: thumbGlowColor,
-                          barHeight: 3.5,
-                          thumbRadius: 2.5,
+                          barHeight: liveSeekBar ? 5 : 3.5,
+                          thumbRadius: liveSeekBar ? 5 : 2.5,
+                          verticalTouchPadding: liveSeekBar ? 16 : 0,
+                          onDragUpdate: liveSeekBar
+                              ? (details) {
+                                  final total = plPlayerController
+                                      .duration
+                                      .value;
+                                  if (total > 0) {
+                                    plPlayerController.position.value = details
+                                        .seconds
+                                        .clamp(0, total);
+                                  }
+                                }
+                              : null,
+                          onSeek: liveSeekBar
+                              ? (milliseconds) {
+                                  plPlayerController.seekTo(
+                                    Duration(milliseconds: milliseconds),
+                                    isSeek: false,
+                                  );
+                                }
+                              : null,
                         ),
                       ),
                       if (plPlayerController.enableBlock &&
