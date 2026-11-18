@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliPlus/pages/live_room/controller.dart';
+import 'package:PiliPlus/pages/live_room/widgets/esports_schedule_sheet.dart';
 import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
@@ -65,6 +66,23 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
           PlayOrPauseButton(
             plPlayerController: plPlayerController,
             height: 34.0 * thicknessScale,
+          ),
+          Obx(
+            () => liveRoomCtr.isEsportsRoom.value
+                ? ComBtn(
+                    height: controlHeight,
+                    tooltip: '赛程',
+                    icon: const Icon(
+                      size: 18,
+                      Icons.emoji_events_outlined,
+                      color: Colors.white,
+                    ),
+                    onTap: () => showEsportsSchedule(
+                      roomId: liveRoomCtr.roomId,
+                      gameTitle: liveRoomCtr.title.value,
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
           ComBtn(
             height: controlHeight,

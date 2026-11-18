@@ -889,6 +889,9 @@ abstract final class Api {
 
   static const String matchInfo = '/x/esports/match/info';
 
+  static const String matchSchedule =
+      '/x/esports/component/contests/schedule';
+
   static const String dynPic = '/x/polymer/web-dynamic/v1/detail/pic';
 
   static const String msgLikeDetail = '/x/msgfeed/like_detail';

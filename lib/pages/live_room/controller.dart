@@ -62,6 +62,9 @@ class LiveRoomController extends GetxController {
   final isLoaded = false.obs;
   final roomInfoH5 = Rxn<RoomInfoH5Data>();
 
+  /// 赛事分区直播间，显示额外的「赛程」入口。
+  final RxBool isEsportsRoom = false.obs;
+
   final liveTime = Rxn<int>();
   Timer? liveTimeTimer;
 
@@ -649,6 +652,7 @@ class LiveRoomController extends GetxController {
     final res = await LiveHttp.liveRoomInfoH5(roomId: roomId);
     if (res case Success(:final response)) {
       roomInfoH5.value = response;
+      isEsportsRoom.value = response.roomInfo?.isEsportsArea ?? false;
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
       videoPlayerServiceHandler?.onVideoDetailChange(response, roomId, heroTag);
