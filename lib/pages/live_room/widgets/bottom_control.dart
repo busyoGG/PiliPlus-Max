@@ -263,6 +263,7 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
               barHeight: 4,
               thumbRadius: 6,
               verticalTouchPadding: 18,
+              onDragStart: (details) {},
               onDragUpdate: (details) {
                 plPlayerController.position.value = details.seconds.clamp(
                   0,

@@ -2231,6 +2231,7 @@ if (seekEnabled)
                           barHeight: liveSeekBar ? 5 : 3.5,
                           thumbRadius: liveSeekBar ? 5 : 2.5,
                           verticalTouchPadding: liveSeekBar ? 16 : 0,
+                          onDragStart: liveSeekBar ? (details) {} : null,
                           onDragUpdate: liveSeekBar
                               ? (details) {
                                   final total = plPlayerController
