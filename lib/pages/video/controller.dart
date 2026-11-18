@@ -1105,6 +1105,17 @@ class VideoDetailController extends GetxController
       if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
         querySponsorBlock(bvid: bvid, cid: cid.value);
       }
+      // 播放地址请求不依赖网络类型，先发出去，省掉一次串行等待。
+      final urlFuture = VideoHttp.videoUrl(
+        cid: cid.value,
+        bvid: bvid,
+        epid: epId,
+        seasonId: seasonId,
+        tryLook: plPlayerController.tryLook,
+        videoType: _actualVideoType ?? videoType,
+        language: currLang.value,
+        voiceBalance: plPlayerController.enableAudioNormalization,
+      );
       if (!_initialVideoQualitySelected) {
         _initialVideoQualitySelected = true;
 
@@ -1139,16 +1150,7 @@ class VideoDetailController extends GetxController
       }
 
       logStartup('query.http.wait');
-      final result = await VideoHttp.videoUrl(
-        cid: cid.value,
-        bvid: bvid,
-        epid: epId,
-        seasonId: seasonId,
-        tryLook: plPlayerController.tryLook,
-        videoType: _actualVideoType ?? videoType,
-        language: currLang.value,
-        voiceBalance: plPlayerController.enableAudioNormalization,
-      );
+      final result = await urlFuture;
 
       logStartup('query.http.result', {
         'resultType': result.runtimeType.toString(),

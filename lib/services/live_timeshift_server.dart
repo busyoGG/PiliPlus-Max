@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 const int _lf = 10;
 
+/// 房号 -> 上次探测到的可回看深度（秒），二次进入免探测。
+final Map<int, int> _windowCache = <int, int>{};
+
 /// 一个可回源的候选（host + 流路径 + 原始查询串）。
 ///
 /// 深历史分片只存在部分 (host, path) 组合上，所以需要保留多个候选轮询。
@@ -134,6 +137,14 @@ class LiveTimeshiftServer {
     _client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 8)
       ..idleTimeout = const Duration(seconds: 10);
+    // 先绑端口：本地播放地址立即可用，取列表与探测都不再压着起播。
+    try {
+      _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    } catch (e) {
+      debugPrint('[LiveTimeshift] bind failed: $e');
+      await dispose();
+      return false;
+    }
     bool ready;
     try {
       ready = await _refreshOnce();
@@ -146,22 +157,18 @@ class LiveTimeshiftServer {
       await dispose();
       return false;
     }
-    await _probeRetention().timeout(
-      const Duration(seconds: 5),
-      onTimeout: () {
-        debugPrint('[LiveTimeshift] 回看深度探测超时，按 60 秒处理');
-      },
-    );
-    try {
-      _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    } catch (e) {
-      debugPrint('[LiveTimeshift] bind failed: $e');
-      await dispose();
-      return false;
-    }
     cache = LiveDvrCache(roomId: roomId, epoch: _liveSeq ~/ 1000000);
     await cache!.init();
     _server!.listen(_onRequest, onError: (Object _) {});
+    final cached = _windowCache[roomId];
+    if (cached != null) {
+      _windowSeconds = cached;
+      _startProbed = true;
+      debugPrint('[LiveTimeshift] 复用回看深度 ${cached}s');
+    } else {
+      // 回看深度后台探测：探测结果通过 onWindowChanged 回填时间线。
+      unawaited(_probeRetention());
+    }
     _timer = Timer.periodic(const Duration(seconds: 2), (_) {
       unawaited(_refreshOnce());
     });
@@ -243,6 +250,7 @@ class LiveTimeshiftServer {
     final found = depths.last;
     if (found == _windowSeconds) return;
     _windowSeconds = found;
+    _windowCache[roomId] = found;
     debugPrint('[LiveTimeshift] 可回看 back=$found');
     onWindowChanged?.call(found);
   }

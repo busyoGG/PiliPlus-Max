@@ -32,6 +32,7 @@
 
 - lib/services/live_timeshift_server.dart：本地 HLS 代理。
   - _probeRetention() 并发探测 3600/2700/…/120 秒的深度，命中即定为可回看深度（3 个候选源、6 秒超时）。
+    探测在起播之后后台进行，不阻塞首帧；同一房号探测结果会记住，二次进入直接用缓存深度、不再探测。
   - baseOffset 表示窗口相对直播边缘的后退秒数；播放列表覆盖 [live - baseOffset - playlistSpan, live - baseOffset - 1]。
   - onWindowChanged 回调把深度变化通知业务层刷新时间线。
 - lib/services/live_dvr_cache.dart：分片本地缓存（环形淘汰，默认 400MB / 3600 片），拖动过的分片再次播放不再回源。
@@ -40,7 +41,7 @@
   - timeShiftDuration 覆盖进度条长度；timeShiftPositionBase 把播放器位置映射到窗口位置；
     timeShiftSeek 拦截 seekTo，直播时移下改为重启式定位。
 - lib/pages/live_room/controller.dart：
-  - initLiveUrl 先申请时移服务，成功才切到 fmp4 码流；任何失败（关闭开关、非 HLS、探测超时、启动异常）
+  - initLiveUrl 先申请时移服务，成功才切到 fmp4 码流；任何失败（关闭开关、非 HLS、取列表失败、启动异常）
     都回滚到原码流播放普通直播。
   - _applyTimeShiftTimeline 计算时间线；_onTimeShiftSeek 改写 baseOffset 并重启播放列表。
 - lib/plugin/pl_player/view/view.dart：进度条、双击快进、横向拖动的开关从 isLive 改为 seekEnabled，

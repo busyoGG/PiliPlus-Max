@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/build_config.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/back_detector.dart';
@@ -106,6 +107,7 @@ void main() async {
     _initDownPath(),
     _initTmpPath(),
     CacheManager.ensureInitialized(),
+    ConnectivityUtils.warmUp(),
   ]);
   Get
     ..lazyPut(AccountService.new)

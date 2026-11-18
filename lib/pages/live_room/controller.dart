@@ -582,6 +582,8 @@ class LiveRoomController extends GetxController {
     final server = LiveTimeshiftServer(roomId: roomId, urls: urls);
     _timeShiftServer = server;
     server.onWindowChanged = (int total) {
+      // 后台探测回来时页面可能已经切走，别再碰已释放的状态
+      if (isClosed || !identical(_timeShiftServer, server)) return;
       // 只有还停在直播边缘时才跟随深度变化，避免打断用户回看
       if (server.baseOffset != 0) return;
       _applyTimeShiftTimeline(server);
@@ -605,7 +607,13 @@ class LiveRoomController extends GetxController {
             }
             return null;
           }
-          unawaited(_augmentTimeShiftSources(server));
+          // 起播后再补候选源，避免和首帧抢带宽。
+          unawaited(
+            Future<void>.delayed(
+              const Duration(milliseconds: 1500),
+              () => _augmentTimeShiftSources(server),
+            ),
+          );
           return server.playlistUrl;
         })
         .timeout(
