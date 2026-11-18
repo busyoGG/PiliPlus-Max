@@ -438,11 +438,18 @@ class LiveRoomController extends GetxController {
     );
   }
 
-  /// 拖动进度条：改写窗口偏移并重启本地播放列表。
+  /// 拖动进度条：改写窗口偏移并重启本地播放列表（连续拖动只重启一次）。
   Future<void> _onTimeShiftSeek(Duration target) async {
+    _timeShiftSeekTimer?.cancel();
+    _timeShiftSeekTimer = Timer(const Duration(milliseconds: 250), () {
+      unawaited(_restartAtTimeShift(target));
+    });
+  }
+
+  Future<void> _restartAtTimeShift(Duration target) async {
     final server = _timeShiftServer;
     final player = plPlayerController;
-    if (server == null) return;
+    if (server == null || isClosed) return;
     final total = server.seekWindowSeconds;
     if (total <= 0) return;
     final back = (total - target.inSeconds).clamp(1, total - 1);
@@ -454,6 +461,8 @@ class LiveRoomController extends GetxController {
     );
     await playerInit();
   }
+
+  Timer? _timeShiftSeekTimer;
 
   Worker? _timeShiftDurationWorker;
 
@@ -784,6 +793,7 @@ class LiveRoomController extends GetxController {
     _timeShiftDurationWorker = null;
     _timeShiftStartWorker?.dispose();
     _timeShiftStartWorker = null;
+    _timeShiftSeekTimer?.cancel();
     final timeShiftServer = _timeShiftServer;
     _timeShiftServer = null;
     unawaited(timeShiftServer?.dispose());

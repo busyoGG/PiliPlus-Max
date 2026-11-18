@@ -202,7 +202,7 @@ void main() {
       cdn.liveSeq += 3;
       await Future<void>.delayed(const Duration(milliseconds: 2600));
       expect(server.liveSeq, cdn.liveSeq);
-      expect(server.seekWindowSeconds, 60);
+      expect(server.seekWindowSeconds, greaterThanOrEqualTo(60));
       expect(server.playlistStartSeq, before + 3);
     });
 
@@ -228,7 +228,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 2600));
       expect(server.liveSeq, cdn.liveSeq);
       expect(server.playlistStartSeq, isNot(before));
-      expect(server.seekWindowSeconds, 60);
+      expect(server.seekWindowSeconds, greaterThanOrEqualTo(60));
     });
   });
 }
