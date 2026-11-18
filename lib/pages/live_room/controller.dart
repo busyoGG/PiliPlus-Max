@@ -430,12 +430,14 @@ class LiveRoomController extends GetxController {
     final player = plPlayerController;
     final total = server.seekWindowSeconds;
     if (total <= 0) return;
-    final base = total - server.baseOffset - server.playlistSpan;
-    player.timeShiftDuration = Duration(seconds: total);
-    player.duration.value = total;
-    player.timeShiftPositionBase = Duration(
-      seconds: base.clamp(0, total),
+    final timeline = timeShiftTimeline(
+      windowSeconds: total,
+      baseOffset: server.baseOffset,
+      playlistSpan: server.playlistSpan,
     );
+    player.timeShiftDuration = timeline.duration;
+    player.duration.value = total;
+    player.timeShiftPositionBase = timeline.positionBase;
   }
 
   /// 拖动进度条：改写窗口偏移并重启本地播放列表（连续拖动只重启一次）。

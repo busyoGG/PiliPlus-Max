@@ -38,3 +38,23 @@ Duration? timeShiftAdoptTarget({
   }
   return Duration(seconds: windowSeconds - 3);
 }
+
+
+/// 时移时间线：进度条总长度与「播放器时间线 -> 窗口时间」的偏移。
+///
+/// 播放器只播列表末尾的几个分片，所以它的时间线接近 0；
+/// 进度条要显示的是「窗口时间」，因此需要把窗口深度换算成偏移。
+({Duration duration, Duration positionBase}) timeShiftTimeline({
+  required int windowSeconds,
+  required int baseOffset,
+  required int playlistSpan,
+}) {
+  if (windowSeconds <= 0) {
+    return (duration: Duration.zero, positionBase: Duration.zero);
+  }
+  final base = windowSeconds - baseOffset - playlistSpan;
+  return (
+    duration: Duration(seconds: windowSeconds),
+    positionBase: Duration(seconds: base.clamp(0, windowSeconds)),
+  );
+}

@@ -70,4 +70,56 @@ void main() {
       );
     });
   });
+
+  group('timeShiftTimeline', () {
+    test('直播边缘：偏移等于窗口减去列表长度', () {
+      final timeline = timeShiftTimeline(
+        windowSeconds: 3600,
+        baseOffset: 0,
+        playlistSpan: 6,
+      );
+      expect(timeline.duration, const Duration(seconds: 3600));
+      expect(timeline.positionBase, const Duration(seconds: 3594));
+    });
+
+    test('回退 20 分钟后偏移同步减少', () {
+      final timeline = timeShiftTimeline(
+        windowSeconds: 3600,
+        baseOffset: 1200,
+        playlistSpan: 6,
+      );
+      expect(timeline.duration, const Duration(seconds: 3600));
+      expect(timeline.positionBase, const Duration(seconds: 2394));
+    });
+
+    test('深度只有 1 分钟时进度条也只有 1 分钟', () {
+      final timeline = timeShiftTimeline(
+        windowSeconds: 60,
+        baseOffset: 0,
+        playlistSpan: 6,
+      );
+      expect(timeline.duration, const Duration(seconds: 60));
+      expect(timeline.positionBase, const Duration(seconds: 54));
+    });
+
+    test('深度未知时返回零时间线', () {
+      final timeline = timeShiftTimeline(
+        windowSeconds: 0,
+        baseOffset: 0,
+        playlistSpan: 6,
+      );
+      expect(timeline.duration, Duration.zero);
+      expect(timeline.positionBase, Duration.zero);
+    });
+
+    test('偏移超过窗口时钳到 0', () {
+      final timeline = timeShiftTimeline(
+        windowSeconds: 300,
+        baseOffset: 400,
+        playlistSpan: 6,
+      );
+      expect(timeline.duration, const Duration(seconds: 300));
+      expect(timeline.positionBase, Duration.zero);
+    });
+  });
 }
