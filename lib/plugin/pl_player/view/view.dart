@@ -268,6 +268,7 @@ ui.PointerDeviceKind? _gesturePointerKind;
 
   int? tmpSubtitlePaddingB;
   StreamSubscription? _controlsListener;
+  StreamSubscription<bool>? _timeShiftListener;
   void _onControlChanged(bool val) {
     final visible = val && !plPlayerController.controlsLock.value;
     _setMpvOutputFpsPolling(visible);
@@ -330,6 +331,9 @@ ui.PointerDeviceKind? _gesturePointerKind;
     _controlsListener = plPlayerController.showControls.listen(
       _onControlChanged,
     );
+    _timeShiftListener = plPlayerController.timeShiftEnabled.listen((_) {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _onControlChanged(plPlayerController.showControls.value);
@@ -480,6 +484,7 @@ ui.PointerDeviceKind? _gesturePointerKind;
     _scaleGestureRecognizer.dispose();
     _brightnessListener?.cancel();
     _controlsListener?.cancel();
+    _timeShiftListener?.cancel();
     _mpvOutputFpsTimer?.cancel();
     _animationController.dispose();
     _transformationController.dispose();

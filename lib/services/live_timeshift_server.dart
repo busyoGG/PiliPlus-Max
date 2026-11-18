@@ -87,7 +87,10 @@ class LiveTimeshiftServer {
   bool _startProbed = false;
 
   int _liveSeq = -1;
-  int _playlistStartSeq = -1;
+  int _windowSeconds = 60;
+
+  /// 可回看深度变化时通知业务层刷新进度条时间线。
+  void Function(int seconds)? onWindowChanged;
   String? _initName;
   Uint8List? _initBytes;
 
@@ -95,14 +98,22 @@ class LiveTimeshiftServer {
 
   /// 播放器用的「安全直播边缘」：CDN 最新 1~2 个分片可能还没写完，
   /// 直接给播放器会让 ffmpeg 读到半截数据并判定 I/O error。
-  int get _safeEdge => _liveSeq - 5;
-  int get playlistStartSeq => _playlistStartSeq;
+  /// 播放器当前窗口相对直播边缘的落后秒数，拖动进度条时改写它。
+  int baseOffset = 0;
 
-  /// 可回看的秒数（受 windowSeconds 与本地缓存上限约束）。
-  int get seekWindowSeconds {
-    if (_liveSeq < 0 || _playlistStartSeq < 0) return 0;
-    return _liveSeq - _playlistStartSeq;
-  }
+  /// 播放列表长度（秒）。只给播放器一小段，和 CDN 原始直播列表保持一致，
+  /// 避免超长列表导致 ffmpeg 起播/计时异常。
+  int playlistSpan = 6;
+
+  /// 播放器可用的最新分片（CDN 最新 1~2 个分片可能还没写完）。
+  int get _playerEdge => _liveSeq - baseOffset - 1;
+
+  int get _playerStart => _liveSeq - baseOffset - playlistSpan;
+
+  int get playlistStartSeq => _playerStart;
+
+  /// 可回看的秒数。
+  int get seekWindowSeconds => _windowSeconds;
 
   bool get isReady => _server != null && _liveSeq >= 0;
 
@@ -135,7 +146,12 @@ class LiveTimeshiftServer {
       await dispose();
       return false;
     }
-    await _probeWindowStart();
+    await _probeRetention().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        debugPrint('[LiveTimeshift] 回看深度探测超时，按 60 秒处理');
+      },
+    );
     try {
       _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     } catch (e) {
@@ -171,10 +187,9 @@ class LiveTimeshiftServer {
         _sourceSeq[source] = last;
         if (_liveSeq >= 0) {
           final delta = last - _liveSeq;
-          // 换流/断流后 seq 会跳变，重建窗口
+          // 换流/断流后 seq 会跳变
           if (delta < -5 || delta > 40) {
-            debugPrint('[LiveTimeshift] seq 跳变 $delta，重建窗口');
-            _playlistStartSeq = -1;
+            debugPrint('[LiveTimeshift] seq 跳变 $delta');
           }
         }
         _liveSeq = last;
@@ -182,9 +197,6 @@ class LiveTimeshiftServer {
           _initName = parsed.initName;
           _initBytes = null;
         }
-        // 窗口随直播推进滑动，长度恒定（受 windowSeconds 约束）
-        final minStart = last - windowSeconds;
-        if (_playlistStartSeq < minStart) _playlistStartSeq = minStart;
         return true;
       }
     } finally {
@@ -193,26 +205,46 @@ class LiveTimeshiftServer {
     return _liveSeq >= 0;
   }
 
-  /// 探测窗口起点：HLS 播放器总是从播放列表第一个分片开始拉流，
-  /// 所以第一个分片必须真的能取到，否则起播即卡死。
-  /// 深历史分片只存在于部分 (host, path) 组合，需要逐个深度试探。
-  Future<void> _probeWindowStart() async {
+  /// 探测可回看深度：深历史分片只存在部分 (host, path) 组合上，
+  /// 逐档深试，取第一个能取到的值作为进度条长度。
+  /// 探测可回看深度：并发探测多个深度，避免串行等待把起播拖住。
+  Future<void> _probeRetention() async {
     if (_startProbed || _liveSeq < 0) return;
     _startProbed = true;
-    final steps = <int>[windowSeconds, 1800, 900, 300, 60];
-    for (final back in steps) {
-      if (back > windowSeconds) continue;
+    final steps = <int>[3600, 2700, 1800, 1200, 900, 600, 300, 120];
+    final probeSources = _orderedSources().take(3).toList();
+    if (probeSources.isEmpty) {
+      _windowSeconds = 60;
+      return;
+    }
+    final depths = <int>[];
+    Future<void> probe(int back) async {
       final seq = _liveSeq - back;
-      if (seq < 0) continue;
-      final data = await _fetchSegment(seq);
-      if (data != null && data.isNotEmpty) {
-        _playlistStartSeq = seq;
-        debugPrint('[LiveTimeshift] 窗口起点 back=$back');
-        return;
+      if (seq < 0) return;
+      for (final source in probeSources) {
+        final bytes = await _get(source.segmentUrl(seq, timeshift: back));
+        if (bytes != null && _looksLikeFmp4(bytes)) {
+          depths.add(back);
+          return;
+        }
       }
     }
-    _playlistStartSeq = _liveSeq - 60;
-    debugPrint('[LiveTimeshift] 窗口起点退回直播边缘');
+
+    await Future.wait(steps.map(probe)).timeout(
+      const Duration(seconds: 6),
+      onTimeout: () => const <void>[],
+    );
+    if (depths.isEmpty) {
+      _windowSeconds = 60;
+      debugPrint('[LiveTimeshift] 回看深度仅 60 秒');
+      return;
+    }
+    depths.sort();
+    final found = depths.last;
+    if (found == _windowSeconds) return;
+    _windowSeconds = found;
+    debugPrint('[LiveTimeshift] 可回看 back=$found');
+    onWindowChanged?.call(found);
   }
 
   Iterable<LiveTimeshiftSource> _orderedSources() {
@@ -286,24 +318,22 @@ class LiveTimeshiftServer {
 
   Future<void> _handlePlaylist(HttpResponse response) async {
     if (_liveSeq < 0) await _refreshOnce();
-    if (_liveSeq < 0 || _playlistStartSeq < 0) {
+    if (_liveSeq < 0 || _playerStart < 0) {
       response.statusCode = HttpStatus.serviceUnavailable;
       return;
     }
-    // 窗口随直播推进滑动，但不超过 windowSeconds
-    final edge = _safeEdge;
-    final minStart = edge - windowSeconds;
-    if (_playlistStartSeq < minStart) _playlistStartSeq = minStart;
+    final edge = _playerEdge;
+    final start = _playerStart;
     final buffer = StringBuffer()
       ..writeln('#EXTM3U')
       ..writeln('#EXT-X-VERSION:7')
       ..writeln('#EXT-X-TARGETDURATION:1')
-      ..writeln('#EXT-X-MEDIA-SEQUENCE:$_playlistStartSeq')
+      ..writeln('#EXT-X-MEDIA-SEQUENCE:$start')
       ..writeln('#EXT-X-PLAYLIST-TYPE:EVENT');
     if (_initName != null) {
       buffer.writeln('#EXT-X-MAP:URI="init.m4s"');
     }
-    for (var seq = _playlistStartSeq; seq <= edge; seq++) {
+    for (var seq = start; seq <= edge; seq++) {
       buffer
         ..writeln('#EXTINF:1.000,')
         ..writeln('$seq.m4s');
@@ -315,9 +345,9 @@ class LiveTimeshiftServer {
   }
 
   Future<void> _handleSegment(int seq, HttpResponse response) async {
-    if (_liveSeq < 0 || seq > _safeEdge) {
+    if (_liveSeq < 0 || seq > _playerEdge) {
       debugPrint(
-        '[LiveTimeshift] seg 404 range seq=$seq live=$_liveSeq start=$_playlistStartSeq',
+        '[LiveTimeshift] seg 404 range seq=$seq live=$_liveSeq start=$_playerStart',
       );
       response.statusCode = HttpStatus.notFound;
       return;

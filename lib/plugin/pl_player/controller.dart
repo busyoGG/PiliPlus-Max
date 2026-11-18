@@ -442,10 +442,19 @@ class PlPlayerController with BlockConfigMixin {
   bool isLive = false;
 
   /// 直播时移：直播也可以拖动进度条（由本地时移服务器提供）。
-  bool timeShiftEnabled = false;
+  final RxBool timeShiftEnabled = false.obs;
+
+  /// 时移模式下进度条的总长度；为 null 时使用播放器上报的时长。
+  Duration? timeShiftDuration;
+
+  /// 时移模式下播放器时间线与窗口时间的差值。
+  Duration timeShiftPositionBase = Duration.zero;
+
+  /// 时移模式下拖动进度条：不改播放器位置，交给业务层重启播放。
+  Future<void> Function(Duration target)? timeShiftSeek;
 
   /// 是否允许进度条 / 快进快退等 seek 交互。
-  bool get seekEnabled => !isLive || timeShiftEnabled;
+  bool get seekEnabled => !isLive || timeShiftEnabled.value;
 
   bool _isVertical = false;
 
@@ -3919,8 +3928,13 @@ class PlPlayerController with BlockConfigMixin {
       }),
 
       /// position
-      stream.position.listen((Duration position) {
-        final posInSeconds = position.inSeconds;
+      stream.position.listen((Duration rawPosition) {
+        final position = rawPosition + timeShiftPositionBase;
+        var posInSeconds = position.inSeconds;
+        final timeShiftTotal = timeShiftDuration?.inSeconds;
+        if (timeShiftTotal != null && posInSeconds > timeShiftTotal) {
+          posInSeconds = timeShiftTotal;
+        }
 
         if (posInSeconds != this.position.value) {
           if (!isSeeking.value) {
@@ -3937,7 +3951,9 @@ class PlPlayerController with BlockConfigMixin {
         }
         _maybeStartPlaybackHistory(player);
       }),
-      stream.duration.listen(updateDuration),
+      stream.duration.listen((duration) {
+        updateDuration(timeShiftDuration ?? duration);
+      }),
       stream.buffer.listen((Duration buffer) {
         buffered.value = buffer.inSeconds;
       }),
@@ -4104,6 +4120,11 @@ class PlPlayerController with BlockConfigMixin {
   Future<void> seekTo(Duration position, {bool isSeek = true}) async {
     if (_playerCount == 0) {
       return;
+    }
+    final timeShiftSeek = this.timeShiftSeek;
+    if (timeShiftSeek != null && isLive) {
+      this.position.value = position.inSeconds;
+      return timeShiftSeek(position);
     }
     if (position < Duration.zero) {
       position = Duration.zero;

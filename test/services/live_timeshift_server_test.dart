@@ -145,7 +145,7 @@ void main() {
       expect(server.isReady, isTrue);
     });
 
-    test('播放列表覆盖整个可回看窗口', () async {
+    test('播放列表只有直播边缘附近的短窗口', () async {
       final (status, bytes) = await get(server.playlistUrl);
       expect(status, 200);
       final lines = String.fromCharCodes(bytes).split(String.fromCharCode(10));
@@ -158,19 +158,21 @@ void main() {
       expect(start, lessThan(server.liveSeq));
       // 窗口内每个 seq 都要出现在列表里
       // 最新 1~5 个分片可能还没在 CDN 写完，播放列表止于安全边缘
-      expect(lines.contains('${server.liveSeq - 1}.m4s'), isFalse);
-      expect(lines.contains('${server.liveSeq - 5}.m4s'), isTrue);
-      expect(lines.contains('$start.m4s'), isTrue);
+      expect(start, server.liveSeq - 6);
+      final segments = lines.where((line) => line.endsWith('.m4s')).toList();
+      expect(segments.length, 6);
+      expect(lines.contains('${server.liveSeq - 1}.m4s'), isTrue);
+      expect(lines.contains('${server.liveSeq}.m4s'), isFalse);
     });
 
     test('窗口内分片可获取，且带上 tmshift 偏移', () async {
-      final target = server.liveSeq - 30;
+      final target = server.liveSeq - 3;
       final (status, bytes) = await get(
         'http://127.0.0.1:${Uri.parse(server.playlistUrl).port}/$target.m4s',
       );
       expect(status, 200);
       expect(bytes.length, 2048);
-      expect(cdn.timeshiftParams.last, '30');
+      expect(cdn.timeshiftParams.last, '3');
     });
 
     test('超过直播进度的分片返回 404', () async {
@@ -183,7 +185,7 @@ void main() {
 
     test('第二次请求命中本地缓存，不再回源', () async {
       final port = Uri.parse(server.playlistUrl).port;
-      final target = server.liveSeq - 8;
+      final target = server.liveSeq - 3;
       final url = 'http://127.0.0.1:$port/$target.m4s';
       final (s1, b1) = await get(url);
       expect(s1, 200);
@@ -202,6 +204,22 @@ void main() {
       expect(server.liveSeq, cdn.liveSeq);
       expect(server.seekWindowSeconds, 60);
       expect(server.playlistStartSeq, before + 3);
+    });
+
+    test('窗口偏移后列表与分片都回退到指定时间', () async {
+      server.baseOffset = 120;
+      final (status, bytes) = await get(server.playlistUrl);
+      expect(status, 200);
+      final lines = String.fromCharCodes(bytes).split(String.fromCharCode(10));
+      final mediaSeq = lines.firstWhere(
+        (line) => line.startsWith('#EXT-X-MEDIA-SEQUENCE:'),
+      );
+      expect(int.parse(mediaSeq.split(':').last), server.liveSeq - 126);
+      final target = server.liveSeq - 123;
+      final port = Uri.parse(server.playlistUrl).port;
+      final (s2, _) = await get('http://127.0.0.1:$port/$target.m4s');
+      expect(s2, 200);
+      expect(cdn.timeshiftParams.last, '123');
     });
 
     test('换流后 seq 跳变则重建窗口', () async {

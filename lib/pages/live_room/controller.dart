@@ -343,54 +343,116 @@ class LiveRoomController extends GetxController {
     int codecIndex = 0,
     int liveUrlIndex = 0,
   }) {
+    final originStream = streamIndex;
+    final originFormat = formatIndex;
+    final originCodec = codecIndex;
     final source = _resolveTimeShiftSource(
-      streamIndex: streamIndex,
-      formatIndex: formatIndex,
-      codecIndex: codecIndex,
+      streamIndex: originStream,
+      formatIndex: originFormat,
+      codecIndex: originCodec,
     );
-    this.streamIndex = source.streamIndex;
-    this.formatIndex = source.formatIndex;
-    this.codecIndex = source.codecIndex;
     this.liveUrlIndex = liveUrlIndex;
 
-    final CodecItem item = stream
-        .getOrFirst(this.streamIndex)
+    CodecItem codecAt(int si, int fi, int ci) => stream
+        .getOrFirst(si)
         .format
-        .getOrFirst(this.formatIndex)
+        .getOrFirst(fi)
         .codec
-        .getOrFirst(this.codecIndex);
-    // 以服务端返回的码率为准
-    currentQn = item.currentQn;
-    acceptQnList = item.acceptQn.map((e) {
-      return (
-        code: e,
-        desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
+        .getOrFirst(ci);
+
+    void applyItem(int si, int fi, int ci, CodecItem item) {
+      this.streamIndex = si;
+      this.formatIndex = fi;
+      this.codecIndex = ci;
+      // 以服务端返回的码率为准
+      currentQn = item.currentQn;
+      acceptQnList = item.acceptQn.map((e) {
+        return (
+          code: e,
+          desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
+        );
+      }).toList();
+      currentQnDesc.value =
+          LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+    }
+
+    Future<void>? playPlainLive() {
+      final item = codecAt(originStream, originFormat, originCodec);
+      applyItem(originStream, originFormat, originCodec, item);
+      videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
+      plPlayerController
+        ..timeShiftEnabled.value = false
+        ..timeShiftDuration = null
+        ..timeShiftPositionBase = Duration.zero
+        ..timeShiftSeek = null;
+      debugPrint(
+        '[LiveRoom] play plain qn=$currentQn ${videoUrl!.split('?').first}',
       );
-    }).toList();
-    currentQnDesc.value =
-        LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+      return playerInit()?.whenComplete(_startSizeSub);
+    }
+
+    final CodecItem item = codecAt(
+      source.streamIndex,
+      source.formatIndex,
+      source.codecIndex,
+    );
     final liveUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    debugPrint('[LiveRoom] url qn=$currentQn ${liveUrl.split('?').first}');
     videoUrl = liveUrl;
     final timeShift = _prepareTimeShift(liveUrl);
     if (timeShift == null) {
-      plPlayerController.timeShiftEnabled = false;
-      return playerInit()?.whenComplete(_startSizeSub);
+      return playPlainLive();
     }
     return timeShift.then((playlistUrl) {
+      if (playlistUrl == null) {
+        return playPlainLive();
+      }
+      final server = _timeShiftServer;
+      if (server == null) {
+        return playPlainLive();
+      }
+      applyItem(source.streamIndex, source.formatIndex, source.codecIndex, item);
       _logPlaybackState();
-      videoUrl = playlistUrl ?? liveUrl;
-      plPlayerController.timeShiftEnabled = playlistUrl != null;
-      debugPrint(
-        '[LiveTimeshift] play ${playlistUrl == null ? 'plain live' : 'local playlist'} ${playlistUrl ?? ''}',
-      );
+      videoUrl = playlistUrl;
+      _applyTimeShiftTimeline(server);
+      plPlayerController
+        ..timeShiftEnabled.value = true
+        ..timeShiftSeek = _onTimeShiftSeek;
+      debugPrint('[LiveTimeshift] play local playlist $playlistUrl');
       return playerInit()?.whenComplete(() {
         _startSizeSub();
-        if (playlistUrl != null) {
-          _watchTimeShiftPlayback();
-        }
+        _watchTimeShiftPlayback();
       });
     });
+  }
+
+  /// 把播放器时间线映射到「窗口时间」，进度条长度取可回看深度。
+  void _applyTimeShiftTimeline(LiveTimeshiftServer server) {
+    final player = plPlayerController;
+    final total = server.seekWindowSeconds;
+    if (total <= 0) return;
+    final base = total - server.baseOffset - server.playlistSpan;
+    player.timeShiftDuration = Duration(seconds: total);
+    player.duration.value = total;
+    player.timeShiftPositionBase = Duration(
+      seconds: base.clamp(0, total),
+    );
+  }
+
+  /// 拖动进度条：改写窗口偏移并重启本地播放列表。
+  Future<void> _onTimeShiftSeek(Duration target) async {
+    final server = _timeShiftServer;
+    final player = plPlayerController;
+    if (server == null) return;
+    final total = server.seekWindowSeconds;
+    if (total <= 0) return;
+    final back = (total - target.inSeconds).clamp(1, total - 1);
+    server.baseOffset = back;
+    _applyTimeShiftTimeline(server);
+    player.position.value = target.inSeconds;
+    debugPrint(
+      '[LiveTimeshift] seek to ${target.inSeconds}s, back ${back}s',
+    );
+    await playerInit();
   }
 
   Worker? _timeShiftDurationWorker;
@@ -508,6 +570,11 @@ class LiveRoomController extends GetxController {
     unawaited(previous?.dispose());
     final server = LiveTimeshiftServer(roomId: roomId, urls: urls);
     _timeShiftServer = server;
+    server.onWindowChanged = (int total) {
+      // 只有还停在直播边缘时才跟随深度变化，避免打断用户回看
+      if (server.baseOffset != 0) return;
+      _applyTimeShiftTimeline(server);
+    };
     _timeShiftStartAttempts = 0;
     _timeShiftLastAttempt = const Duration(seconds: -5);
     _timeShiftClock
@@ -517,17 +584,30 @@ class LiveRoomController extends GetxController {
       '[LiveTimeshift] starting with ${urls.length} candidate urls, '
       'first: ${liveUrl.split('?').first}',
     );
-    return server.start().then((ok) {
-      if (!ok) {
-        debugPrint('[LiveTimeshift] start failed, fallback to plain live');
-        if (identical(_timeShiftServer, server)) {
-          _timeShiftServer = null;
-        }
-        return null;
-      }
-      unawaited(_augmentTimeShiftSources(server));
-      return server.playlistUrl;
-    });
+    return server
+        .start()
+        .then((ok) {
+          if (!ok) {
+            debugPrint('[LiveTimeshift] start failed, fallback to plain live');
+            if (identical(_timeShiftServer, server)) {
+              _timeShiftServer = null;
+            }
+            return null;
+          }
+          unawaited(_augmentTimeShiftSources(server));
+          return server.playlistUrl;
+        })
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('[LiveTimeshift] start timeout, fallback to plain live');
+            if (identical(_timeShiftServer, server)) {
+              _timeShiftServer = null;
+            }
+            unawaited(server.dispose());
+            return null;
+          },
+        );
   }
 
   /// 多抓几次 playinfo，换出新 CDN 节点/路径，提高深历史命中率。
@@ -707,7 +787,11 @@ class LiveRoomController extends GetxController {
     final timeShiftServer = _timeShiftServer;
     _timeShiftServer = null;
     unawaited(timeShiftServer?.dispose());
-    plPlayerController.timeShiftEnabled = false;
+    plPlayerController
+      ..timeShiftEnabled.value = false
+      ..timeShiftDuration = null
+      ..timeShiftPositionBase = Duration.zero
+      ..timeShiftSeek = null;
     _stopSizeSub();
     closeLiveMsg();
     cancelLikeTimer();
