@@ -51,8 +51,7 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
 
   Widget _buildControl(BuildContext context) {
     final isFullScreen = plPlayerController.isFullScreen.value;
-    final thicknessScale =
-        plPlayerController.playerControlBarThicknessScale;
+    final thicknessScale = plPlayerController.playerControlBarThicknessScale;
     final controlHeight = 30.0 * thicknessScale;
     final control = AppBar(
       backgroundColor: Colors.transparent,
@@ -250,9 +249,6 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
         ],
       ),
     );
-    if (!plPlayerController.seekEnabled) {
-      return control;
-    }
     final colorScheme = theme.colorScheme;
     final primary = colorScheme.isLight
         ? colorScheme.inversePrimary
@@ -262,14 +258,18 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Obx(() {
-            final total = plPlayerController.duration.value;
-            if (total <= 0) {
-              return const SizedBox.shrink();
-            }
-            return ProgressBar(
+        Obx(() {
+          // 普通直播间要等本地缓存攒够才开启进度条，所以可拖动状态也放在 Obx 里
+          if (!plPlayerController.seekEnabled) {
+            return const SizedBox.shrink();
+          }
+          final total = plPlayerController.duration.value;
+          if (total <= 0) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: ProgressBar(
               progress: plPlayerController.position.value.clamp(0, total),
               buffered: plPlayerController.buffered.value,
               total: total,
@@ -294,9 +294,9 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
                   isSeek: false,
                 );
               },
-            );
-          }),
-        ),
+            ),
+          );
+        }),
         control,
       ],
     );

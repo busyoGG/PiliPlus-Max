@@ -417,9 +417,7 @@ class LiveRoomController extends GetxController {
       _logPlaybackState();
       videoUrl = playlistUrl;
       _applyTimeShiftTimeline(server);
-      plPlayerController
-        ..timeShiftEnabled.value = true
-        ..timeShiftSeek = _onTimeShiftSeek;
+      _enableTimeShift(server);
       debugPrint('[LiveTimeshift] play local playlist $playlistUrl');
       return playerInit()?.whenComplete(() {
         _startSizeSub();
@@ -428,8 +426,25 @@ class LiveRoomController extends GetxController {
     });
   }
 
+  /// 回看深度够长才打开进度条，避免刚起播时只能往回拖几秒。
+  void _enableTimeShift(LiveTimeshiftServer server) {
+    if (plPlayerController.timeShiftEnabled.value) return;
+    final total = server.seekWindowSeconds;
+    if (total < 30) return;
+    plPlayerController
+      ..timeShiftEnabled.value = true
+      ..timeShiftSeek = _onTimeShiftSeek;
+    debugPrint('[LiveTimeshift] 进度条开启，可回看 $total秒');
+  }
+
   /// 把播放器时间线映射到「窗口时间」，进度条长度取可回看深度。
-  void _applyTimeShiftTimeline(LiveTimeshiftServer server) {
+  ///
+  /// refreshBase 为 false 时只更新长度：本地缓存变长不代表直播在走，
+  /// 重新计算基准会让进度条位置跑得比真实时间快一倍。
+  void _applyTimeShiftTimeline(
+    LiveTimeshiftServer server, {
+    bool refreshBase = true,
+  }) {
     final player = plPlayerController;
     final total = server.seekWindowSeconds;
     if (total <= 0) return;
@@ -440,7 +455,9 @@ class LiveRoomController extends GetxController {
     );
     player.timeShiftDuration = timeline.duration;
     player.duration.value = total;
-    player.timeShiftPositionBase = timeline.positionBase;
+    if (refreshBase) {
+      player.timeShiftPositionBase = timeline.positionBase;
+    }
   }
 
   /// 拖动进度条：改写窗口偏移并重启本地播放列表（连续拖动只重启一次）。
@@ -457,7 +474,9 @@ class LiveRoomController extends GetxController {
     if (server == null || isClosed) return;
     final total = server.seekWindowSeconds;
     if (total <= 0) return;
-    final back = (total - target.inSeconds).clamp(1, total - 1);
+    // 本地缓存回看时窗口只有缓存那么长，回退太多会拖到没有分片的位置
+    final maxBack = total - server.playlistSpan - 1;
+    final back = (total - target.inSeconds).clamp(1, maxBack < 1 ? 1 : maxBack);
     server.baseOffset = back;
     _applyTimeShiftTimeline(server);
     player.position.value = target.inSeconds;
@@ -584,13 +603,23 @@ class LiveRoomController extends GetxController {
     unawaited(previous?.dispose());
     final server = LiveTimeshiftServer(roomId: roomId, urls: urls);
     _timeShiftServer = server;
-    server.onWindowChanged = (int total) {
-      // 后台探测回来时页面可能已经切走，别再碰已释放的状态
-      if (isClosed || !identical(_timeShiftServer, server)) return;
-      // 只有还停在直播边缘时才跟随深度变化，避免打断用户回看
-      if (server.baseOffset != 0) return;
-      _applyTimeShiftTimeline(server);
-    };
+    server
+      ..onWindowChanged = (int total) {
+        // 后台探测回来时页面可能已经切走，别再碰已释放的状态
+        if (isClosed || !identical(_timeShiftServer, server)) return;
+        _enableTimeShift(server);
+        // 只有还停在直播边缘时才跟随深度变化，避免打断用户回看
+        if (server.baseOffset != 0) return;
+        _applyTimeShiftTimeline(server);
+      }
+      // 普通直播间服务端没有回看窗口，靠边播边缓存的那几分钟支撑进度条
+      ..onLocalWindowChanged = (int total) {
+        if (isClosed || !identical(_timeShiftServer, server)) return;
+        _enableTimeShift(server);
+        if (server.baseOffset != 0) return;
+        if (!plPlayerController.timeShiftEnabled.value) return;
+        _applyTimeShiftTimeline(server, refreshBase: false);
+      };
     _timeShiftStartAttempts = 0;
     _timeShiftLastAttempt = const Duration(seconds: -5);
     _timeShiftClock
@@ -634,6 +663,11 @@ class LiveRoomController extends GetxController {
 
   /// 多抓几次 playinfo，换出新 CDN 节点/路径，提高深历史命中率。
   Future<void> _augmentTimeShiftSources(LiveTimeshiftServer server) async {
+    if (server.seekWindowSeconds <= 60) {
+      // 服务端没有深历史时多抓 playinfo 只会白耗流量
+      debugPrint('[LiveTimeshift] 无可回看历史，跳过补充候选源');
+      return;
+    }
     for (var i = 0; i < 6; i++) {
       if (!identical(_timeShiftServer, server)) return;
       final res = await LiveHttp.liveRoomInfo(roomId: roomId, qn: currentQn);

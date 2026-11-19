@@ -69,6 +69,7 @@ class LiveTimeshiftServer {
     required List<String> urls,
     this.windowSeconds = 3600,
     this.maxSegmentAttempts = 6,
+    this.maxDvrSeconds = 600,
   }) : sources = urls.map(LiveTimeshiftSource.new).toList() {
     final seen = <String>{};
     sources.retainWhere((s) => seen.add(s.toString()));
@@ -78,6 +79,9 @@ class LiveTimeshiftServer {
   final List<LiveTimeshiftSource> sources;
   final int windowSeconds;
   final int maxSegmentAttempts;
+
+  /// 本地缓存能留多久（秒）。服务端没有回看窗口的房间靠它做回看。
+  final int maxDvrSeconds;
 
   LiveDvrCache? cache;
   HttpServer? _server;
@@ -89,11 +93,20 @@ class LiveTimeshiftServer {
   bool _disposed = false;
   bool _startProbed = false;
 
-  int _liveSeq = -1;
-  int _windowSeconds = 60;
+  /// 深度探测是否已经出结果，出结果前取分片一律先试 tmshift。
+  bool _probeDone = false;
 
-  /// 可回看深度变化时通知业务层刷新进度条时间线。
+  int _liveSeq = -1;
+  int _windowSeconds = 0;
+
+  /// 本地已缓存的历史长度（秒），上限 maxDvrSeconds。
+  int _cacheSpan = 0;
+
+  /// 服务端回看深度变化时通知业务层刷新进度条时间线。
   void Function(int seconds)? onWindowChanged;
+
+  /// 本地缓存深度变化时通知业务层：只改进度条长度，不动时间线基准。
+  void Function(int seconds)? onLocalWindowChanged;
   String? _initName;
   Uint8List? _initBytes;
 
@@ -115,8 +128,12 @@ class LiveTimeshiftServer {
 
   int get playlistStartSeq => _playerStart;
 
-  /// 可回看的秒数。
-  int get seekWindowSeconds => _windowSeconds;
+  /// 本地缓存回看秒数。
+  int get cacheSpanSeconds => _cacheSpan;
+
+  /// 可回看的秒数：服务端回看窗口与本地缓存取大者。
+  int get seekWindowSeconds =>
+      _windowSeconds > _cacheSpan ? _windowSeconds : _cacheSpan;
 
   bool get isReady => _server != null && _liveSeq >= 0;
 
@@ -157,7 +174,11 @@ class LiveTimeshiftServer {
       await dispose();
       return false;
     }
-    cache = LiveDvrCache(roomId: roomId, epoch: _liveSeq ~/ 1000000);
+    cache = LiveDvrCache(
+      roomId: roomId,
+      epoch: _liveSeq ~/ 1000000,
+      maxSegments: maxDvrSeconds + 60,
+    );
     await cache!.init();
     _server!.listen(_onRequest, onError: (Object _) {});
     final cached = _windowCache[roomId];
@@ -204,6 +225,7 @@ class LiveTimeshiftServer {
           _initName = parsed.initName;
           _initBytes = null;
         }
+        _refreshCacheSpan();
         return true;
       }
     } finally {
@@ -221,7 +243,8 @@ class LiveTimeshiftServer {
     final steps = <int>[3600, 2700, 1800, 1200, 900, 600, 300, 120];
     final probeSources = _orderedSources().take(3).toList();
     if (probeSources.isEmpty) {
-      _windowSeconds = 60;
+      _windowSeconds = 0;
+      _probeDone = true;
       return;
     }
     final depths = <int>[];
@@ -241,9 +264,10 @@ class LiveTimeshiftServer {
       const Duration(seconds: 6),
       onTimeout: () => const <void>[],
     );
+    _probeDone = true;
     if (depths.isEmpty) {
-      _windowSeconds = 60;
-      debugPrint('[LiveTimeshift] 回看深度仅 60 秒');
+      _windowSeconds = 0;
+      debugPrint('[LiveTimeshift] 服务端无回看窗口，改用本地缓存回看');
       return;
     }
     depths.sort();
@@ -352,6 +376,17 @@ class LiveTimeshiftServer {
     response.write(buffer.toString());
   }
 
+  /// 本地缓存深度变化时刷新进度条长度（服务端回看窗口不变）。
+  void _refreshCacheSpan() {
+    final range = cache?.range;
+    if (range == null || _liveSeq < 0) return;
+    final span = (_liveSeq - range.oldest).clamp(0, maxDvrSeconds);
+    if (span == _cacheSpan) return;
+    _cacheSpan = span;
+    debugPrint('[LiveTimeshift] 本地缓存回看 $_cacheSpan s');
+    onLocalWindowChanged?.call(seekWindowSeconds);
+  }
+
   Future<void> _handleSegment(int seq, HttpResponse response) async {
     if (_liveSeq < 0 || seq > _playerEdge) {
       debugPrint(
@@ -365,13 +400,21 @@ class LiveTimeshiftServer {
       _write(response, cached);
       return;
     }
+    // 超出已知回看窗口的分片不必回源：CDN 上没有保留，只会白等重试。
+    final back = _liveSeq - seq;
+    if (back > seekWindowSeconds + 30) {
+      debugPrint('[LiveTimeshift] seg 404 window back=$back');
+      response.statusCode = HttpStatus.notFound;
+      return;
+    }
     final data = await _fetchSegment(seq);
     if (data == null) {
-      debugPrint('[LiveTimeshift] seg 404 cdn seq=$seq back=${_liveSeq - seq}');
+      debugPrint('[LiveTimeshift] seg 404 cdn back=$back');
       response.statusCode = HttpStatus.notFound;
       return;
     }
     await cache?.put(seq, data);
+    _refreshCacheSpan();
     _write(response, data);
   }
 
@@ -424,13 +467,24 @@ class LiveTimeshiftServer {
   Future<Uint8List?> _fetchSegment(int seq) async {
     final back = _liveSeq - seq;
     for (final source in _candidateSources()) {
-      for (var attempt = 0; attempt < 2; attempt++) {
-        final bytes = await _get(source.segmentUrl(seq, timeshift: back));
-        if (bytes != null && _looksLikeFmp4(bytes)) {
-          _markHot(source);
-          return bytes;
+      // 赛事房间靠 tmshift 取历史分片；普通直播间 CDN 不认 tmshift，
+      // 探测出「没有服务端历史」之后直接取原地址，省掉一次必然 404 的回源。
+      final plainFirst = _probeDone && _windowSeconds == 0;
+      final urls = <String>[
+        source.segmentUrl(seq, timeshift: plainFirst ? null : back),
+      ];
+      if (back > 0) {
+        urls.add(source.segmentUrl(seq, timeshift: plainFirst ? back : null));
+      }
+      for (final url in urls) {
+        for (var attempt = 0; attempt < 2; attempt++) {
+          final bytes = await _get(url);
+          if (bytes != null && _looksLikeFmp4(bytes)) {
+            _markHot(source);
+            return bytes;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 120));
         }
-        await Future<void>.delayed(const Duration(milliseconds: 120));
       }
     }
     return null;

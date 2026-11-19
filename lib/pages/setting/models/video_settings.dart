@@ -158,7 +158,7 @@ List<SettingsModel> get videoSettings => [
   ),
   const SwitchModel(
     title: '直播时移（进度条）',
-    subtitle: '赛事直播可拖动进度条回看约一小时；关闭后恢复普通直播',
+    subtitle: '直播可拖动进度条回看：赛事约一小时，普通直播间靠本地缓存保留约 10 分钟',
     leading: Icon(Icons.history_outlined),
     setKey: SettingBoxKey.liveTimeShift,
     defaultVal: true,

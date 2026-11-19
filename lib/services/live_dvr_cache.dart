@@ -42,9 +42,29 @@ class LiveDvrCache {
         await dir.create(recursive: true);
       }
       _dir = dir;
+      unawaited(_cleanStaleSiblings(dir));
       await _load();
     } catch (e) {
       debugPrint('[LiveDvrCache] init failed: $e');
+    }
+  }
+
+  /// 清理别的房间/别的流留下的缓存目录，避免临时目录越攒越大；
+  /// 只删闲置一小时以上的，正在用的不动。
+  Future<void> _cleanStaleSiblings(Directory dir) async {
+    final deadline = DateTime.now().subtract(const Duration(hours: 1));
+    try {
+      await for (final entry in dir.parent.list()) {
+        if (entry is! Directory || entry.path == dir.path) continue;
+        try {
+          if (entry.statSync().modified.isAfter(deadline)) continue;
+          entry.deleteSync(recursive: true);
+        } catch (_) {
+          // 正被其它房间使用，跳过
+        }
+      }
+    } catch (_) {
+      // 父目录不存在时无需处理
     }
   }
 
