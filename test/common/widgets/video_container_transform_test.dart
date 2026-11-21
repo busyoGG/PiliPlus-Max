@@ -216,7 +216,7 @@ void main() {
       expect(_detailSize(tester).width, before.width);
     });
 
-    testWidgets('freezes the page while the back gesture is held',
+    testWidgets('previews the back gesture without morphing to the card',
         (tester) async {
       await _openDetail(
         tester,
@@ -232,12 +232,18 @@ void main() {
       await tester.pump();
       // 路由动画跟着手指后退，下层页面参与绘制。
       expect(route.animation!.value, closeTo(0.6, 1e-6));
-      // 按住期间详情页冻结，不做任何形变。
-      expect(_pageScale(tester), 1.0);
+      // 按住期间只做预测性预览的轻微缩放，不缩到卡片。
+      expect(
+        _pageScale(tester),
+        closeTo(videoCardPreviewMinScale + (1 - videoCardPreviewMinScale) * 0.6, 1e-6),
+      );
       state.handleUpdateBackGestureProgress(_backEvent(0.95));
       await tester.pump();
       expect(route.animation!.value, closeTo(0.05, 1e-6));
-      expect(_pageScale(tester), 1.0);
+      expect(
+        _pageScale(tester),
+        closeTo(videoCardPreviewMinScale + (1 - videoCardPreviewMinScale) * 0.05, 1e-6),
+      );
       state.handleCancelBackGesture();
       await tester.pumpAndSettle();
       expect(_pageScale(tester), 1.0);

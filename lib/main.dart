@@ -36,6 +36,7 @@ import 'package:collection/collection.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -92,6 +93,16 @@ Future<void> _initAppPath() async {
 
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
+  if (const bool.fromEnvironment('PILI_FRAME_STATS')) {
+    SchedulerBinding.instance.addTimingsCallback((List<FrameTiming> timings) {
+      for (final FrameTiming timing in timings) {
+        final int build = timing.buildDuration.inMicroseconds;
+        final int raster = timing.rasterDuration.inMicroseconds;
+        if (build + raster < 14000) continue;
+        debugPrint('[FrameStats] build=${build ~/ 1000}ms raster=${raster ~/ 1000}ms total=${timing.totalSpan.inMicroseconds ~/ 1000}ms');
+      }
+    });
+  }
   MediaKit.ensureInitialized();
   await _initAppPath();
   try {

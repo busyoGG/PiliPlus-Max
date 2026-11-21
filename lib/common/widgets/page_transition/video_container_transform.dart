@@ -4,6 +4,9 @@ import 'package:flutter/services.dart' show PredictiveBackEvent;
 /// 打开详情页时随路由传入的卡片矩形参数名。
 const String videoOriginRectKey = 'originRect';
 
+/// 按住返回手势时的预览缩放下限（预测性返回预览）。
+const double videoCardPreviewMinScale = 0.92;
+
 /// 页面形变矩阵所在 Transform 的 key，便于测试定位。
 const Key videoCardTransformKey = Key('videoCardTransform');
 
@@ -223,16 +226,40 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
       animation: Listenable.merge(<Listenable>[animation, _closing]),
       child: RepaintBoundary(child: widget.child),
       builder: (BuildContext context, Widget? child) {
-        // 按住期间页面冻结不动，只有松手确认返回后才缩到卡片。
+        final Size screen = MediaQuery.sizeOf(context);
+        if (_gestureActive) {
+          // 预测性返回预览：整页轻微缩小，露出下层页面；不缩到卡片。
+          final double scale =
+              videoCardPreviewMinScale +
+              (1 - videoCardPreviewMinScale) * animation.value.clamp(0.0, 1.0);
+          if (scale >= 1) return child!;
+          return Transform(
+            key: videoCardTransformKey,
+            alignment: Alignment.topLeft,
+            filterQuality: FilterQuality.none,
+            transform: videoTransitionMatrix(
+              Rect.fromCenter(
+                center: screen.center(Offset.zero),
+                width: screen.width * scale,
+                height: screen.height * scale,
+              ),
+              screen,
+              0,
+            ),
+            child: child,
+          );
+        }
+        // 松手确认返回后，从全屏收到卡片；打开时从卡片长到全屏。
         final double t = _committing
             ? _closing.value
-            : (_gestureActive ? 1.0 : videoCardEntryProgress(animation.value));
+            : videoCardEntryProgress(animation.value);
         if (t >= 1) return child!;
-        final Size screen = MediaQuery.sizeOf(context);
         final Rect rect = videoTransitionRect(origin, screen, t);
         return Transform(
           key: videoCardTransformKey,
           alignment: Alignment.topLeft,
+          // 过渡期间整页在缩放，最近的邻近采样比双线性便宜很多，能明显拉高帧率。
+          filterQuality: FilterQuality.none,
           transform: videoTransitionMatrix(rect, screen, t),
           child: child,
         );
