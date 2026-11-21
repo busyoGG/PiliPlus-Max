@@ -400,7 +400,8 @@ class _MainAppState extends PopScopeState<MainApp>
 
   /// 给底部导航套上毛玻璃；关闭模糊时原样返回。
   Widget? _blurWrapNav(Widget? nav, ThemeData theme) {
-    if (nav == null || !AppBlur.enabled) {
+    // 悬浮底栏自己负责模糊（只糊胶囊），这里只处理整条导航栏。
+    if (nav == null || !AppBlur.enabled || _mainController.floatingNavBar) {
       return nav;
     }
     return BlurSurface(
