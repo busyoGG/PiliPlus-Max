@@ -102,6 +102,7 @@ class _HomePageState extends CommonPageState<HomePage>
     final double tabBarHeight = _homeController.tabs.length > 1
         ? Pref.homeTabBarHeight + 4
         : 6;
+    final double statusBarHeight = MediaQuery.paddingOf(context).top;
     // 顶栏浮在内容之上：列表一直滚到顶栏背后，被毛玻璃糊住。
     return Stack(
       children: [
@@ -113,13 +114,14 @@ class _HomePageState extends CommonPageState<HomePage>
               Style.topBarHeight,
             );
             return HomeHeaderOverlay(
-              inset: barHeight + tabBarHeight,
+              inset: statusBarHeight + barHeight + tabBarHeight,
               child: feed,
             );
           }),
         ),
+        // 顶栏从状态栏下方开始，状态栏区域保持沉浸（内容直接透出）。
         Positioned(
-          top: 0,
+          top: statusBarHeight,
           left: 0,
           right: 0,
           child: BlurSurface(
