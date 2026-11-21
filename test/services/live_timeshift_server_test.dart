@@ -50,8 +50,9 @@ class _FakeCdn {
         if (seq == null || seq > liveSeq || seq < liveSeq - 4000) {
           response.statusCode = HttpStatus.notFound;
         } else {
-          final body = Uint8List(2048)..fillRange(0, 2048, seq % 200);
-          body.setRange(4, 8, 'moof'.codeUnits);
+          final body = Uint8List(2048)
+            ..fillRange(0, 2048, seq % 200)
+            ..setRange(4, 8, 'moof'.codeUnits);
           response.add(body);
         }
       }
