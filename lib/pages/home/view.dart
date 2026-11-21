@@ -103,6 +103,9 @@ class _HomePageState extends CommonPageState<HomePage>
         ? Pref.homeTabBarHeight + 4
         : 6;
     final double statusBarHeight = MediaQuery.paddingOf(context).top;
+    // 顶栏做成悬浮圆角矩形，四周露出背后的列表。
+    const double headerGap = 8;
+    const double headerRadius = 25;
     // 顶栏浮在内容之上：列表一直滚到顶栏背后，被毛玻璃糊住。
     return Stack(
       children: [
@@ -114,20 +117,24 @@ class _HomePageState extends CommonPageState<HomePage>
               Style.topBarHeight,
             );
             return HomeHeaderOverlay(
-              inset: statusBarHeight + barHeight + tabBarHeight,
+              inset:
+                  statusBarHeight + headerGap + barHeight + tabBarHeight,
               child: feed,
             );
           }),
         ),
         // 顶栏从状态栏下方开始，状态栏区域保持沉浸（内容直接透出）。
         Positioned(
-          top: statusBarHeight,
-          left: 0,
-          right: 0,
+          top: statusBarHeight + headerGap,
+          left: headerGap,
+          right: headerGap,
           child: BlurSurface(
             sigma: AppBlur.barSigma,
             tint: theme.colorScheme.surface,
             tintAlpha: 0.6,
+            borderRadius: const BorderRadius.all(
+              Radius.circular(headerRadius),
+            ),
             child: Column(children: [_customAppBar(theme), tabBar]),
           ),
         ),
