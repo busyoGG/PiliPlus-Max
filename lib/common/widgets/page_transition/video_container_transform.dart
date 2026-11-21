@@ -14,11 +14,16 @@ Rect? videoOriginRectOf(Object? arguments) {
 
 /// 触发过渡的卡片在屏幕上的位置，取不到时返回 null（此时退回默认转场）。
 Rect? videoCardRectOf(BuildContext context) {
-  final object = context.findRenderObject();
-  if (object is! RenderBox || !object.hasSize) {
+  try {
+    final object = context.findRenderObject();
+    if (object is! RenderBox || !object.hasSize) {
+      return null;
+    }
+    return object.localToGlobal(Offset.zero) & object.size;
+  } catch (_) {
+    // 卡片可能已经在异步请求过程中被销毁，退化为默认转场。
     return null;
   }
-  return object.localToGlobal(Offset.zero) & object.size;
 }
 
 /// 过渡过程中卡片缩略图占据的位置：0 时贴在卡片上，1 时铺满屏幕。

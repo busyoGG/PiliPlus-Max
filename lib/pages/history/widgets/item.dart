@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
 import 'package:PiliPlus/http/search.dart';
@@ -56,6 +57,7 @@ class HistoryItem extends StatelessWidget {
         onTap: enableMultiSelect
             ? () => ctr.onSelect(item)
             : () async {
+                final Rect? originRect = videoCardRectOf(context);
                 if (business?.contains('article') == true) {
                   PageUtils.toDupNamed(
                     '/articlePage',
@@ -99,6 +101,7 @@ class HistoryItem extends StatelessWidget {
                   if (cid != null) {
                     // TODO: dimension
                     PageUtils.toVideoPage(
+                      originRect: originRect,
                       aid: aid,
                       bvid: bvid,
                       cid: cid,
