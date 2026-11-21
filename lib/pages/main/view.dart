@@ -529,6 +529,9 @@ class _MainAppState extends PopScopeState<MainApp>
 
     child = Scaffold(
       extendBody: true,
+      // body 不再被 AppBar 顶下去：状态栏高度只由页面自己的 padding 计算，
+      // 否则 Scaffold 会用 MediaQuery.padding.top 把 body 整体下移，顶部露出一条底色。
+      extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(toolbarHeight: 0),
       body: Padding(
