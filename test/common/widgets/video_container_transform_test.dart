@@ -72,16 +72,24 @@ void main() {
           Matrix4.identity());
     });
 
-    test('maps the whole page into the card rect at the start', () {
+    test('scales the page uniformly out of the card rect', () {
       final matrix = videoTransitionMatrix(_origin, _screen, 0);
+      // 页面左上角对齐卡片左上角。
+      expect(MatrixUtils.transformPoint(matrix, Offset.zero), _origin.topLeft);
+      // 页面宽度缩放到卡片宽度。
       expect(
-        MatrixUtils.transformPoint(matrix, Offset.zero),
-        _origin.topLeft,
+        MatrixUtils.transformPoint(matrix, Offset(_screen.width, 0)),
+        _origin.topLeft + Offset(_origin.width, 0),
       );
-      expect(
-        MatrixUtils.transformPoint(matrix, _screen.bottomRight(Offset.zero)),
-        _origin.bottomRight,
-      );
+      // 等比缩放：纵向缩放比与横向一致，所以内容不变形。
+      final double scaleY = (MatrixUtils.transformPoint(
+                matrix,
+                Offset(0, _screen.height),
+              )
+              .dy -
+          _origin.top) /
+          _screen.height;
+      expect(scaleY, closeTo(_origin.width / _screen.width, 1e-9));
     });
   });
 
