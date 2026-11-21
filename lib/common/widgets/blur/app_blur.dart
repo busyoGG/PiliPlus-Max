@@ -113,9 +113,8 @@ class BlurSurface extends StatelessWidget {
     final Widget blurred = grouped
         ? BackdropFilter.grouped(filter: filter, child: tinted)
         : BackdropFilter(filter: filter, child: tinted);
-    if (borderRadius == null) {
-      return blurred;
-    }
-    return ClipRRect(borderRadius: borderRadius!, child: blurred);
+    // 必须裁到自身范围：BackdropFilter 的采样覆盖区取决于外层裁剪，
+    // 不裁的话会把整块背景一起糊掉（而且更贵）。
+    return ClipRRect(borderRadius: borderRadius ?? BorderRadius.zero, child: blurred);
   }
 }

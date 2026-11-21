@@ -61,7 +61,7 @@ void main() {
       expect(find.text('blurred'), findsOneWidget);
     });
 
-    testWidgets('clips rounded corners only when a radius is given', (
+    testWidgets('always clips to its own bounds so the backdrop stays local', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
@@ -70,6 +70,18 @@ void main() {
             strength: AppBlurStrength.light,
             borderRadius: BorderRadius.all(Radius.circular(16)),
             child: Text('rounded'),
+          ),
+        ),
+      );
+      expect(find.byType(ClipRRect), findsOneWidget);
+    });
+
+    testWidgets('clips even without a radius', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _app(
+          const BlurSurface(
+            strength: AppBlurStrength.light,
+            child: Text('square'),
           ),
         ),
       );
