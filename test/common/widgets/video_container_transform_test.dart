@@ -93,13 +93,6 @@ Size _detailSize(WidgetTester tester) {
   return tester.getSize(find.byType(Scaffold).last);
 }
 
-/// 手势预览缩放的当前值，没在预览时返回 1。
-double _previewScale(WidgetTester tester) {
-  final Finder finder = find.byKey(videoCardPreviewKey);
-  if (finder.evaluate().isEmpty) return 1.0;
-  return tester.widget<Transform>(finder).transform.storage[0];
-}
-
 /// 取页面外层形变矩阵的横向缩放，1 表示已经完全展开。
 double _pageScale(WidgetTester tester) {
   final Finder finder = find.byKey(videoCardTransformKey);
@@ -215,8 +208,7 @@ void main() {
       expect(_detailSize(tester).width, before.width);
     });
 
-    testWidgets('previews the back gesture without collapsing to the card',
-        (tester) async {
+    testWidgets('follows the back gesture toward the card rect', (tester) async {
       await _openDetail(
         tester,
         arguments: <String, Object?>{'originRect': _origin},
@@ -231,16 +223,14 @@ void main() {
       await tester.pump();
       // 路由动画跟着手指后退，下层页面参与绘制。
       expect(route.animation!.value, closeTo(0.6, 1e-6));
-      // 只有轻微缩放预览，页脚卡片形变没有启动。
-      expect(_previewScale(tester), closeTo(0.92 + 0.08 * 0.6, 1e-6));
-      expect(_pageScale(tester), closeTo(1.0, 1e-9));
+      // 页面按进度等比缩向卡片：宽 200 + 200 * 0.6 = 320，即 320 / 400。
+      expect(_pageScale(tester), closeTo(0.8, 1e-6));
       state.handleUpdateBackGestureProgress(_backEvent(0.9));
       await tester.pump();
-      expect(_previewScale(tester), closeTo(0.92 + 0.08 * 0.1, 1e-6));
-      expect(_pageScale(tester), closeTo(1.0, 1e-9));
+      expect(_pageScale(tester), closeTo(0.55, 1e-6));
       state.handleCancelBackGesture();
       await tester.pumpAndSettle();
-      expect(_previewScale(tester), 1.0);
+      expect(_pageScale(tester), 1.0);
       expect(route.animation!.value, 1);
       expect(find.text('detail'), findsOneWidget);
     });
@@ -253,7 +243,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final VideoCardEntryTransformState state = _state(tester);
-      expect(state.handleStartBackGesture(_backEvent(0.3)), isTrue);
+      expect(state.handleStartBackGesture(_backEvent(0.7)), isTrue);
       await tester.pump();
       // 手势期间 navigator 认为用户手势在进行中。
       expect(Get.key.currentState!.userGestureInProgress, isTrue);

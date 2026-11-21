@@ -118,7 +118,6 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
 
   /// 打开／普通返回由路由动画驱动；松手确认返回时用这个自己收回到卡片。
   late final AnimationController _closing;
-  late final Animation<double> _closingProgress;
 
   /// 正在播放「收回到卡片」，此时忽略路由动画。
   bool _committing = false;
@@ -133,10 +132,6 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
       duration: videoCardCollapseDuration,
       value: 1,
       vsync: this,
-    );
-    _closingProgress = CurvedAnimation(
-      parent: _closing,
-      curve: Curves.easeOut,
     );
     WidgetsBinding.instance.addObserver(this);
   }
@@ -198,8 +193,10 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     _gestureActive = false;
     _committing = true;
     _releaseBackGesture();
+    // 从松手时的进度接着收回到卡片，避免跳变。
+    _closing.value = (_route?.animation?.value ?? 0).clamp(0.0, 1.0);
     // 先收回到卡片再真正 pop，避免收起动画被路由转场盖掉。
-    _closing.animateTo(0).whenComplete(() {
+    _closing.animateTo(0, curve: Curves.easeOut).whenComplete(() {
       if (mounted) _route?.navigator?.pop();
     });
   }
@@ -224,22 +221,12 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
       animation: Listenable.merge(<Listenable>[animation, _closing]),
       child: RepaintBoundary(child: widget.child),
       builder: (BuildContext context, Widget? child) {
-        if (_gestureActive) {
-          // 预测性返回预览：整页轻微缩小、圆角略增，卡片形变留到松手后。
-          final double scale = 0.92 + 0.08 * animation.value.clamp(0.0, 1.0);
-          return Transform.scale(
-            key: videoCardPreviewKey,
-            scale: scale,
-            child: ClipRRect(
-              clipBehavior: Clip.hardEdge,
-              borderRadius: BorderRadius.circular(12 * (1 - animation.value)),
-              child: child,
-            ),
-          );
-        }
+        // 手势阶段直接用路由动画值：手指拖多少就缩多少，松手后接着缩到卡片。
         final double t = _committing
-            ? _closingProgress.value
-            : videoCardEntryProgress(animation.value);
+            ? _closing.value
+            : (_gestureActive
+                  ? animation.value.clamp(0.0, 1.0)
+                  : videoCardEntryProgress(animation.value));
         if (t >= 1) return child!;
         final Size screen = MediaQuery.sizeOf(context);
         final Rect rect = videoTransitionRect(origin, screen, t);
