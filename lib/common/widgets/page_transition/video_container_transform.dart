@@ -7,6 +7,9 @@ const String videoOriginRectKey = 'originRect';
 /// 页面形变矩阵所在 Transform 的 key，便于测试定位。
 const Key videoCardTransformKey = Key('videoCardTransform');
 
+/// 手势预览缩放所在 Transform 的 key，便于测试定位。
+const Key videoCardPreviewKey = Key('videoCardPreview');
+
 /// 松手确认返回后，页面收回到卡片的时长。
 const Duration videoCardCollapseDuration = Duration(milliseconds: 260);
 
@@ -166,22 +169,27 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     return route.popDisposition != RoutePopDisposition.doNotPop;
   }
 
-  /// 接管返回手势：只为拦住系统的整窗预览，按住期间页面保持原样。
+  /// 接管返回手势：按住期间给预测性返回预览（轻微缩放），但不收回卡片。
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
     if (backEvent.isButtonEvent || !_canHandleBackGesture) return false;
     _gestureActive = true;
+    // 交给路由自己，让它跟着手指后退：下层页面因此参与绘制，不是黑屏。
+    _route!.handleStartBackGesture(progress: 1 - backEvent.progress);
     return true;
   }
 
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
-    // 按住拖动期间不做任何形变：详情页收回到卡片只在松手时发生。
+    if (!_gestureActive) return;
+    _route?.handleUpdateBackGestureProgress(progress: 1 - backEvent.progress);
   }
 
   @override
   void handleCancelBackGesture() {
+    if (!_gestureActive) return;
     _gestureActive = false;
+    _route?.handleCancelBackGesture();
   }
 
   @override
@@ -204,6 +212,19 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
       animation: Listenable.merge(<Listenable>[animation, _closing]),
       child: widget.child,
       builder: (BuildContext context, Widget? child) {
+        if (_gestureActive) {
+          // 预测性返回预览：整页轻微缩小、圆角略增，卡片形变留到松手后。
+          final double scale = 0.92 + 0.08 * animation.value.clamp(0.0, 1.0);
+          return ClipRRect(
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.circular(12 * (1 - animation.value)),
+            child: Transform.scale(
+              key: videoCardPreviewKey,
+              scale: scale,
+              child: child,
+            ),
+          );
+        }
         final double t = _committing
             ? _closingProgress.value
             : videoCardEntryProgress(animation.value);
