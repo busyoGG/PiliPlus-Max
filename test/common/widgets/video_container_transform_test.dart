@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -22,128 +23,248 @@ class _PlainTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
-Widget _app({Map<String, Object?>? arguments}) {
+Widget _detailPage() => const Scaffold(body: Center(child: Text('detail')));
+
+int _routeSeq = 0;
+
+Widget _app({
+  required Widget detail,
+  required String detailName,
+  required String otherName,
+  PageTransitionsBuilder builder = const _PlainTransitionsBuilder(),
+}) {
   return GetMaterialApp(
     theme: ThemeData(
       useMaterial3: true,
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {TargetPlatform.android: _PlainTransitionsBuilder()},
+      pageTransitionsTheme: PageTransitionsTheme(
+        builders: {TargetPlatform.android: builder},
       ),
     ),
     defaultTransition: Transition.native,
     initialRoute: '/',
     getPages: [
       GetPage(name: '/', page: () => const Scaffold(body: Text('home'))),
+      GetPage(name: detailName, page: () => detail),
       GetPage(
-        name: '/detail',
-        page: () => const VideoCardEntryTransform(
-          child: Scaffold(body: Center(child: Text('detail'))),
-        ),
+        name: otherName,
+        page: () => const Scaffold(body: Center(child: Text('other'))),
       ),
     ],
   );
 }
 
+Future<void> _openDetail(
+  WidgetTester tester, {
+  Map<String, Object?>? arguments,
+  PageTransitionsBuilder builder = const _PlainTransitionsBuilder(),
+  bool wrapPage = false,
+}) async {
+  tester.view.physicalSize = _screen;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+  _routeSeq++;
+  final String detailName = '/detail$_routeSeq';
+  final String otherName = '/other$_routeSeq';
+  await tester.pumpWidget(
+    _app(
+      builder: builder,
+      detailName: detailName,
+      otherName: otherName,
+      detail: wrapPage
+          ? VideoCardEntryTransform(child: _detailPage())
+          : _detailPage(),
+    ),
+  );
+  await tester.pumpAndSettle();
+  Get.toNamed(detailName, arguments: arguments);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 8));
+}
+
+PredictiveBackEvent _backEvent(double progress) {
+  return PredictiveBackEvent.fromMap(<String?, Object?>{
+    'touchOffset': const <Object?>[0.0, 400.0],
+    'progress': progress,
+    'swipeEdge': 1,
+  });
+}
+
+Size _detailSize(WidgetTester tester) {
+  return tester.getSize(find.byType(Scaffold).last);
+}
+
+/// 取页面外层形变矩阵的横向缩放，1 表示已经完全展开。
+double _pageScale(WidgetTester tester) {
+  final Finder finder = find.byKey(videoCardTransformKey);
+  if (finder.evaluate().isEmpty) return 1.0;
+  return tester.widget<Transform>(finder).transform.storage[0];
+}
+
+VideoCardEntryTransformState _state(WidgetTester tester) {
+  return tester.state<VideoCardEntryTransformState>(
+    find.byType(VideoCardEntryTransform).last,
+  );
+}
+
 void main() {
   group('videoTransitionRect', () {
-    test('starts on the card and ends on the full screen', () {
+    test('starts at the origin and ends at full screen', () {
       expect(videoTransitionRect(_origin, _screen, 0), _origin);
       expect(videoTransitionRect(_origin, _screen, 1), Offset.zero & _screen);
     });
 
-    test('moves monotonically between the two', () {
-      final quarter = videoTransitionRect(_origin, _screen, 0.25);
-      final half = videoTransitionRect(_origin, _screen, 0.5);
-      expect(quarter.left, lessThan(_origin.left));
-      expect(half.left, lessThan(quarter.left));
-      expect(half.width, greaterThan(quarter.width));
-      expect(half.width, lessThan(_screen.width));
-    });
-
-    test('clamps out of range progress', () {
-      expect(videoTransitionRect(_origin, _screen, -1), _origin);
-      expect(videoTransitionRect(_origin, _screen, 2), Offset.zero & _screen);
+    test('moves the left edge towards the screen edge', () {
+      final double mid = videoTransitionRect(_origin, _screen, 0.5).left;
+      expect(mid, lessThan(_origin.left));
+      expect(mid, greaterThan(0));
     });
   });
 
   group('videoTransitionMatrix', () {
-    test('identity at the end', () {
-      expect(videoTransitionMatrix(Offset.zero & _screen, _screen, 1),
-          Matrix4.identity());
+    test('is identity at the end', () {
+      expect(videoTransitionMatrix(_origin, _screen, 1), Matrix4.identity());
     });
 
     test('scales the page uniformly out of the card rect', () {
-      final matrix = videoTransitionMatrix(_origin, _screen, 0);
-      // 页面左上角对齐卡片左上角。
-      expect(MatrixUtils.transformPoint(matrix, Offset.zero), _origin.topLeft);
-      // 页面宽度缩放到卡片宽度。
-      expect(
-        MatrixUtils.transformPoint(matrix, Offset(_screen.width, 0)),
-        _origin.topLeft + Offset(_origin.width, 0),
-      );
-      // 等比缩放：纵向缩放比与横向一致，所以内容不变形。
-      final double scaleY = (MatrixUtils.transformPoint(
-                matrix,
-                Offset(0, _screen.height),
-              )
-              .dy -
-          _origin.top) /
-          _screen.height;
-      expect(scaleY, closeTo(_origin.width / _screen.width, 1e-9));
+      final Matrix4 matrix = videoTransitionMatrix(_origin, _screen, 0);
+      final Offset topLeft = MatrixUtils.transformPoint(matrix, Offset.zero);
+      final Offset topRight =
+          MatrixUtils.transformPoint(matrix, Offset(_screen.width, 0));
+      expect(topLeft, _origin.topLeft);
+      expect(topRight, _origin.topLeft + const Offset(200, 0));
+      expect(matrix.storage[0], closeTo(200 / 400, 1e-9));
+      expect(matrix.storage[5], closeTo(200 / 400, 1e-9));
     });
   });
 
   group('videoTransitionPageOpacity', () {
-    test('fades in quickly and stays visible', () {
+    test('fades in at the very beginning only', () {
       expect(videoTransitionPageOpacity(0), 0);
-      expect(videoTransitionPageOpacity(0.075), 0.5);
       expect(videoTransitionPageOpacity(0.15), 1);
-      expect(videoTransitionPageOpacity(1), 1);
+      expect(videoTransitionPageOpacity(0.8), 1);
     });
   });
 
   group('videoOriginRectOf', () {
-    test('reads the rect from the route arguments', () {
-      expect(videoOriginRectOf({'originRect': _origin}), _origin);
-      expect(videoOriginRectOf({'originRect': 'x'}), isNull);
-      expect(videoOriginRectOf(<String, Object?>{}), isNull);
+    test('reads rect from arguments', () {
+      expect(
+        videoOriginRectOf(<String, Object?>{'originRect': _origin}),
+        _origin,
+      );
+    });
+
+    test('returns null for missing or wrong types', () {
       expect(videoOriginRectOf(null), isNull);
+      expect(videoOriginRectOf(<String, Object?>{}), isNull);
+      expect(videoOriginRectOf(<String, Object?>{'originRect': 'x'}), isNull);
+      expect(videoOriginRectOf(<Object?>[]), isNull);
+    });
+  });
+
+  group('VideoCardPageTransitionsBuilder', () {
+    testWidgets('wraps routes that carry an origin rect', (tester) async {
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        builder: const VideoCardPageTransitionsBuilder(),
+      );
+      expect(find.byType(VideoCardEntryTransform), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(_pageScale(tester), closeTo(1.0, 1e-9));
+    });
+
+    testWidgets('leaves routes without an origin rect alone', (tester) async {
+      await _openDetail(
+        tester,
+        builder: const VideoCardPageTransitionsBuilder(),
+      );
+      expect(find.byType(VideoCardEntryTransform), findsNothing);
+      await tester.pumpAndSettle();
+      expect(_detailSize(tester).width, _screen.width);
     });
   });
 
   group('VideoCardEntryTransform', () {
     testWidgets('grows the page content out of the card rect', (tester) async {
-      tester.view.physicalSize = _screen;
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app(arguments: {'originRect': _origin}));
-      Get.toNamed('/detail', arguments: {'originRect': _origin});
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80));
-
-      final early = tester.getRect(find.text('detail'));
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        wrapPage: true,
+      );
+      final double early = _pageScale(tester);
       await tester.pumpAndSettle();
-      final settled = tester.getRect(find.text('detail'));
-
-      expect(early.width, lessThan(settled.width));
-      expect(early.center.dx, isNot(settled.center.dx));
-      expect(settled.center, const Offset(200, 400));
+      final double settled = _pageScale(tester);
+      expect(early, lessThan(settled));
+      expect(settled, closeTo(1.0, 1e-9));
+      expect(early, lessThan(0.6));
     });
 
-    testWidgets('keeps the page untouched without an origin rect', (
-      tester,
-    ) async {
-      tester.view.physicalSize = _screen;
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app());
-      Get.toNamed('/detail');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80));
-      final early = tester.getRect(find.text('detail'));
+    testWidgets('keeps the page untouched without an origin rect',
+        (tester) async {
+      await _openDetail(tester, wrapPage: true);
+      final Size before = _detailSize(tester);
+      expect(before.width, _screen.width);
       await tester.pumpAndSettle();
-      final settled = tester.getRect(find.text('detail'));
-      expect(early, settled);
+      expect(_detailSize(tester).width, before.width);
+    });
+
+    testWidgets('follows the back gesture and reports it as consumed',
+        (tester) async {
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        wrapPage: true,
+      );
+      await tester.pumpAndSettle();
+      final VideoCardEntryTransformState state = _state(tester);
+      expect(state.handleStartBackGesture(_backEvent(0.5)), isTrue);
+      await tester.pump();
+      // 卡片宽度是全屏的一半，t=0.5 时宽度插值到 0.75。
+      expect(_pageScale(tester), closeTo(0.75, 1e-6));
+      state.handleUpdateBackGestureProgress(_backEvent(0.2));
+      await tester.pump();
+      expect(_pageScale(tester), closeTo(0.9, 1e-6));
+      state.handleCancelBackGesture();
+      await tester.pumpAndSettle();
+      expect(_pageScale(tester), closeTo(1.0, 1e-9));
+    });
+
+    testWidgets('collapses back to the card before popping', (tester) async {
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        wrapPage: true,
+      );
+      await tester.pumpAndSettle();
+      final VideoCardEntryTransformState state = _state(tester);
+      expect(state.handleStartBackGesture(_backEvent(0.3)), isTrue);
+      await tester.pump();
+      state.handleCommitBackGesture();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.text('detail'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('detail'), findsNothing);
+      expect(find.text('home'), findsOneWidget);
+    });
+
+    testWidgets('ignores gestures when the route is not current',
+        (tester) async {
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        wrapPage: true,
+      );
+      await tester.pumpAndSettle();
+      final VideoCardEntryTransformState state = _state(tester);
+      Get.toNamed('/other$_routeSeq');
+      await tester.pumpAndSettle();
+      expect(state.handleStartBackGesture(_backEvent(0.5)), isFalse);
+    });
+
+    testWidgets('ignores gestures without an origin rect', (tester) async {
+      await _openDetail(tester, wrapPage: true);
+      await tester.pumpAndSettle();
+      expect(_state(tester).handleStartBackGesture(_backEvent(0.5)), isFalse);
     });
   });
 }

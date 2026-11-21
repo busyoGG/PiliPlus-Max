@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
-import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
@@ -1555,12 +1554,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         child: child,
       );
     }
-    // 从卡片打开时整页内容从卡片位置展开；其他入口不受影响。
-    return VideoCardEntryTransform(
-      child: videoDetailController.plPlayerController.darkVideoPage
-          ? Theme(data: themeData, child: child)
-          : child,
-    );
+    return videoDetailController.plPlayerController.darkVideoPage
+        ? Theme(data: themeData, child: child)
+        : child;
   }
 
   Widget buildTabBar({

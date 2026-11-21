@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PredictiveBackEvent;
 
 /// 打开详情页时随路由传入的卡片矩形参数名。
 const String videoOriginRectKey = 'originRect';
 
-/// 详情页从卡片展开/收回用的时长。
-const Duration videoCardTransitionDuration = Duration(milliseconds: 320);
+/// 页面形变矩阵所在 Transform 的 key，便于测试定位。
+const Key videoCardTransformKey = Key('videoCardTransform');
+
+/// 详情页展开/收起的时长。
+const Duration videoCardTransitionDuration = Duration(milliseconds: 380);
+
+/// 返回手势提交后，收起动画走完再 pop 的时长。
+const Duration videoCardCollapseDuration = Duration(milliseconds: 200);
 
 /// 从路由参数里取出卡片矩形，没有或类型不符时返回 null。
 Rect? videoOriginRectOf(Object? arguments) {
@@ -52,11 +59,39 @@ Matrix4 videoTransitionMatrix(Rect rect, Size screen, double t) {
     ..scaleByDouble(scale, scale, 1.0, 1.0);
 }
 
-/// 从卡片矩形展开成整页。
+/// 带卡片矩形的路由专用转场。
 ///
-/// 只负责「打开详情页」这一层动画，用独立的 [AnimationController] 播放，
-/// 不参与路由转场，也不接管返回手势：预测性返回仍然由
-/// PredictiveBackPageTransitionsBuilder 全权处理，两套动画互不干扰。
+/// 这一层把路由自带的转场让出来（返回 child，不加任何缩放/淡入），
+/// 页面展开、返回手势预览、收起都由 [VideoCardEntryTransform] 自己驱动，
+/// 因此不会出现「两套动画叠加导致效果被冲淡」。
+class VideoCardPageTransitionsBuilder extends PageTransitionsBuilder {
+  const VideoCardPageTransitionsBuilder();
+
+  static const PageTransitionsBuilder _fallback =
+      PredictiveBackPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (videoOriginRectOf(route.settings.arguments) == null) {
+      return _fallback.buildTransitions<T>(
+        route,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    return VideoCardEntryTransform(child: child);
+  }
+}
+
+/// 页面内容在卡片矩形与全屏之间变化，并负责返回手势的预测性返回预览。
 class VideoCardEntryTransform extends StatefulWidget {
   const VideoCardEntryTransform({super.key, required this.child, this.origin});
 
@@ -67,15 +102,34 @@ class VideoCardEntryTransform extends StatefulWidget {
 
   @override
   State<VideoCardEntryTransform> createState() =>
-      _VideoCardEntryTransformState();
+      VideoCardEntryTransformState();
 }
 
-class _VideoCardEntryTransformState extends State<VideoCardEntryTransform>
-    with SingleTickerProviderStateMixin {
-  AnimationController? _controller;
-  Animation<double>? _progress;
+/// 对外可见，便于测试直接驱动手势回调。
+class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _controller;
+  late final Animation<double> _progress;
+
   ModalRoute<dynamic>? _route;
   Rect? _origin;
+
+  /// 手势进行中：进度直接跟手指走，不再套缓动曲线。
+  bool _gestureActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: videoCardTransitionDuration,
+      vsync: this,
+    );
+    _progress = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
@@ -85,34 +139,76 @@ class _VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     _route = route;
     _origin = widget.origin ?? videoOriginRectOf(route?.settings.arguments);
     if (_origin == null) return;
-    final AnimationController controller = AnimationController(
-      duration: videoCardTransitionDuration,
-      vsync: this,
-    );
-    _controller = controller;
-    _progress = CurvedAnimation(
-      parent: controller,
-      curve: Curves.easeOutCubic,
-    );
-    controller.forward();
+    // 等页面完成第一帧再开始，避免首帧渲染耗时把动画吃掉大半。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_gestureActive) _controller.forward();
+    });
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.dispose();
     super.dispose();
+  }
+
+  /// 当前路由能否自己驱动预测性返回。
+  ///
+  /// 不读 [ModalRoute.popGestureEnabled]：GetX 路由把它绑到
+  /// navigator.userGestureInProgress，计数一旦残留就会一直为 false。
+  bool get _canHandleBackGesture {
+    final ModalRoute<dynamic>? route = _route;
+    if (!mounted || route == null || _origin == null) return false;
+    if (!route.isCurrent) return false;
+    if (route.willHandlePopInternally) return false;
+    return route.popDisposition != RoutePopDisposition.doNotPop;
+  }
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    if (!_canHandleBackGesture) return false;
+    _controller.stop();
+    setState(() => _gestureActive = true);
+    _controller.value = 1 - backEvent.progress;
+    return true;
+  }
+
+  @override
+  void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
+    if (!_gestureActive) return;
+    _controller.value = 1 - backEvent.progress;
+  }
+
+  @override
+  void handleCancelBackGesture() {
+    if (!_gestureActive) return;
+    setState(() => _gestureActive = false);
+    _controller.animateTo(1, duration: videoCardCollapseDuration);
+  }
+
+  @override
+  void handleCommitBackGesture() {
+    if (!_gestureActive) return;
+    setState(() => _gestureActive = false);
+    // 先收起回卡片，再真正 pop，避免路由转场和收起动画叠在一起。
+    _controller
+        .animateTo(0, duration: videoCardCollapseDuration)
+        .whenComplete(() {
+          if (mounted) _route?.navigator?.pop();
+        });
   }
 
   @override
   Widget build(BuildContext context) {
     final Rect? origin = _origin;
-    final Animation<double>? progress = _progress;
-    if (origin == null || progress == null) return widget.child;
+    if (origin == null) return widget.child;
     return AnimatedBuilder(
-      animation: progress,
+      animation: _progress,
       child: widget.child,
       builder: (BuildContext context, Widget? child) {
-        final double t = progress.value;
+        final double t = _gestureActive
+            ? _controller.value
+            : _progress.value;
         if (t >= 1) return child!;
         final Size screen = MediaQuery.sizeOf(context);
         final Rect rect = videoTransitionRect(origin, screen, t);
@@ -126,6 +222,7 @@ class _VideoCardEntryTransformState extends State<VideoCardEntryTransform>
           child: Opacity(
             opacity: videoTransitionPageOpacity(t),
             child: Transform(
+              key: videoCardTransformKey,
               alignment: Alignment.topLeft,
               transform: videoTransitionMatrix(rect, screen, t),
               child: child,

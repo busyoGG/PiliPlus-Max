@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
@@ -307,7 +308,7 @@ abstract final class ThemeUtils {
         builders: {
           // 预测性返回（Android 14+）由该 builder 提供；GetX 路由读取本主题
           // 依赖 lib/scripts/getx_predictive_back.patch。
-          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.android: VideoCardPageTransitionsBuilder(),
         },
       ),
     );
