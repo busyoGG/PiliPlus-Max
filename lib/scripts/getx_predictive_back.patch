@@ -1,0 +1,15 @@
+diff --git a/lib/get_navigation/src/routes/get_transition_mixin.dart b/lib/get_navigation/src/routes/get_transition_mixin.dart
+index a802daab..b58aa544 100644
+--- a/lib/get_navigation/src/routes/get_transition_mixin.dart
++++ b/lib/get_navigation/src/routes/get_transition_mixin.dart
+@@ -175,7 +175,9 @@ Cannot read the previousTitle for a route that has not yet been installed''',
+             child,
+           );
+         }
+-        return const ZoomPageTransitionsBuilder().buildTransitions(
++        // Let the host app pick the Android transition through its theme, so
++        // style such as PredictiveBackPageTransitionsBuilder can be used.
++        return Theme.of(context).pageTransitionsTheme.buildTransitions<T>(
+           rawRoute,
+           context,
+           animation,

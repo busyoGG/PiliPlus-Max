@@ -305,7 +305,9 @@ abstract final class ThemeUtils {
       dividerTheme: DividerThemeData(color: ui(ThemeUiElement.divider)),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          // 预测性返回（Android 14+）由该 builder 提供；GetX 路由读取本主题
+          // 依赖 lib/scripts/getx_predictive_back.patch。
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
         },
       ),
     );
