@@ -114,6 +114,7 @@ const Map<String, Object> defaultSettingValues = {
   'historyArchiveIntervalDays': 7,
   'liveQualityCellular': 10000,
   'liveTimeShift': true,
+  'uiBlur': 1,
   'longPressSpeedToastVerticalPercent': 26.0,
   'longPressSpeedTriggerDelay': 400,
   'mergeDanmaku': false,

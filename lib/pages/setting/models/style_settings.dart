@@ -160,6 +160,13 @@ List<SettingsModel> get styleSettings => [
     needReboot: true,
   ),
   NormalModel(
+    title: '界面模糊',
+    subtitle: '顶栏、底栏和播放器控条的毛玻璃效果',
+    leading: const Icon(Icons.blur_on),
+    getSubtitle: () => '当前：${_uiBlurLabel(Pref.uiBlur)}',
+    onTap: _showUiBlurDialog,
+  ),
+  NormalModel(
     title: '首页顶部分类栏高度',
     getSubtitle: () => '当前：${Pref.homeTabBarHeight.toStringAsFixed(0)}dp',
     leading: const Icon(Icons.height),
@@ -863,6 +870,30 @@ Future<void> _showTransitionDialog(
   if (res != null) {
     Get.rootController.defaultTransition = res;
     await GStorage.setting.put(SettingBoxKey.pageTransition, res.index);
+    setState();
+  }
+}
+
+String _uiBlurLabel(int value) => switch (value) {
+  0 => '关闭',
+  2 => '重（σ24）',
+  _ => '轻（σ12）',
+};
+
+Future<void> _showUiBlurDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: '界面模糊',
+      value: Pref.uiBlur,
+      values: const [(0, '关闭'), (1, '轻（σ12）'), (2, '重（σ24）')],
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.uiBlur, res);
     setState();
   }
 }

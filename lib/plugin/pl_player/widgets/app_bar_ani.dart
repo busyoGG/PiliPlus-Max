@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -74,7 +75,7 @@ class AppBarAni extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bar = Padding(
+    Widget bar = Padding(
       padding: EdgeInsets.only(bottom: isTop ? 0 : bottomPadding),
       child: removeSafeArea
           ? child
@@ -84,6 +85,14 @@ class AppBarAni extends StatelessWidget {
               child: child,
             ),
     );
+    if (AppBlur.enabled) {
+      bar = BlurSurface(
+        sigma: AppBlur.playerBarSigma,
+        tint: Colors.black,
+        tintAlpha: 0.18,
+        child: bar,
+      );
+    }
 
     return SlideTransition(
       position: controller.drive(isTop ? _topPos : _bottomPos),

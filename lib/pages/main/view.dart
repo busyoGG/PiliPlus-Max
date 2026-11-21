@@ -10,6 +10,7 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/home/view.dart';
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -396,6 +397,32 @@ class _MainAppState extends PopScopeState<MainApp>
     return bottomNav;
   }
 
+
+  /// 给底部导航套上毛玻璃；关闭模糊时原样返回。
+  Widget? _blurWrapNav(Widget? nav, ThemeData theme) {
+    if (nav == null || !AppBlur.enabled) {
+      return nav;
+    }
+    return BlurSurface(
+      plainChild: nav,
+      child: Theme(
+        data: theme.copyWith(
+          navigationBarTheme: theme.navigationBarTheme.copyWith(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            elevation: 0,
+          ),
+          bottomNavigationBarTheme: theme.bottomNavigationBarTheme.copyWith(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+        ),
+        child: nav,
+      ),
+    );
+  }
+
   Widget _sideBar(ThemeData theme) {
     return _mainController.navigationBars.length > 1
         ? context.isTablet && _mainController.optTabletNav
@@ -510,7 +537,7 @@ class _MainAppState extends PopScopeState<MainApp>
         ),
         child: child,
       ),
-      bottomNavigationBar: bottomNav,
+      bottomNavigationBar: _blurWrapNav(bottomNav, theme),
     );
 
     if (PlatformUtils.isMobile) {

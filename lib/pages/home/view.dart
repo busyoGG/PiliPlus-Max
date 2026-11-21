@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
@@ -98,7 +99,21 @@ class _HomePageState extends CommonPageState<HomePage>
     );
   }
 
+  /// 顶栏：模糊开启时套毛玻璃，关闭时保持原样。
   Widget customAppBar(ThemeData theme) {
+    final Widget bar = _customAppBar(theme);
+    if (!AppBlur.enabled) {
+      return bar;
+    }
+    return BlurSurface(
+      sigma: AppBlur.barSigma,
+      tint: theme.colorScheme.surface,
+      tintAlpha: 0.6,
+      child: bar,
+    );
+  }
+
+  Widget _customAppBar(ThemeData theme) {
     const padding = EdgeInsets.fromLTRB(14, 6, 14, 0);
     final child = Row(
       children: [

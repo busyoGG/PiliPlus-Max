@@ -352,6 +352,9 @@ verticalScrollDecelerationScale = 'verticalScrollDecelerationScale',
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
       liveTimeShift = 'liveTimeShift',
+
+  /// 界面模糊强度，0 关闭 / 1 轻 / 2 重
+  uiBlur = 'uiBlur',
       saveReply = 'saveReply';
 }
 
