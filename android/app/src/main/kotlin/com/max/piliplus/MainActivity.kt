@@ -21,6 +21,11 @@ class MainActivity : AudioServiceActivity() {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+        // 让 Flutter 画到状态栏、导航栏底下，系统栏变为透明浮层；
+        // 仅调整窗口布局，不改动旧版 systemUiVisibility 标志，避免触摸坐标错位。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+        }
     }
 
     override fun onDestroy() {
