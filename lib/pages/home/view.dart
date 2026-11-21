@@ -128,13 +128,15 @@ class _HomePageState extends CommonPageState<HomePage>
             sigma: AppBlur.barSigma,
             tint: theme.colorScheme.surface,
             tintAlpha: 0.6,
-            // 内容整体让出状态栏高度，状态栏那一条只剩毛玻璃。
-            // 顶栏上移（下拉/收起）时超出上边界的绘制会被 ClipRect 裁掉。
-            child: Padding(
-              padding: EdgeInsets.only(top: statusBarHeight),
-              child: ClipRect(
-                child: Column(children: [_customAppBar(theme), tabBar]),
-              ),
+            child: Column(
+              children: [
+                // 状态栏占位矩形：只占高度、只露毛玻璃，不放任何内容。
+                SizedBox(height: statusBarHeight, width: double.infinity),
+                // 顶栏上移（下拉/收起）时超出上边界的绘制被裁掉，不会压到占位矩形上。
+                ClipRect(
+                  child: Column(children: [_customAppBar(theme), tabBar]),
+                ),
+              ],
             ),
           ),
         ),
