@@ -570,6 +570,7 @@ abstract final class PageUtils {
     bool isVertical = false,
     Dimension? dimension,
     bool? autoplay,
+    Rect? originRect,
   }) {
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
@@ -579,6 +580,7 @@ abstract final class PageUtils {
       'epId': ?epId,
       'pgcType': ?pgcType,
       'cover': ?cover,
+      'originRect': ?originRect,
       'title': ?title,
       'progress': ?progress,
       'videoType': videoType,

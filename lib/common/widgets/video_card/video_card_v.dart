@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -34,7 +35,8 @@ class VideoCardV extends StatelessWidget {
     this.aspectRatio = Style.aspectRatio,
   });
 
-  Future<void> onPushDetail() async {
+  Future<void> onPushDetail(BuildContext context) async {
+    final Rect? originRect = videoCardRectOf(context);
     switch (videoItem.goto) {
       case 'bangumi':
         PageUtils.viewPgc(epId: videoItem.param!);
@@ -65,6 +67,7 @@ class VideoCardV extends StatelessWidget {
             title: videoItem.title,
             isVertical: isVertical,
             dimension: dimension,
+            originRect: originRect,
           );
         }
         break;
@@ -96,7 +99,7 @@ class VideoCardV extends StatelessWidget {
         Card(
           clipBehavior: Clip.hardEdge,
           child: InkWell(
-            onTap: onPushDetail,
+            onTap: () => onPushDetail(context),
             onLongPress: onLongPress,
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
             child: Column(

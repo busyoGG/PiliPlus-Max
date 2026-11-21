@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -48,6 +49,7 @@ class VideoCardH extends StatelessWidget {
             onTap:
                 onTap ??
                 () async {
+                  final Rect? originRect = videoCardRectOf(context);
                   if (videoItem.isPugv ?? false) {
                     PageUtils.viewPugv(seasonId: videoItem.seasonId);
                     return;
@@ -84,6 +86,7 @@ class VideoCardH extends StatelessWidget {
                       cover: videoItem.cover,
                       title: videoItem.title,
                       dimension: dimension,
+                      originRect: originRect,
                     );
                   }
                 },
