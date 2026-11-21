@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 视频卡片在屏幕上的位置，作为「卡片 → 详情页」过渡动画的起点。
+/// 视频卡片在屏幕上的位置，作为「卡片 → 详情页」展开动画的起点。
 const String videoOriginRectKey = 'originRect';
 
 /// 从路由参数中取出卡片位置，没有（或不是 [Rect]）时返回 null。
@@ -12,7 +12,7 @@ Rect? videoOriginRectOf(Object? arguments) {
   return value is Rect ? value : null;
 }
 
-/// 触发过渡的卡片在屏幕上的位置，取不到时返回 null（此时退回默认转场）。
+/// 触发动画的卡片在屏幕上的位置，取不到时返回 null（此时不做展开动画）。
 Rect? videoCardRectOf(BuildContext context) {
   try {
     final object = context.findRenderObject();
@@ -26,19 +26,14 @@ Rect? videoCardRectOf(BuildContext context) {
   }
 }
 
-/// 过渡过程中卡片缩略图占据的位置：0 时贴在卡片上，1 时铺满屏幕。
+/// 过渡过程中页面内容占据的位置：0 时贴在卡片上，1 时铺满屏幕。
 Rect videoTransitionRect(Rect origin, Size screen, double t) {
   return Rect.lerp(origin, Offset.zero & screen, t.clamp(0.0, 1.0))!;
 }
 
-/// 缩略图的可见度：先接管画面，铺满屏幕后再淡出露出页面。
-double videoTransitionCoverOpacity(double t) {
-  return 1.0 - videoTransitionInterval(0.55, 1.0, t);
-}
-
-/// 页面内容的可见度：跟随缩略图淡入，避免开场就露出白屏。
+/// 页面内容的可见度：开头很快淡入，避免从空白里长出来。
 double videoTransitionPageOpacity(double t) {
-  return videoTransitionInterval(0.35, 1.0, t);
+  return videoTransitionInterval(0.0, 0.15, t);
 }
 
 /// 把 [t] 映射到 [begin, end] 区间内的 0~1 进度。
@@ -52,102 +47,84 @@ double videoTransitionInterval(double begin, double end, double t) {
   return (t - begin) / (end - begin);
 }
 
-/// 视频详情页从卡片位置展开、退出时缩回卡片的转场；
-/// 没有带 [videoOriginRectKey] 参数的路由仍交给 [fallback]（预测性返回）。
-class VideoContainerTransformBuilder extends PageTransitionsBuilder {
-  const VideoContainerTransformBuilder({
-    this.fallback = const PredictiveBackPageTransitionsBuilder(),
-  });
-
-  final PageTransitionsBuilder fallback;
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    final arguments = route.settings.arguments;
-    final origin = videoOriginRectOf(arguments);
-    final cover = switch (arguments) {
-      final Map<dynamic, dynamic> map => map['cover'],
-      _ => null,
-    };
-    if (origin == null || cover is! String || cover.isEmpty) {
-      return fallback.buildTransitions<T>(
-        route,
-        context,
-        animation,
-        secondaryAnimation,
-        child,
-      );
-    }
-    return _VideoContainerTransform(
-      animation: animation,
-      origin: origin,
-      cover: cover,
-      child: child,
-    );
+/// 页面展开的进度：只在「打开」时生效。
+///
+/// 返回时 [Animation.status] 变为 [AnimationStatus.reverse]，此时直接返回 1，
+/// 由系统预测性返回 / 默认转场接管退出动画，两者不会互相干扰。
+double videoTransitionEntryProgress(Animation<double> animation) {
+  if (animation.status == AnimationStatus.reverse) {
+    return 1;
   }
+  return Curves.easeOutCubic.transform(animation.value.clamp(0.0, 1.0));
 }
 
-class _VideoContainerTransform extends StatelessWidget {
-  const _VideoContainerTransform({
-    required this.animation,
-    required this.origin,
-    required this.cover,
-    required this.child,
-  });
+/// 把整页内容按比例压进 [rect]，[t] 到 1 时恢复原尺寸。
+Matrix4 videoTransitionMatrix(Rect rect, Size screen, double t) {
+  if (t >= 1) {
+    return Matrix4.identity();
+  }
+  return Matrix4.identity()
+    ..translateByDouble(rect.left, rect.top, 0.0, 1.0)
+    ..scaleByDouble(
+      rect.width / screen.width,
+      rect.height / screen.height,
+      1.0,
+      1.0,
+    );
+}
 
-  final Animation<double> animation;
-  final Rect origin;
-  final String cover;
+/// 让详情页内容从视频卡片的位置展开：整页内容按比例压进卡片矩形，再放大到全屏。
+///
+/// 卡片位置由发起跳转的一方通过路由参数 [videoOriginRectKey] 传入；
+/// 没有该参数时保持原样，完全不影响预测性返回。
+class VideoCardEntryTransform extends StatefulWidget {
+  const VideoCardEntryTransform({super.key, required this.child, this.origin});
+
   final Widget child;
+
+  /// 显式指定卡片位置，默认从当前路由参数里取（测试用）。
+  final Rect? origin;
+
+  @override
+  State<VideoCardEntryTransform> createState() => _VideoCardEntryTransformState();
+}
+
+class _VideoCardEntryTransformState extends State<VideoCardEntryTransform> {
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final route = _route;
+    final animation = route?.animation;
+    final origin =
+        widget.origin ?? videoOriginRectOf(route?.settings.arguments);
+    if (origin == null || animation == null) {
+      return widget.child;
+    }
     return AnimatedBuilder(
       animation: animation,
-      child: child,
-      builder: (context, page) {
-        final t = Curves.easeOutCubic.transform(animation.value);
-        final coverOpacity = videoTransitionCoverOpacity(t);
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: Opacity(
-                opacity: videoTransitionPageOpacity(t),
-                child: Transform.scale(scale: 0.96 + 0.04 * t, child: page),
-              ),
+      child: widget.child,
+      builder: (context, child) {
+        final t = videoTransitionEntryProgress(animation);
+        final size = MediaQuery.sizeOf(context);
+        final rect = videoTransitionRect(origin, size, t);
+        return ClipRRect(
+          clipBehavior: t >= 1 ? Clip.none : Clip.antiAlias,
+          borderRadius: BorderRadius.all(Radius.circular(12 * (1 - t))),
+          child: Opacity(
+            opacity: videoTransitionPageOpacity(t),
+            child: Transform(
+              alignment: Alignment.topLeft,
+              transform: videoTransitionMatrix(rect, size, t),
+              child: child,
             ),
-            if (coverOpacity > 0.01)
-              Positioned.fromRect(
-                rect: videoTransitionRect(
-                  origin,
-                  MediaQuery.sizeOf(context),
-                  t,
-                ),
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: coverOpacity,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(12 * (1 - t)),
-                      ),
-                      child: Image.network(
-                        cover,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        errorBuilder: (_, _, _) =>
-                            const ColoredBox(color: Colors.black),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+          ),
         );
       },
     );
