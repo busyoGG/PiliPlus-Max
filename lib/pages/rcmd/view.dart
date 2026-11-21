@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
@@ -118,7 +119,10 @@ class _RcmdPageState extends State<RcmdPage>
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const .only(top: Style.cardSpace, bottom: 100),
+                padding: .only(
+                  top: Style.cardSpace + HomeHeaderOverlay.insetOf(context),
+                  bottom: 100,
+                ),
                 sliver: Obx(
                   () => _buildBody(colorScheme, controller.loadingState.value),
                 ),

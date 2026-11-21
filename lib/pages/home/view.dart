@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
 import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
@@ -81,37 +82,59 @@ class _HomePageState extends CommonPageState<HomePage>
     } else {
       tabBar = const SizedBox(height: 6);
     }
-    return Column(
+    final bool showHeader =
+        !_mainController.useSideBar && MediaQuery.sizeOf(context).isPortrait;
+    final Widget feed = onBuild(
+      tabBarView(
+        controller: _homeController.tabController,
+        children: _homeController.tabs.map((e) => e.page).toList(),
+      ),
+    );
+    if (!showHeader || !AppBlur.enabled) {
+      return Column(
+        children: [
+          if (showHeader) customAppBar(theme),
+          tabBar,
+          Expanded(child: feed),
+        ],
+      );
+    }
+    final double tabBarHeight = _homeController.tabs.length > 1
+        ? Pref.homeTabBarHeight + 4
+        : 6;
+    // 顶栏浮在内容之上：列表一直滚到顶栏背后，被毛玻璃糊住。
+    return Stack(
       children: [
-        if (!_mainController.useSideBar &&
-            MediaQuery.sizeOf(context).isPortrait)
-          customAppBar(theme),
-        tabBar,
-        Expanded(
-          child: onBuild(
-            tabBarView(
-              controller: _homeController.tabController,
-              children: _homeController.tabs.map((e) => e.page).toList(),
-            ),
+        Positioned.fill(
+          child: Obx(() {
+            final double hidden = _mainController.barOffset?.value ?? 0.0;
+            final double barHeight = (Style.topBarHeight - hidden).clamp(
+              0.0,
+              Style.topBarHeight,
+            );
+            return HomeHeaderOverlay(
+              inset: barHeight + tabBarHeight,
+              child: feed,
+            );
+          }),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: BlurSurface(
+            sigma: AppBlur.barSigma,
+            tint: theme.colorScheme.surface,
+            tintAlpha: 0.6,
+            child: Column(children: [_customAppBar(theme), tabBar]),
           ),
         ),
       ],
     );
   }
 
-  /// 顶栏：模糊开启时套毛玻璃，关闭时保持原样。
-  Widget customAppBar(ThemeData theme) {
-    final Widget bar = _customAppBar(theme);
-    if (!AppBlur.enabled) {
-      return bar;
-    }
-    return BlurSurface(
-      sigma: AppBlur.barSigma,
-      tint: theme.colorScheme.surface,
-      tintAlpha: 0.6,
-      child: bar,
-    );
-  }
+  /// 顶栏本体；毛玻璃由外层（覆盖式布局）统一套上。
+  Widget customAppBar(ThemeData theme) => _customAppBar(theme);
 
   Widget _customAppBar(ThemeData theme) {
     const padding = EdgeInsets.fromLTRB(14, 6, 14, 0);

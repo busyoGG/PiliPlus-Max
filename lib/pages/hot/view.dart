@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -67,7 +68,11 @@ class _HotPageState extends State<HotPage>
           if (Pref.showHotRcmd)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const .only(left: 12, top: 12, right: 12),
+                padding: .only(
+                  left: 12,
+                  top: 12 + HomeHeaderOverlay.insetOf(context),
+                  right: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: .spaceEvenly,
                   children: [
@@ -112,7 +117,10 @@ class _HotPageState extends State<HotPage>
               ),
             ),
           SliverPadding(
-            padding: const EdgeInsets.only(top: 7, bottom: 100),
+            padding: EdgeInsets.only(
+              top: 7 + (Pref.showHotRcmd ? 0 : HomeHeaderOverlay.insetOf(context)),
+              bottom: 100,
+            ),
             sliver: Obx(
               () => _buildBody(controller.loadingState.value),
             ),

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
@@ -60,8 +61,8 @@ class _LivePageState extends State<LivePage>
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.only(
-                top: Style.cardSpace,
+              padding: EdgeInsets.only(
+                top: Style.cardSpace + HomeHeaderOverlay.insetOf(context),
                 bottom: 100,
               ),
               sliver: SliverMainAxisGroup(

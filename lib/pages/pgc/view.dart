@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/more_btn.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
@@ -253,8 +254,8 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
 
   Widget _buildRcmdTitle(ThemeData theme) => SliverToBoxAdapter(
     child: Padding(
-      padding: const EdgeInsets.only(
-        top: 10,
+      padding: EdgeInsets.only(
+        top: 10 + HomeHeaderOverlay.insetOf(context),
         bottom: 10,
         left: 16,
         right: 10,
