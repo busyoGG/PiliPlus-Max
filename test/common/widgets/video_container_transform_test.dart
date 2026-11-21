@@ -6,32 +6,9 @@ import 'package:get/get.dart';
 const _screen = Size(400, 800);
 const _origin = Rect.fromLTWH(20, 40, 200, 100);
 
-ThemeData _theme(PageTransitionsBuilder builder) {
-  return ThemeData(
-    useMaterial3: true,
-    pageTransitionsTheme: PageTransitionsTheme(
-      builders: {TargetPlatform.android: builder},
-    ),
-  );
-}
-
-Widget _app(PageTransitionsBuilder builder) {
-  return GetMaterialApp(
-    theme: _theme(builder),
-    defaultTransition: Transition.native,
-    initialRoute: '/',
-    getPages: [
-      GetPage(name: '/', page: () => const Scaffold(body: Text('home'))),
-      GetPage(
-        name: '/detail',
-        page: () => const Scaffold(body: Text('detail')),
-      ),
-    ],
-  );
-}
-
-class _RecordingBuilder extends PageTransitionsBuilder {
-  int calls = 0;
+/// 只做几何隔离用：不添加任何自身转场。
+class _PlainTransitionsBuilder extends PageTransitionsBuilder {
+  const _PlainTransitionsBuilder();
 
   @override
   Widget buildTransitions<T>(
@@ -41,19 +18,37 @@ class _RecordingBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    calls++;
     return child;
   }
+}
+
+Widget _app({Map<String, Object?>? arguments}) {
+  return GetMaterialApp(
+    theme: ThemeData(
+      useMaterial3: true,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {TargetPlatform.android: _PlainTransitionsBuilder()},
+      ),
+    ),
+    defaultTransition: Transition.native,
+    initialRoute: '/',
+    getPages: [
+      GetPage(name: '/', page: () => const Scaffold(body: Text('home'))),
+      GetPage(
+        name: '/detail',
+        page: () => const VideoCardEntryTransform(
+          child: Scaffold(body: Center(child: Text('detail'))),
+        ),
+      ),
+    ],
+  );
 }
 
 void main() {
   group('videoTransitionRect', () {
     test('starts on the card and ends on the full screen', () {
       expect(videoTransitionRect(_origin, _screen, 0), _origin);
-      expect(
-        videoTransitionRect(_origin, _screen, 1),
-        Offset.zero & _screen,
-      );
+      expect(videoTransitionRect(_origin, _screen, 1), Offset.zero & _screen);
     });
 
     test('moves monotonically between the two', () {
@@ -71,19 +66,31 @@ void main() {
     });
   });
 
-  group('videoTransitionOpacity', () {
-    test('cover is visible first and gone at the end', () {
-      expect(videoTransitionCoverOpacity(0), 1);
-      expect(videoTransitionCoverOpacity(0.5), 1);
-      expect(videoTransitionCoverOpacity(0.8), lessThan(0.5));
-      expect(videoTransitionCoverOpacity(1), 0);
+  group('videoTransitionMatrix', () {
+    test('identity at the end', () {
+      expect(videoTransitionMatrix(Offset.zero & _screen, _screen, 1),
+          Matrix4.identity());
     });
 
-    test('page fades in over the second half', () {
+    test('maps the whole page into the card rect at the start', () {
+      final matrix = videoTransitionMatrix(_origin, _screen, 0);
+      expect(
+        MatrixUtils.transformPoint(matrix, Offset.zero),
+        _origin.topLeft,
+      );
+      expect(
+        MatrixUtils.transformPoint(matrix, _screen.bottomRight(Offset.zero)),
+        _origin.bottomRight,
+      );
+    });
+  });
+
+  group('videoTransitionPageOpacity', () {
+    test('fades in quickly and stays visible', () {
       expect(videoTransitionPageOpacity(0), 0);
-      expect(videoTransitionPageOpacity(0.2), 0);
+      expect(videoTransitionPageOpacity(0.075), 0.5);
+      expect(videoTransitionPageOpacity(0.15), 1);
       expect(videoTransitionPageOpacity(1), 1);
-      expect(videoTransitionPageOpacity(0.7), lessThan(1));
     });
   });
 
@@ -96,62 +103,39 @@ void main() {
     });
   });
 
-  group('VideoContainerTransformBuilder', () {
-    testWidgets('grows the cover from the card into a full page', (
+  group('VideoCardEntryTransform', () {
+    testWidgets('grows the page content out of the card rect', (tester) async {
+      tester.view.physicalSize = _screen;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(arguments: {'originRect': _origin}));
+      Get.toNamed('/detail', arguments: {'originRect': _origin});
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+
+      final early = tester.getRect(find.text('detail'));
+      await tester.pumpAndSettle();
+      final settled = tester.getRect(find.text('detail'));
+
+      expect(early.width, lessThan(settled.width));
+      expect(early.center.dx, isNot(settled.center.dx));
+      expect(settled.center, const Offset(200, 400));
+    });
+
+    testWidgets('keeps the page untouched without an origin rect', (
       tester,
     ) async {
       tester.view.physicalSize = _screen;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app(const VideoContainerTransformBuilder()));
-      tester
-          .state<NavigatorState>(find.byType(Navigator))
-          .push(
-            GetPageRoute<void>(
-              page: () => const Scaffold(body: Text('detail')),
-              routeName: '/detail',
-              settings: const RouteSettings(
-                name: '/detail',
-                arguments: {'originRect': _origin, 'cover': 'http://cover'},
-              ),
-            ),
-          );
+      await tester.pumpWidget(_app());
+      Get.toNamed('/detail');
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
-
-      final early = tester.getRect(find.byType(Image));
-      expect(early.left, greaterThanOrEqualTo(0));
-      expect(early.width, greaterThan(_origin.width));
-      expect(early.width, lessThan(_screen.width));
-
-      await tester.pump(const Duration(milliseconds: 90));
-      final mid = tester.getRect(find.byType(Image));
-      expect(mid.width, greaterThan(early.width));
-
+      await tester.pump(const Duration(milliseconds: 80));
+      final early = tester.getRect(find.text('detail'));
       await tester.pumpAndSettle();
-      expect(find.text('detail'), findsOneWidget);
-      expect(find.byType(Image), findsNothing);
-    });
-
-    testWidgets('falls back for routes without an origin rect', (tester) async {
-      final fallback = _RecordingBuilder();
-      await tester.pumpWidget(
-        _app(VideoContainerTransformBuilder(fallback: fallback)),
-      );
-      tester
-          .state<NavigatorState>(find.byType(Navigator))
-          .push(
-            GetPageRoute<void>(
-              page: () => const Scaffold(body: Text('detail')),
-              routeName: '/detail',
-              settings: const RouteSettings(name: '/detail'),
-            ),
-          );
-      await tester.pump();
-      await tester.pumpAndSettle();
-      expect(fallback.calls, greaterThan(0));
-      expect(find.text('detail'), findsOneWidget);
-      expect(find.byType(Image), findsNothing);
+      final settled = tester.getRect(find.text('detail'));
+      expect(early, settled);
     });
   });
 }
