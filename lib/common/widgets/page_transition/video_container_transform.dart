@@ -10,6 +10,9 @@ const double videoCardPreviewMinScale = 0.92;
 /// 页面形变矩阵所在 Transform 的 key，便于测试定位。
 const Key videoCardTransformKey = Key('videoCardTransform');
 
+/// 过渡期间承载卡片内容（封面）的那一层的 key。
+const Key videoCardCoverKey = Key('videoCardCover');
+
 /// 松手确认返回后，页面收回到卡片的时长。
 const Duration videoCardCollapseDuration = Duration(milliseconds: 260);
 
@@ -45,8 +48,16 @@ double videoTransitionInterval(double begin, double end, double t) {
 }
 
 /// 页面内容的淡入进度：起步很快，随即保持不透明。
+/// 详情页在过渡后期的淡入进度：封面先长满，页面最后才显出来。
 double videoTransitionPageOpacity(double t) =>
-    videoTransitionInterval(0.0, 0.15, t);
+    videoTransitionInterval(0.55, 1.0, t);
+
+/// 从路由参数里取出卡片封面地址。
+String? videoCoverOf(Object? arguments) {
+  if (arguments is! Map) return null;
+  final Object? cover = arguments['cover'];
+  return cover is String && cover.isNotEmpty ? cover : null;
+}
 
 /// 页面左上角对齐 [rect] 左上角的等比缩放矩阵。
 ///
@@ -121,6 +132,12 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
   ModalRoute<dynamic>? _route;
   Rect? _origin;
 
+  /// 卡片封面地址；过渡期间显示的是卡片内容，而不是详情页本身。
+  String? _cover;
+
+  Color get _surfaceColor =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
+
   /// 打开／普通返回由路由动画驱动；松手确认返回时用这个自己收回到卡片。
   late final AnimationController _closing;
 
@@ -148,6 +165,7 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     if (identical(route, _route)) return;
     _route = route;
     _origin = widget.origin ?? videoOriginRectOf(route?.settings.arguments);
+    _cover = videoCoverOf(route?.settings.arguments);
   }
 
   @override
@@ -217,6 +235,19 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     navigator.didStopUserGesture();
   }
 
+  /// 过渡层：卡片封面（卡片内容），拿不到封面时退回一层底色。
+  Widget _buildCover(Size screen) {
+    final String? cover = _cover;
+    if (cover == null) return ColoredBox(color: _surfaceColor);
+    return Image.network(
+      cover,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) =>
+          ColoredBox(color: _surfaceColor),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Rect? origin = _origin;
@@ -249,19 +280,26 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
             child: child,
           );
         }
-        // 松手确认返回后，从全屏收到卡片；打开时从卡片长到全屏。
+        // 打开时卡片内容（封面）从卡片位置长满全屏，关闭时缩回卡片；
+        // 详情页自身不再缩放，只在最后淡入/最先淡出。
         final double t = _committing
             ? _closing.value
             : videoCardEntryProgress(animation.value);
         if (t >= 1) return child!;
         final Rect rect = videoTransitionRect(origin, screen, t);
-        return Transform(
-          key: videoCardTransformKey,
-          alignment: Alignment.topLeft,
-          // 过渡期间整页在缩放，最近的邻近采样比双线性便宜很多，能明显拉高帧率。
-          filterQuality: FilterQuality.none,
-          transform: videoTransitionMatrix(rect, screen, t),
-          child: child,
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(opacity: videoTransitionPageOpacity(t), child: child),
+            Positioned.fromRect(
+              rect: rect,
+              child: ClipRRect(
+                key: videoCardCoverKey,
+                borderRadius: BorderRadius.circular(12 * (1 - t)),
+                child: _buildCover(screen),
+              ),
+            ),
+          ],
         );
       },
     );

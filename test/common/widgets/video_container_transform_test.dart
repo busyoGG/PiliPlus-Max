@@ -93,6 +93,13 @@ Size _detailSize(WidgetTester tester) {
   return tester.getSize(find.byType(Scaffold).last);
 }
 
+/// 过渡层（卡片封面）当前占据的矩形。
+Rect? _coverRect(WidgetTester tester) {
+  final Finder finder = find.byKey(videoCardCoverKey);
+  if (finder.evaluate().isEmpty) return null;
+  return tester.getRect(finder);
+}
+
 /// 取页面外层形变矩阵的横向缩放，1 表示已经完全展开。
 double _pageScale(WidgetTester tester) {
   final Finder finder = find.byKey(videoCardTransformKey);
@@ -146,12 +153,14 @@ void main() {
   });
 
   group('videoTransitionPageOpacity', () {
-    test('fades in at the very beginning only', () {
+    test('fades the page in only at the end', () {
       expect(videoTransitionPageOpacity(0), 0);
-      expect(videoTransitionPageOpacity(0.15), 1);
-      expect(videoTransitionPageOpacity(0.8), 1);
+      expect(videoTransitionPageOpacity(0.55), 0);
+      expect(videoTransitionPageOpacity(1), 1);
+      expect(videoTransitionPageOpacity(0.8), inExclusiveRange(0, 1));
     });
   });
+
 
   group('videoOriginRectOf', () {
     test('reads rect from arguments', () {
@@ -193,18 +202,24 @@ void main() {
   });
 
   group('VideoCardEntryTransform', () {
-    testWidgets('grows the page content out of the card rect', (tester) async {
+    testWidgets('grows the card content out of the card rect', (tester) async {
       await _openDetail(
         tester,
         arguments: <String, Object?>{'originRect': _origin},
         wrapPage: true,
       );
-      final double early = _pageScale(tester);
+      final Rect? early = _coverRect(tester);
+      expect(early, isNotNull);
+      // 起点就是卡片本身的位置和大小。
+      expect(early!.left, closeTo(_origin.left, 10));
+      expect(early.top, closeTo(_origin.top, 10));
+      expect(early.width, lessThan(_screen.width));
+      // 详情页本身不再被缩放。
+      expect(_pageScale(tester), 1.0);
       await tester.pumpAndSettle();
-      final double settled = _pageScale(tester);
-      expect(early, lessThan(settled));
-      expect(settled, closeTo(1.0, 1e-9));
-      expect(early, lessThan(0.6));
+      // 长满全屏后过渡层消失。
+      expect(_coverRect(tester), isNull);
+      expect(_pageScale(tester), 1.0);
     });
 
     testWidgets('keeps the page untouched without an origin rect',
@@ -267,7 +282,7 @@ void main() {
       // 第一帧让 ticker 起步，再推进时间。
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 120));
-      expect(_pageScale(tester), lessThan(1.0));
+      expect(_coverRect(tester)?.width ?? 0, lessThan(_screen.width));
       expect(find.text('detail'), findsOneWidget);
       await tester.pumpAndSettle();
       expect(find.text('detail'), findsNothing);

@@ -533,7 +533,12 @@ class _MainAppState extends PopScopeState<MainApp>
       // 否则 Scaffold 会用 MediaQuery.padding.top 把 body 整体下移，顶部露出一条底色。
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(toolbarHeight: 0),
+      // 这里不需要真正的 AppBar：它的高度会被 MediaQuery.padding.top 撑到状态栏那么高，
+      // 既会画一层 Material 背景盖住毛玻璃，又会吞掉状态栏区域的点击。
+      appBar: const PreferredSize(
+        preferredSize: Size.zero,
+        child: SizedBox.shrink(),
+      ),
       body: Padding(
         padding: EdgeInsets.only(
           left: _mainController.useBottomNav ? _padding.left : 0.0,

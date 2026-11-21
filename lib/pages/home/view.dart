@@ -128,9 +128,25 @@ class _HomePageState extends CommonPageState<HomePage>
             sigma: AppBlur.barSigma,
             tint: theme.colorScheme.surface,
             tintAlpha: 0.6,
-            child: Padding(
-              padding: EdgeInsets.only(top: statusBarHeight),
-              child: Column(children: [_customAppBar(theme), tabBar]),
+            child: Column(
+              children: [
+                // 状态栏占位条：只有毛玻璃，不放任何内容。
+                SizedBox(height: statusBarHeight),
+                // 顶栏上移（下拉/收起动画）时裁掉超出状态栏的部分，避免压到状态栏上。
+                ClipRect(
+                  child: SizedBox(
+                    height: Style.topBarHeight + tabBarHeight,
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      maxHeight: double.infinity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [_customAppBar(theme), tabBar],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

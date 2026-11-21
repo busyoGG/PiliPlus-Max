@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -236,11 +237,23 @@ bool onNotificationType2(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        primary: false,
+        // primary: true 让 AppBar 自己让出状态栏高度，页头不再压到状态栏里。
+        primary: true,
         leading: leading,
         leadingWidth: 50,
         toolbarHeight: 50,
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        // 顶栏毛玻璃：铺满整个 AppBar（含状态栏占位那一条）。
+        flexibleSpace: BlurSurface(
+          sigma: AppBlur.barSigma,
+          tint: theme.colorScheme.surface,
+          tintAlpha: 0.6,
+          child: const SizedBox.expand(),
+        ),
         title: SizedBox(
           height: 50,
           child: TabBar(
