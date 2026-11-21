@@ -529,7 +529,6 @@ class _MainAppState extends PopScopeState<MainApp>
 
     child = Scaffold(
       extendBody: true,
-      extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(toolbarHeight: 0),
       body: Padding(
