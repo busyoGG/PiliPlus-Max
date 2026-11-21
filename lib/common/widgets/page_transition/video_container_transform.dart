@@ -7,8 +7,8 @@ const String videoOriginRectKey = 'originRect';
 /// 页面形变矩阵所在 Transform 的 key，便于测试定位。
 const Key videoCardTransformKey = Key('videoCardTransform');
 
-/// 手势进行中时形变的最小进度：拖到底也保留一点页面，不会缩成一个点。
-const double videoCardMinGestureProgress = 0.06;
+/// 松手确认返回后，页面收回到卡片的时长。
+const Duration videoCardCollapseDuration = Duration(milliseconds: 260);
 
 /// 从路由参数里取出卡片矩形，没有或类型不符时返回 null。
 Rect? videoOriginRectOf(Object? arguments) {
@@ -56,17 +56,9 @@ Matrix4 videoTransitionMatrix(Rect rect, Size screen, double t) {
     ..scaleByDouble(scale, scale, 1.0, 1.0);
 }
 
-/// 形变进度：手势中直接跟手指，其余情况按缓动曲线。
-///
-/// 手势中之所以不套曲线，是因为系统给的进度本身已经是触摸距离的映射，
-/// 再叠一层缓动就会出现「轻轻一拖就缩到底」。
-double videoCardEntryProgress({
-  required double routeValue,
-  required bool gestureActive,
-}) {
-  final double value = routeValue.clamp(0.0, 1.0);
-  if (gestureActive) return value.clamp(videoCardMinGestureProgress, 1.0);
-  return Curves.easeOutCubic.transform(value);
+/// 打开／普通返回时的形变进度：路由动画值套一层缓动曲线。
+double videoCardEntryProgress(double routeValue) {
+  return Curves.easeOutCubic.transform(routeValue.clamp(0.0, 1.0));
 }
 
 /// 带卡片矩形的路由专用转场。
@@ -117,16 +109,32 @@ class VideoCardEntryTransform extends StatefulWidget {
 
 /// 对外可见，便于测试直接驱动手势回调。
 class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
-    with WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   ModalRoute<dynamic>? _route;
   Rect? _origin;
 
-  /// 手势进行中：进度直接跟手指，不再套缓动曲线。
+  /// 打开／普通返回由路由动画驱动；松手确认返回时用这个自己收回到卡片。
+  late final AnimationController _closing;
+  late final Animation<double> _closingProgress;
+
+  /// 正在播放「收回到卡片」，此时忽略路由动画。
+  bool _committing = false;
+
+  /// 手势进行中：按住不动，只在松手时才收回到卡片。
   bool _gestureActive = false;
 
   @override
   void initState() {
     super.initState();
+    _closing = AnimationController(
+      duration: videoCardCollapseDuration,
+      value: 1,
+      vsync: this,
+    );
+    _closingProgress = CurvedAnimation(
+      parent: _closing,
+      curve: Curves.easeOut,
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -142,6 +150,7 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _closing.dispose();
     super.dispose();
   }
 
@@ -157,35 +166,33 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     return route.popDisposition != RoutePopDisposition.doNotPop;
   }
 
+  /// 接管返回手势：只为拦住系统的整窗预览，按住期间页面保持原样。
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
     if (backEvent.isButtonEvent || !_canHandleBackGesture) return false;
     _gestureActive = true;
-    // 交给 flutter 自己的路由实现：它会把路由动画同步到手指位置，
-    // 从而让下层页面参与绘制（否则缩小过程中背景是黑的），
-    // 松手提交时也由它负责 pop 并播放收起动画。
-    _route!.handleStartBackGesture(progress: 1 - backEvent.progress);
     return true;
   }
 
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
-    if (!_gestureActive) return;
-    _route?.handleUpdateBackGestureProgress(progress: 1 - backEvent.progress);
+    // 按住拖动期间不做任何形变：详情页收回到卡片只在松手时发生。
   }
 
   @override
   void handleCancelBackGesture() {
-    if (!_gestureActive) return;
     _gestureActive = false;
-    _route?.handleCancelBackGesture();
   }
 
   @override
   void handleCommitBackGesture() {
     if (!_gestureActive) return;
     _gestureActive = false;
-    _route?.handleCommitBackGesture();
+    _committing = true;
+    // 先收回到卡片再真正 pop，避免收起动画被路由转场盖掉。
+    _closing.animateTo(0).whenComplete(() {
+      if (mounted) _route?.navigator?.pop();
+    });
   }
 
   @override
@@ -194,13 +201,12 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     final Animation<double>? animation = _route?.animation;
     if (origin == null || animation == null) return widget.child;
     return AnimatedBuilder(
-      animation: animation,
+      animation: Listenable.merge(<Listenable>[animation, _closing]),
       child: widget.child,
       builder: (BuildContext context, Widget? child) {
-        final double t = videoCardEntryProgress(
-          routeValue: animation.value,
-          gestureActive: _gestureActive,
-        );
+        final double t = _committing
+            ? _closingProgress.value
+            : videoCardEntryProgress(animation.value);
         if (t >= 1) return child!;
         final Size screen = MediaQuery.sizeOf(context);
         final Rect rect = videoTransitionRect(origin, screen, t);

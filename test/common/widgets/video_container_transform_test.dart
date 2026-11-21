@@ -208,28 +208,7 @@ void main() {
       expect(_detailSize(tester).width, before.width);
     });
 
-    testWidgets('follows the back gesture and reports it as consumed',
-        (tester) async {
-      await _openDetail(
-        tester,
-        arguments: <String, Object?>{'originRect': _origin},
-        wrapPage: true,
-      );
-      await tester.pumpAndSettle();
-      final VideoCardEntryTransformState state = _state(tester);
-      expect(state.handleStartBackGesture(_backEvent(0.5)), isTrue);
-      await tester.pump();
-      // 卡片宽度是全屏的一半，t=0.5 时宽度插值到 0.75。
-      expect(_pageScale(tester), closeTo(0.75, 1e-6));
-      state.handleUpdateBackGestureProgress(_backEvent(0.2));
-      await tester.pump();
-      expect(_pageScale(tester), closeTo(0.9, 1e-6));
-      state.handleCancelBackGesture();
-      await tester.pumpAndSettle();
-      expect(_pageScale(tester), closeTo(1.0, 1e-9));
-    });
-
-    testWidgets('drives the route animation so the page below stays visible',
+    testWidgets('holds the page still while the gesture is in progress',
         (tester) async {
       await _openDetail(
         tester,
@@ -243,34 +222,28 @@ void main() {
       )!;
       expect(state.handleStartBackGesture(_backEvent(0.4)), isTrue);
       await tester.pump();
-      // 路由动画跟着手指后退，下层页面才会被绘制（黑屏问题的根因）。
-      expect(route.animation!.value, closeTo(0.6, 1e-6));
-      // 拖到底也保留一点页面，不会缩成一个点。
-      state.handleUpdateBackGestureProgress(_backEvent(1.0));
+      state.handleUpdateBackGestureProgress(_backEvent(0.9));
       await tester.pump();
-      expect(route.animation!.value, 0);
-      expect(_pageScale(tester), greaterThan(200 / 400));
+      // 按住期间不形变、不动路由动画。
+      expect(_pageScale(tester), closeTo(1.0, 1e-9));
+      expect(route.animation!.value, 1);
       state.handleCancelBackGesture();
       await tester.pumpAndSettle();
-      expect(route.animation!.value, 1);
+      expect(_pageScale(tester), closeTo(1.0, 1e-9));
+      expect(find.text('detail'), findsOneWidget);
     });
 
-    testWidgets('collapses back to the card before popping', (tester) async {
+    testWidgets('ignores the commit event when no gesture started',
+        (tester) async {
       await _openDetail(
         tester,
         arguments: <String, Object?>{'originRect': _origin},
         wrapPage: true,
       );
       await tester.pumpAndSettle();
-      final VideoCardEntryTransformState state = _state(tester);
-      expect(state.handleStartBackGesture(_backEvent(0.3)), isTrue);
-      await tester.pump();
-      state.handleCommitBackGesture();
-      await tester.pump(const Duration(milliseconds: 20));
-      expect(find.text('detail'), findsOneWidget);
+      _state(tester).handleCommitBackGesture();
       await tester.pumpAndSettle();
-      expect(find.text('detail'), findsNothing);
-      expect(find.text('home'), findsOneWidget);
+      expect(find.text('detail'), findsOneWidget);
     });
 
     testWidgets('ignores gestures when the route is not current',
