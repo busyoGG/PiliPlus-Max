@@ -229,6 +229,32 @@ void main() {
       expect(_pageScale(tester), closeTo(1.0, 1e-9));
     });
 
+    testWidgets('drives the route animation so the page below stays visible',
+        (tester) async {
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        wrapPage: true,
+      );
+      await tester.pumpAndSettle();
+      final VideoCardEntryTransformState state = _state(tester);
+      final ModalRoute<dynamic> route = ModalRoute.of(
+        tester.element(find.byType(VideoCardEntryTransform).last),
+      )!;
+      expect(state.handleStartBackGesture(_backEvent(0.4)), isTrue);
+      await tester.pump();
+      // 路由动画跟着手指后退，下层页面才会被绘制（黑屏问题的根因）。
+      expect(route.animation!.value, closeTo(0.6, 1e-6));
+      // 拖到底也保留一点页面，不会缩成一个点。
+      state.handleUpdateBackGestureProgress(_backEvent(1.0));
+      await tester.pump();
+      expect(route.animation!.value, 0);
+      expect(_pageScale(tester), greaterThan(200 / 400));
+      state.handleCancelBackGesture();
+      await tester.pumpAndSettle();
+      expect(route.animation!.value, 1);
+    });
+
     testWidgets('collapses back to the card before popping', (tester) async {
       await _openDetail(
         tester,
