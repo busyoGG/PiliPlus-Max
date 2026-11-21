@@ -7,9 +7,6 @@ const String videoOriginRectKey = 'originRect';
 /// 页面形变矩阵所在 Transform 的 key，便于测试定位。
 const Key videoCardTransformKey = Key('videoCardTransform');
 
-/// 手势预览缩放所在 Transform 的 key，便于测试定位。
-const Key videoCardPreviewKey = Key('videoCardPreview');
-
 /// 松手确认返回后，页面收回到卡片的时长。
 const Duration videoCardCollapseDuration = Duration(milliseconds: 260);
 
@@ -53,10 +50,15 @@ double videoTransitionPageOpacity(double t) =>
 /// 等比缩放保证页面内容不变形；配合 [rect] 裁剪，视觉上就是从卡片里长出来。
 Matrix4 videoTransitionMatrix(Rect rect, Size screen, double t) {
   if (t >= 1) return Matrix4.identity();
-  final double scale = rect.width / screen.width;
+  // 宽高各自贴合卡片，终点就是卡片的实际大小，不需要再裁剪。
   return Matrix4.identity()
     ..translateByDouble(rect.left, rect.top, 0.0, 1.0)
-    ..scaleByDouble(scale, scale, 1.0, 1.0);
+    ..scaleByDouble(
+      rect.width / screen.width,
+      rect.height / screen.height,
+      1.0,
+      1.0,
+    );
 }
 
 /// 打开／普通返回时的形变进度：路由动画值套一层缓动曲线。
@@ -193,8 +195,8 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     _gestureActive = false;
     _committing = true;
     _releaseBackGesture();
-    // 从松手时的进度接着收回到卡片，避免跳变。
-    _closing.value = (_route?.animation?.value ?? 0).clamp(0.0, 1.0);
+    // 按住期间页面是冻结的，所以从全屏开始收。
+    _closing.value = 1;
     // 先收回到卡片再真正 pop，避免收起动画被路由转场盖掉。
     _closing.animateTo(0, curve: Curves.easeOut).whenComplete(() {
       if (mounted) _route?.navigator?.pop();
@@ -221,42 +223,20 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
       animation: Listenable.merge(<Listenable>[animation, _closing]),
       child: RepaintBoundary(child: widget.child),
       builder: (BuildContext context, Widget? child) {
-        // 手势阶段直接用路由动画值：手指拖多少就缩多少，松手后接着缩到卡片。
+        // 按住期间页面冻结不动，只有松手确认返回后才缩到卡片。
         final double t = _committing
             ? _closing.value
-            : (_gestureActive
-                  ? animation.value.clamp(0.0, 1.0)
-                  : videoCardEntryProgress(animation.value));
+            : (_gestureActive ? 1.0 : videoCardEntryProgress(animation.value));
         if (t >= 1) return child!;
         final Size screen = MediaQuery.sizeOf(context);
         final Rect rect = videoTransitionRect(origin, screen, t);
-        final double radius = 12 * (1 - t);
         return Transform(
           key: videoCardTransformKey,
           alignment: Alignment.topLeft,
           transform: videoTransitionMatrix(rect, screen, t),
-          child: ClipRRect(
-            clipBehavior: Clip.hardEdge,
-            clipper: _RectClipper(
-              RRect.fromRectAndRadius(rect, Radius.circular(radius)),
-            ),
-            borderRadius: BorderRadius.all(Radius.circular(radius)),
-            child: child,
-          ),
+          child: child,
         );
       },
     );
   }
-}
-
-class _RectClipper extends CustomClipper<RRect> {
-  const _RectClipper(this.rect);
-
-  final RRect rect;
-
-  @override
-  RRect getClip(Size size) => rect;
-
-  @override
-  bool shouldReclip(_RectClipper oldClipper) => oldClipper.rect != rect;
 }

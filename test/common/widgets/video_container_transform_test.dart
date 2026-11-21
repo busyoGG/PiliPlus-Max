@@ -125,15 +125,23 @@ void main() {
       expect(videoTransitionMatrix(_origin, _screen, 1), Matrix4.identity());
     });
 
-    test('scales the page uniformly out of the card rect', () {
+    test('maps the page exactly onto the card rect', () {
       final Matrix4 matrix = videoTransitionMatrix(_origin, _screen, 0);
-      final Offset topLeft = MatrixUtils.transformPoint(matrix, Offset.zero);
-      final Offset topRight =
-          MatrixUtils.transformPoint(matrix, Offset(_screen.width, 0));
-      expect(topLeft, _origin.topLeft);
-      expect(topRight, _origin.topLeft + const Offset(200, 0));
+      // 页面的两个角正好落到卡片矩形的两个角上。
+      expect(
+        MatrixUtils.transformPoint(matrix, Offset.zero),
+        _origin.topLeft,
+      );
+      expect(
+        MatrixUtils.transformPoint(matrix, Offset(_screen.width, 0)),
+        _origin.topLeft + const Offset(200, 0),
+      );
+      expect(
+        MatrixUtils.transformPoint(matrix, Offset(0, _screen.height)),
+        _origin.topLeft + const Offset(0, 100),
+      );
       expect(matrix.storage[0], closeTo(200 / 400, 1e-9));
-      expect(matrix.storage[5], closeTo(200 / 400, 1e-9));
+      expect(matrix.storage[5], closeTo(100 / 800, 1e-9));
     });
   });
 
@@ -208,7 +216,8 @@ void main() {
       expect(_detailSize(tester).width, before.width);
     });
 
-    testWidgets('follows the back gesture toward the card rect', (tester) async {
+    testWidgets('freezes the page while the back gesture is held',
+        (tester) async {
       await _openDetail(
         tester,
         arguments: <String, Object?>{'originRect': _origin},
@@ -223,11 +232,12 @@ void main() {
       await tester.pump();
       // 路由动画跟着手指后退，下层页面参与绘制。
       expect(route.animation!.value, closeTo(0.6, 1e-6));
-      // 页面按进度等比缩向卡片：宽 200 + 200 * 0.6 = 320，即 320 / 400。
-      expect(_pageScale(tester), closeTo(0.8, 1e-6));
-      state.handleUpdateBackGestureProgress(_backEvent(0.9));
+      // 按住期间详情页冻结，不做任何形变。
+      expect(_pageScale(tester), 1.0);
+      state.handleUpdateBackGestureProgress(_backEvent(0.95));
       await tester.pump();
-      expect(_pageScale(tester), closeTo(0.55, 1e-6));
+      expect(route.animation!.value, closeTo(0.05, 1e-6));
+      expect(_pageScale(tester), 1.0);
       state.handleCancelBackGesture();
       await tester.pumpAndSettle();
       expect(_pageScale(tester), 1.0);
