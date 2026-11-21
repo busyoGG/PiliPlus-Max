@@ -245,6 +245,31 @@ void main() {
       expect(find.text('detail'), findsOneWidget);
     });
 
+    testWidgets('collapses back to the card before popping', (tester) async {
+      await _openDetail(
+        tester,
+        arguments: <String, Object?>{'originRect': _origin},
+        wrapPage: true,
+      );
+      await tester.pumpAndSettle();
+      final VideoCardEntryTransformState state = _state(tester);
+      expect(state.handleStartBackGesture(_backEvent(0.3)), isTrue);
+      await tester.pump();
+      // 手势期间 navigator 认为用户手势在进行中。
+      expect(Get.key.currentState!.userGestureInProgress, isTrue);
+      state.handleCommitBackGesture();
+      // 第一帧让 ticker 起步，再推进时间。
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(_pageScale(tester), lessThan(1.0));
+      expect(find.text('detail'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.text('detail'), findsNothing);
+      expect(find.text('home'), findsOneWidget);
+      // 返回之后不能再卡住：手势计数必须已经归还。
+      expect(Get.key.currentState!.userGestureInProgress, isFalse);
+    });
+
     testWidgets('ignores the commit event when no gesture started',
         (tester) async {
       await _openDetail(

@@ -197,10 +197,22 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     if (!_gestureActive) return;
     _gestureActive = false;
     _committing = true;
+    _releaseBackGesture();
     // 先收回到卡片再真正 pop，避免收起动画被路由转场盖掉。
     _closing.animateTo(0).whenComplete(() {
       if (mounted) _route?.navigator?.pop();
     });
+  }
+
+  /// 归还 [NavigatorState.didStartUserGesture] 借走的手势计数。
+  ///
+  /// 我们自己 pop，路由不会再走动画结束回调，不还回去 navigator 会一直认为
+  /// 手势还在进行中，从而忽略所有点击，表现为返回后主页卡住。
+  void _releaseBackGesture() {
+    final NavigatorState? navigator = _route?.navigator;
+    if (navigator == null) return;
+    if (!navigator.userGestureInProgress) return;
+    navigator.didStopUserGesture();
   }
 
   @override
@@ -210,17 +222,17 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     if (origin == null || animation == null) return widget.child;
     return AnimatedBuilder(
       animation: Listenable.merge(<Listenable>[animation, _closing]),
-      child: widget.child,
+      child: RepaintBoundary(child: widget.child),
       builder: (BuildContext context, Widget? child) {
         if (_gestureActive) {
           // 预测性返回预览：整页轻微缩小、圆角略增，卡片形变留到松手后。
           final double scale = 0.92 + 0.08 * animation.value.clamp(0.0, 1.0);
-          return ClipRRect(
-            clipBehavior: Clip.antiAlias,
-            borderRadius: BorderRadius.circular(12 * (1 - animation.value)),
-            child: Transform.scale(
-              key: videoCardPreviewKey,
-              scale: scale,
+          return Transform.scale(
+            key: videoCardPreviewKey,
+            scale: scale,
+            child: ClipRRect(
+              clipBehavior: Clip.hardEdge,
+              borderRadius: BorderRadius.circular(12 * (1 - animation.value)),
               child: child,
             ),
           );
@@ -232,20 +244,17 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
         final Size screen = MediaQuery.sizeOf(context);
         final Rect rect = videoTransitionRect(origin, screen, t);
         final double radius = 12 * (1 - t);
-        return ClipRRect(
-          clipBehavior: Clip.antiAlias,
-          clipper: _RectClipper(
-            RRect.fromRectAndRadius(rect, Radius.circular(radius)),
-          ),
-          borderRadius: BorderRadius.all(Radius.circular(radius)),
-          child: Opacity(
-            opacity: videoTransitionPageOpacity(t),
-            child: Transform(
-              key: videoCardTransformKey,
-              alignment: Alignment.topLeft,
-              transform: videoTransitionMatrix(rect, screen, t),
-              child: child,
+        return Transform(
+          key: videoCardTransformKey,
+          alignment: Alignment.topLeft,
+          transform: videoTransitionMatrix(rect, screen, t),
+          child: ClipRRect(
+            clipBehavior: Clip.hardEdge,
+            clipper: _RectClipper(
+              RRect.fromRectAndRadius(rect, Radius.circular(radius)),
             ),
+            borderRadius: BorderRadius.all(Radius.circular(radius)),
+            child: child,
           ),
         );
       },
