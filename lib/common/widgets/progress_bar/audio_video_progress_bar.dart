@@ -358,11 +358,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
        _hitTestSelf = onDragStart != null {
     if (onDragStart != null) {
-      _drag = _EagerHorizontalDragGestureRecognizer()
-        ..onStart = _onDragStart
-        ..onUpdate = _onDragUpdate
-        ..onEnd = _onDragEnd
-        ..onCancel = _finishDrag;
+      _drag = _createDragRecognizer();
     }
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
@@ -378,6 +374,26 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
 
   // This is the gesture recognizer used to move the thumb.
   _EagerHorizontalDragGestureRecognizer? _drag;
+
+  _EagerHorizontalDragGestureRecognizer _createDragRecognizer() =>
+      _EagerHorizontalDragGestureRecognizer()
+        ..onStart = _onDragStart
+        ..onUpdate = _onDragUpdate
+        ..onEnd = _onDragEnd
+        ..onCancel = _finishDrag;
+
+  /// onDragStart 由 null 变为非 null 时（例如直播时移就绪后播放器才允许
+  /// 拖动），必须补上拖动识别器并打开命中测试，否则进度条永远拖不动。
+  void _syncDragRecognizer() {
+    final bool needDrag = _onDragStartUserCallback != null;
+    if (needDrag && _drag == null) {
+      _drag = _createDragRecognizer();
+    } else if (!needDrag && _drag != null) {
+      _drag!.dispose();
+      _drag = null;
+    }
+    _hitTestSelf = needDrag;
+  }
 
   // This is a value between 0.0 and 1.0 used to indicate the position on
   // the bar.
@@ -518,6 +534,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       return;
     }
     _onDragStartUserCallback = value;
+    _syncDragRecognizer();
   }
 
   /// A callback when the thumb is being dragged.
@@ -651,7 +668,7 @@ set verticalTouchPadding(double value) {
   @override
   double computeMaxIntrinsicHeight(double width) => _heightWhenNoLabels();
 
-  final bool _hitTestSelf;
+  bool _hitTestSelf;
 
 @override
 bool hitTestSelf(Offset position) => _hitTestSelf;
