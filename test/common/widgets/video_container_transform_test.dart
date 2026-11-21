@@ -202,24 +202,18 @@ void main() {
   });
 
   group('VideoCardEntryTransform', () {
-    testWidgets('grows the card content out of the card rect', (tester) async {
+    testWidgets('grows the detail page out of the card rect', (tester) async {
       await _openDetail(
         tester,
         arguments: <String, Object?>{'originRect': _origin},
         wrapPage: true,
       );
-      final Rect? early = _coverRect(tester);
-      expect(early, isNotNull);
-      // 起点就是卡片本身的位置和大小。
-      expect(early!.left, closeTo(_origin.left, 10));
-      expect(early.top, closeTo(_origin.top, 10));
-      expect(early.width, lessThan(_screen.width));
-      // 详情页本身不再被缩放。
-      expect(_pageScale(tester), 1.0);
-      await tester.pumpAndSettle();
-      // 长满全屏后过渡层消失。
+      // 打开用详情页内容做形变，不用封面。
       expect(_coverRect(tester), isNull);
-      expect(_pageScale(tester), 1.0);
+      final double early = _pageScale(tester);
+      expect(early, lessThan(1.0));
+      await tester.pumpAndSettle();
+      expect(_pageScale(tester), closeTo(1.0, 1e-9));
     });
 
     testWidgets('keeps the page untouched without an origin rect',

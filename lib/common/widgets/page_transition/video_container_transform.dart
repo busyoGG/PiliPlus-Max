@@ -280,26 +280,42 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
             child: child,
           );
         }
-        // 打开时卡片内容（封面）从卡片位置长满全屏，关闭时缩回卡片；
-        // 详情页自身不再缩放，只在最后淡入/最先淡出。
-        final double t = _committing
-            ? _closing.value
-            : videoCardEntryProgress(animation.value);
+        // 打开：详情页内容从卡片位置长满全屏。
+        // 退出：整屏换成卡片内容（封面），收回到卡片位置。
+        final bool closing =
+            _committing || animation.status == AnimationStatus.reverse;
+        if (closing) {
+          final double t = _committing ? _closing.value : animation.value;
+          if (t <= 0) return child!;
+          final Rect rect = videoTransitionRect(origin, screen, t);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Opacity(
+                opacity: videoTransitionInterval(0.0, 0.55, t),
+                child: child,
+              ),
+              Positioned.fromRect(
+                rect: rect,
+                child: ClipRRect(
+                  key: videoCardCoverKey,
+                  borderRadius: BorderRadius.circular(12 * (1 - t)),
+                  child: _buildCover(screen),
+                ),
+              ),
+            ],
+          );
+        }
+        final double t = videoCardEntryProgress(animation.value);
         if (t >= 1) return child!;
         final Rect rect = videoTransitionRect(origin, screen, t);
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Opacity(opacity: videoTransitionPageOpacity(t), child: child),
-            Positioned.fromRect(
-              rect: rect,
-              child: ClipRRect(
-                key: videoCardCoverKey,
-                borderRadius: BorderRadius.circular(12 * (1 - t)),
-                child: _buildCover(screen),
-              ),
-            ),
-          ],
+        return Transform(
+          key: videoCardTransformKey,
+          alignment: Alignment.topLeft,
+          // 过渡期间整页在缩放，最近的邻近采样比双线性便宜很多。
+          filterQuality: FilterQuality.none,
+          transform: videoTransitionMatrix(rect, screen, t),
+          child: child,
         );
       },
     );
