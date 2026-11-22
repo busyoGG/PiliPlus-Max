@@ -308,6 +308,8 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
         Rect? coverRect;
         double coverRadius = 0;
         double coverScale = 1;
+        // 屏幕坐标下的页面圆角：按住预览时才有，和系统预测性返回一致。
+        double clipRadius = 0;
         if (_gestureActive) {
           // 按住期间是预测性返回预览：整页轻微缩小。
           // 只改变换矩阵，不裁剪、不叠透明度，栅格开销和收起动画同一量级。
@@ -322,6 +324,8 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
               1.0,
             )
             ..scaleByDouble(scale, scale, 1.0, 1.0);
+          // 缩得越小圆角越大，和系统的预测性返回预览保持一致。
+          clipRadius = 24 * (1 - animation.value.clamp(0.0, 1.0));
         } else if (closing) {
           // 退出：详情页与卡片封面一起收到卡片位置。
           final double t = _committing ? _closing.value : animation.value;
@@ -355,7 +359,16 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
                 // 过渡期间整页在缩放，最近的邻近采样比双线性便宜很多。
                 filterQuality: FilterQuality.none,
                 transform: matrix,
-                child: child,
+                child: ClipRRect(
+                  // 圆角半径要除掉矩阵缩放，屏幕上才是固定值。
+                  borderRadius: BorderRadius.circular(
+                    clipRadius <= 0 ? 0 : clipRadius / coverScale,
+                  ),
+                  clipBehavior: clipRadius <= 0
+                      ? Clip.none
+                      : Clip.antiAlias,
+                  child: child,
+                ),
               ),
             ),
             if (coverRect != null)
