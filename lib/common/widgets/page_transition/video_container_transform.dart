@@ -3,6 +3,9 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PredictiveBackEvent;
 
+/// 按住返回手势时的预览缩放下限。
+const double videoCardPreviewMinScale = 0.92;
+
 /// 打开详情页时随路由传入的卡片矩形参数名。
 const String videoOriginRectKey = 'originRect';
 
@@ -306,8 +309,19 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
         double coverRadius = 0;
         double coverScale = 1;
         if (_gestureActive) {
-          // 按住期间页面完全冻结：不做缩放、不露下层，避免每帧重绘整页。
-          matrix = Matrix4.identity();
+          // 按住期间是预测性返回预览：整页轻微缩小。
+          // 只改变换矩阵，不裁剪、不叠透明度，栅格开销和收起动画同一量级。
+          final double scale =
+              videoCardPreviewMinScale +
+              (1 - videoCardPreviewMinScale) * animation.value.clamp(0.0, 1.0);
+          matrix = Matrix4.identity()
+            ..translateByDouble(
+              screen.width * (1 - scale) / 2,
+              screen.height * (1 - scale) / 2,
+              0.0,
+              1.0,
+            )
+            ..scaleByDouble(scale, scale, 1.0, 1.0);
         } else if (closing) {
           // 退出：详情页与卡片封面一起收到卡片位置。
           final double t = _committing ? _closing.value : animation.value;
