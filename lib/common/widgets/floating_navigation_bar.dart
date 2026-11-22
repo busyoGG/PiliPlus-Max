@@ -142,6 +142,7 @@ class FloatingNavigationBar extends StatelessWidget {
                   tint: surfaceColor,
                   tintAlpha: 0.82,
                   borderRadius: _kBorderRadius,
+                  boxShadow: AppBlur.navPillShadow,
                   child: pill,
                 )
               : pill,

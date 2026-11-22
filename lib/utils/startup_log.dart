@@ -1,12 +1,15 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show debugPrintSynchronously;
 
 /// Release-build Android diagnostics. Callers must only pass state, counters
 /// and opaque IDs, never media URLs, route arguments or exception messages.
 abstract final class StartupLog {
-  static bool get enabled => Platform.isAndroid;
+  /// 只有显式 --dart-define=PILI_STARTUP_LOG=true 时才记录。
+  ///
+  /// 之前在 Android release 里常开：每秒一次 [write] 会走 jsonEncode +
+  /// debugPrintSynchronously（同步写 logcat），是视频页周期性卡顿的来源。
+  static bool get enabled => const bool.fromEnvironment('PILI_STARTUP_LOG');
   static int _sequence = 0;
   static const _prefix = '[PiliPlusStartup] ';
   static const _maxBytes = 900;

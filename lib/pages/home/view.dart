@@ -90,10 +90,15 @@ class _HomePageState extends CommonPageState<HomePage>
         children: _homeController.tabs.map((e) => e.page).toList(),
       ),
     );
+    // 状态栏高度：无论走不走毛玻璃，内容都要让出这一条，否则页头会压进状态栏。
+    final double statusBarHeight = MediaQuery.paddingOf(context).top;
     if (!showHeader || !AppBlur.enabled) {
       return Column(
         children: [
-          if (showHeader) customAppBar(theme),
+          if (showHeader) ...[
+            SizedBox(height: statusBarHeight),
+            customAppBar(theme),
+          ],
           tabBar,
           Expanded(child: feed),
         ],
@@ -102,10 +107,10 @@ class _HomePageState extends CommonPageState<HomePage>
     final double tabBarHeight = _homeController.tabs.length > 1
         ? Pref.homeTabBarHeight + 4
         : 6;
-    final double statusBarHeight = MediaQuery.paddingOf(context).top;
     // 顶栏浮在内容之上：列表一直滚到顶栏背后，被毛玻璃糊住。
     return Stack(
       children: [
+        // 信息流铺到屏幕顶部，滚到顶栏背后被糊住。
         Positioned.fill(
           child: Obx(() {
             final double hidden = _mainController.barOffset?.value ?? 0.0;
@@ -128,6 +133,11 @@ class _HomePageState extends CommonPageState<HomePage>
             sigma: AppBlur.barSigma,
             tint: theme.colorScheme.surface,
             tintAlpha: 0.6,
+            // 模糊和底色一起裁圆角：采样不溢出顶栏范围。
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(14),
+            ),
+            boxShadow: AppBlur.barShadow,
             child: Column(
               children: [
                 // 状态栏占位矩形：只占高度、只露毛玻璃，不放任何内容。

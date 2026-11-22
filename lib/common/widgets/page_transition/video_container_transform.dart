@@ -1,11 +1,15 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PredictiveBackEvent;
 
 /// 打开详情页时随路由传入的卡片矩形参数名。
 const String videoOriginRectKey = 'originRect';
 
-/// 按住返回手势时的预览缩放下限（预测性返回预览）。
-const double videoCardPreviewMinScale = 0.92;
+/// 详情页开始退出时自增的通知。
+///
+/// 转场层拿不到播放器，只负责在这里打个记号，详情页自己监听后立刻停播。
+final ValueNotifier<int> videoCardExitRequests = ValueNotifier<int>(0);
 
 /// 页面形变矩阵所在 Transform 的 key，便于测试定位。
 const Key videoCardTransformKey = Key('videoCardTransform');
@@ -14,7 +18,7 @@ const Key videoCardTransformKey = Key('videoCardTransform');
 const Key videoCardCoverKey = Key('videoCardCover');
 
 /// 松手确认返回后，页面收回到卡片的时长。
-const Duration videoCardCollapseDuration = Duration(milliseconds: 260);
+const Duration videoCardCollapseDuration = Duration(milliseconds: 220);
 
 /// 从路由参数里取出卡片矩形，没有或类型不符时返回 null。
 Rect? videoOriginRectOf(Object? arguments) {
@@ -99,6 +103,8 @@ class VideoCardPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    // 最底层页面（首页壳子）不做次级动画：让整页每帧重绘位移，是转场掉帧的大头。
+    if (route.isFirst) return child;
     if (videoOriginRectOf(route.settings.arguments) == null) {
       return _fallback.buildTransitions<T>(
         route,
@@ -143,6 +149,10 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
 
   /// 正在播放「收回到卡片」，此时忽略路由动画。
   bool _committing = false;
+  String? _coverPrecached;
+
+  /// 封面是否已经解码进缓存；解码完成后收起动画不必再画详情页。
+  bool _coverReady = false;
 
   /// 手势进行中：按住不动，只在松手时才收回到卡片。
   bool _gestureActive = false;
@@ -166,10 +176,17 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     _route = route;
     _origin = widget.origin ?? videoOriginRectOf(route?.settings.arguments);
     _cover = videoCoverOf(route?.settings.arguments);
+    route?.animation?.addStatusListener(_onRouteStatus);
+    if (_cover != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _precacheCover();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _route?.animation?.removeStatusListener(_onRouteStatus);
     WidgetsBinding.instance.removeObserver(this);
     _closing.dispose();
     super.dispose();
@@ -215,7 +232,11 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     if (!_gestureActive) return;
     _gestureActive = false;
     _committing = true;
+    // 把手势期间停在半路的转场值直接归零：下层页面立刻完全显示，
+    // 否则收起结束时的 pop 会再反向跑一次路由转场，表现为闪一下。
+    _route?.handleUpdateBackGestureProgress(progress: 0.0);
     _releaseBackGesture();
+    _notifyExit();
     // 按住期间页面是冻结的，所以从全屏开始收。
     _closing.value = 1;
     // 先收回到卡片再真正 pop，避免收起动画被路由转场盖掉。
@@ -248,6 +269,26 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
     );
   }
 
+  void _onRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.reverse) _notifyExit();
+  }
+
+  void _notifyExit() {
+    videoCardExitRequests.value = videoCardExitRequests.value + 1;
+  }
+
+  /// 提前把卡片封面解码进缓存，退出时第一帧就能拿到图。
+  void _precacheCover() {
+    final String? cover = _cover;
+    if (cover == null || _coverPrecached == cover) return;
+    _coverPrecached = cover;
+    unawaited(
+      precacheImage(NetworkImage(cover), context).then((_) {
+        if (mounted && _cover == cover) setState(() => _coverReady = true);
+      }, onError: (Object _) {}),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Rect? origin = _origin;
@@ -258,64 +299,68 @@ class VideoCardEntryTransformState extends State<VideoCardEntryTransform>
       child: RepaintBoundary(child: widget.child),
       builder: (BuildContext context, Widget? child) {
         final Size screen = MediaQuery.sizeOf(context);
-        if (_gestureActive) {
-          // 预测性返回预览：整页轻微缩小，露出下层页面；不缩到卡片。
-          final double scale =
-              videoCardPreviewMinScale +
-              (1 - videoCardPreviewMinScale) * animation.value.clamp(0.0, 1.0);
-          if (scale >= 1) return child!;
-          return Transform(
-            key: videoCardTransformKey,
-            alignment: Alignment.topLeft,
-            filterQuality: FilterQuality.none,
-            transform: videoTransitionMatrix(
-              Rect.fromCenter(
-                center: screen.center(Offset.zero),
-                width: screen.width * scale,
-                height: screen.height * scale,
-              ),
-              screen,
-              0,
-            ),
-            child: child,
-          );
-        }
-        // 打开：详情页内容从卡片位置长满全屏。
-        // 退出：整屏换成卡片内容（封面），收回到卡片位置。
         final bool closing =
             _committing || animation.status == AnimationStatus.reverse;
-        if (closing) {
+        late Matrix4 matrix;
+        Rect? coverRect;
+        double coverRadius = 0;
+        double coverScale = 1;
+        if (_gestureActive) {
+          // 按住期间页面完全冻结：不做缩放、不露下层，避免每帧重绘整页。
+          matrix = Matrix4.identity();
+        } else if (closing) {
+          // 退出：详情页与卡片封面一起收到卡片位置。
           final double t = _committing ? _closing.value : animation.value;
-          if (t <= 0) return child!;
           final Rect rect = videoTransitionRect(origin, screen, t);
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Opacity(
-                opacity: videoTransitionInterval(0.0, 0.55, t),
+          matrix = videoTransitionMatrix(rect, screen, t);
+          coverRect = rect;
+          coverScale = matrix.getMaxScaleOnAxis();
+          // 封面层会被矩阵缩放，半径要除掉缩放才是屏幕上的 12。
+          coverRadius = coverScale <= 0.01 ? 12 : 12 / coverScale;
+        } else {
+          // 打开：详情页内容从卡片位置长满全屏。
+          final double t = videoCardEntryProgress(animation.value);
+          matrix = t >= 1
+              ? Matrix4.identity()
+              : videoTransitionMatrix(
+                  videoTransitionRect(origin, screen, t),
+                  screen,
+                  t,
+                );
+        }
+        // 三个阶段的树结构保持一致：页面层永远占 Stack 的第一个位置。
+        // 换阶段时如果树结构变了，整页（播放器、评论列表）会被重新挂载，那一帧必掉。
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Offstage(
+              offstage: closing && _coverReady,
+              child: Transform(
+                key: videoCardTransformKey,
+                alignment: Alignment.topLeft,
+                // 过渡期间整页在缩放，最近的邻近采样比双线性便宜很多。
+                filterQuality: FilterQuality.none,
+                transform: matrix,
                 child: child,
               ),
-              Positioned.fromRect(
-                rect: rect,
+            ),
+            if (coverRect != null)
+              // 封面层尺寸固定、跟着同一个矩阵缩放：每帧只改变换，不重新布局图片。
+              Transform(
+                key: videoCardCoverKey,
+                alignment: Alignment.topLeft,
+                filterQuality: FilterQuality.none,
+                transform: matrix,
                 child: ClipRRect(
-                  key: videoCardCoverKey,
-                  borderRadius: BorderRadius.circular(12 * (1 - t)),
-                  child: _buildCover(screen),
+                  borderRadius: BorderRadius.circular(coverRadius),
+                  child: SizedBox(
+                    width: screen.width,
+                    height: screen.height,
+                    child: _buildCover(screen),
+                  ),
                 ),
               ),
-            ],
-          );
-        }
-        final double t = videoCardEntryProgress(animation.value);
-        if (t >= 1) return child!;
-        final Rect rect = videoTransitionRect(origin, screen, t);
-        return Transform(
-          key: videoCardTransformKey,
-          alignment: Alignment.topLeft,
-          // 过渡期间整页在缩放，最近的邻近采样比双线性便宜很多。
-          filterQuality: FilterQuality.none,
-          transform: videoTransitionMatrix(rect, screen, t),
-          child: child,
+          ],
         );
       },
     );

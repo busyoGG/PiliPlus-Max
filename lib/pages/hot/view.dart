@@ -60,6 +60,8 @@ class _HotPageState extends State<HotPage>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
+      // 下拉刷新的指示器要落在顶栏下面，不然会被顶栏毛玻璃挡住。
+      edgeOffset: HomeHeaderOverlay.insetOf(context),
       onRefresh: controller.onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

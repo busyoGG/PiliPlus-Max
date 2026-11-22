@@ -97,7 +97,11 @@ Size _detailSize(WidgetTester tester) {
 Rect? _coverRect(WidgetTester tester) {
   final Finder finder = find.byKey(videoCardCoverKey);
   if (finder.evaluate().isEmpty) return null;
-  return tester.getRect(finder);
+  final Transform transform = tester.widget<Transform>(finder);
+  return MatrixUtils.transformRect(
+    transform.transform,
+    Offset.zero & tester.getSize(finder),
+  );
 }
 
 /// 取页面外层形变矩阵的横向缩放，1 表示已经完全展开。
@@ -225,7 +229,7 @@ void main() {
       expect(_detailSize(tester).width, before.width);
     });
 
-    testWidgets('previews the back gesture without morphing to the card',
+    testWidgets('freezes the page while the back gesture is held',
         (tester) async {
       await _openDetail(
         tester,
@@ -241,18 +245,12 @@ void main() {
       await tester.pump();
       // 路由动画跟着手指后退，下层页面参与绘制。
       expect(route.animation!.value, closeTo(0.6, 1e-6));
-      // 按住期间只做预测性预览的轻微缩放，不缩到卡片。
-      expect(
-        _pageScale(tester),
-        closeTo(videoCardPreviewMinScale + (1 - videoCardPreviewMinScale) * 0.6, 1e-6),
-      );
+      // 按住期间页面完全冻结，不缩放也不缩到卡片。
+      expect(_pageScale(tester), 1.0);
       state.handleUpdateBackGestureProgress(_backEvent(0.95));
       await tester.pump();
       expect(route.animation!.value, closeTo(0.05, 1e-6));
-      expect(
-        _pageScale(tester),
-        closeTo(videoCardPreviewMinScale + (1 - videoCardPreviewMinScale) * 0.05, 1e-6),
-      );
+      expect(_pageScale(tester), 1.0);
       state.handleCancelBackGesture();
       await tester.pumpAndSettle();
       expect(_pageScale(tester), 1.0);
@@ -277,7 +275,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 120));
       expect(_coverRect(tester)?.width ?? 0, lessThan(_screen.width));
+      // 收起过程中详情页和封面一起缩小；封面还没解码完也不会闪断。
+      expect(find.byKey(videoCardCoverKey), findsOneWidget);
       expect(find.text('detail'), findsOneWidget);
+      expect(_pageScale(tester), lessThan(1.0));
       await tester.pumpAndSettle();
       expect(find.text('detail'), findsNothing);
       expect(find.text('home'), findsOneWidget);

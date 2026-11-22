@@ -1663,7 +1663,7 @@ ValueChanged<bool>? onDanmakuMergeSettingsChanged;
         ? load.playRequested
         : _autoPlay;
     _logStartup('gate.begin', gate: gate);
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid && StartupLog.enabled) {
       gate.diagnosticTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!gate.active || timer.tick > 20) {
           timer.cancel();

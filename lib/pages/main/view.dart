@@ -406,6 +406,8 @@ class _MainAppState extends PopScopeState<MainApp>
     }
     return BlurSurface(
       plainChild: nav,
+      // 底栏向上落影。
+      boxShadow: AppBlur.barShadowUp,
       child: Theme(
         data: theme.copyWith(
           navigationBarTheme: theme.navigationBarTheme.copyWith(
@@ -529,16 +531,10 @@ class _MainAppState extends PopScopeState<MainApp>
 
     child = Scaffold(
       extendBody: true,
-      // body 不再被 AppBar 顶下去：状态栏高度只由页面自己的 padding 计算，
-      // 否则 Scaffold 会用 MediaQuery.padding.top 把 body 整体下移，顶部露出一条底色。
-      extendBodyBehindAppBar: true,
+      // 不要 appBar：Scaffold 只要拿到 appBar 就会把 body 的 MediaQuery 顶部
+      // padding 删掉（removeTopPadding: widget.appBar != null），页面就再也不知道
+      // 状态栏多高了；body 本来就铺满全屏，这里让 padding 原样传下去。
       resizeToAvoidBottomInset: false,
-      // 这里不需要真正的 AppBar：它的高度会被 MediaQuery.padding.top 撑到状态栏那么高，
-      // 既会画一层 Material 背景盖住毛玻璃，又会吞掉状态栏区域的点击。
-      appBar: const PreferredSize(
-        preferredSize: Size.zero,
-        child: SizedBox.shrink(),
-      ),
       body: Padding(
         padding: EdgeInsets.only(
           left: _mainController.useBottomNav ? _padding.left : 0.0,

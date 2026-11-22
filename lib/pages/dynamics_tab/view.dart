@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
@@ -50,14 +51,17 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // 列表要让出顶栏（和 UP 面板）的高度，滚动时从它们背后经过。
+    final double headerInset = HomeHeaderOverlay.insetOf(context);
     return refreshIndicator(
       onRefresh: onRefresh,
+      edgeOffset: headerInset,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         controller: controller.scrollController,
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.only(bottom: 100),
+            padding: EdgeInsets.only(top: headerInset, bottom: 100),
             sliver: buildPage(
               Obx(() => _buildBody(controller.loadingState.value)),
             ),

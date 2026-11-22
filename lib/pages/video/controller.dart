@@ -48,6 +48,7 @@ import 'package:PiliPlus/pages/video/note/view.dart';
 import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
@@ -466,6 +467,7 @@ class VideoDetailController extends GetxController
 
   @override
   void onInit() {
+    videoCardExitRequests.addListener(_onTransitionExit);
     super.onInit();
     args = Get.arguments;
     if (args['autoplay'] case final bool autoplay) {
@@ -921,6 +923,8 @@ class VideoDetailController extends GetxController
   }
 
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
+    // 快速点进又退出：播放器还没建就直接放弃，省掉创建+销毁这一整对开销。
+    if (_exiting || isClosed) return null;
     final shouldInit = _autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
             (isFileSource
@@ -1291,6 +1295,9 @@ class VideoDetailController extends GetxController
         logStartup('query.init.wait', {'format': 'dash'});
         await _initPlayerIfNeeded(autoFullScreenFlag);
         logStartup('query.init.returned', {'format': 'dash'});
+      } else if (_exiting || isClosed) {
+        // 用户已经退出：请求被取消不算错误，不弹提示也不动状态。
+        logStartup('query.failed.ignored');
       } else {
         logStartup('query.failed');
         _autoPlay.value = false;
@@ -1689,8 +1696,19 @@ class VideoDetailController extends GetxController
     }
   }
 
+  /// 已经进入退出流程：后续的请求回包、播放器初始化都不再做了。
+  bool _exiting = false;
+
+  /// 退出转场一开始就停掉播放：转场期间不需要新的视频帧。
+  void _onTransitionExit() {
+    if (isClosed) return;
+    _exiting = true;
+    plPlayerController.pause(notify: false);
+  }
+
   @override
   void onClose() {
+    videoCardExitRequests.removeListener(_onTransitionExit);
     setPageActive(false);
     _fullScreenQualityWorker?.dispose();
     _fullScreenQualityWorker = null;

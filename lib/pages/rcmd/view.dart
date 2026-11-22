@@ -97,6 +97,8 @@ class _RcmdPageState extends State<RcmdPage>
       ),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
+        // 下拉刷新的指示器要落在顶栏下面，不然会被顶栏毛玻璃挡住。
+        edgeOffset: HomeHeaderOverlay.insetOf(context),
         onRefresh: controller.onPullDownRefresh,
         child: NotificationListener<ScrollNotification>(
           onNotification: (notification) {

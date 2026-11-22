@@ -353,6 +353,9 @@ bool onNotificationType2(ScrollNotification notification) {
     final secondary = theme.colorScheme.secondary;
     return Column(
       children: [
+        // 这个页面是底部导航的 tab，没有自己的 Scaffold/AppBar，
+        // 顶部这一条必须自己让出来，否则设置等按钮会落进系统状态栏里点不到。
+        SizedBox(height: MediaQuery.paddingOf(context).top),
         Padding(
           padding: const .symmetric(vertical: 10),
           child: _buildHeaderActions,
