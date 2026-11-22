@@ -924,7 +924,7 @@ class VideoDetailController extends GetxController
 
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
     // 快速点进又退出：播放器还没建就直接放弃，省掉创建+销毁这一整对开销。
-    if (_exiting || isClosed) return null;
+    if (_exiting || isClosed || _routeLeaving) return null;
     final shouldInit = _autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
             (isFileSource
@@ -1295,7 +1295,7 @@ class VideoDetailController extends GetxController
         logStartup('query.init.wait', {'format': 'dash'});
         await _initPlayerIfNeeded(autoFullScreenFlag);
         logStartup('query.init.returned', {'format': 'dash'});
-      } else if (_exiting || isClosed) {
+      } else if (_exiting || isClosed || _routeLeaving) {
         // 用户已经退出：请求被取消不算错误，不弹提示也不动状态。
         logStartup('query.failed.ignored');
       } else {
@@ -1311,6 +1311,11 @@ class VideoDetailController extends GetxController
       }
       isQuerying = false;
     } catch (error, stackTrace) {
+      if (_exiting || isClosed || _routeLeaving) {
+        // 退出过程中的异常（请求取消等）不再上报，避免打断转场。
+        logStartup('query.error.ignored');
+        return;
+      }
       logStartup('query.error', {
         'queryId': queryId,
         'errorType': error.runtimeType.toString(),
@@ -1735,6 +1740,19 @@ class VideoDetailController extends GetxController
     Future<void>.delayed(const Duration(milliseconds: 700), finish);
   }
 
+
+  /// 路由正在返回（可能还没走到 pop）：请求回包一律当作已退出处理。
+  ///
+  /// 退出信号来自卡片转场，没有卡片矩形（比如从链接直接进详情页）时不会触发，
+  /// 起播请求又恰好在这时候失败，就会弹出「服务器异常」并让整页重建，卡住转场。
+  bool get _routeLeaving {
+    final Object? current = Get.routing.route;
+    final ModalRoute<dynamic>? route = current is ModalRoute ? current : null;
+    final Animation<double>? animation = route?.animation;
+    if (animation == null) return false;
+    return animation.status == AnimationStatus.reverse ||
+        animation.status == AnimationStatus.dismissed;
+  }
 
   /// 退出转场一开始就停掉播放：转场期间不需要新的视频帧。
   void _onTransitionExit() {
