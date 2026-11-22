@@ -17,6 +17,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
 
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
@@ -178,12 +179,47 @@ class AccountManager extends Interceptor {
     ];
     String url = err.requestOptions.uri.toString();
     if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url');
+    // 请求被主动取消（用户离开页面等）不需要提示。
+    if (err.type == DioExceptionType.cancel) {
+      return;
+    }
     if (skipShow.any((i) => url.contains(i)) ||
         (url.contains('skipSegments') && err.requestOptions.method == 'GET')) {
       // skip
     } else {
-      dioError(err).then((res) => SmartDialog.showToast(res + url));
+      dioError(err).then((res) => _showToastAfterTransition(res + url));
     }
+  }
+
+  /// 转场动画还在跑的时候弹提示会抢帧，等当前路由动画结束再弹。
+  static void _showToastAfterTransition(String text) {
+    void show() => SmartDialog.showToast(text);
+
+    final Object? current = Get.routing.route;
+    final Animation<double>? animation = current is ModalRoute
+        ? current.animation
+        : null;
+    if (animation == null ||
+        animation.isCompleted ||
+        animation.status == AnimationStatus.dismissed) {
+      show();
+      return;
+    }
+    bool done = false;
+    late final void Function(AnimationStatus) listener;
+    void finish() {
+      if (done) return;
+      done = true;
+      animation.removeStatusListener(listener);
+      show();
+    }
+
+    listener = (AnimationStatus status) {
+      if (status == AnimationStatus.completed) finish();
+    };
+
+    animation.addStatusListener(listener);
+    Future<void>.delayed(const Duration(milliseconds: 800), finish);
   }
 
   Future<void> _saveCookies(Response response) async {
