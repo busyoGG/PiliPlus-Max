@@ -1306,7 +1306,8 @@ class VideoDetailController extends GetxController
         if (plPlayerController.isFullScreen.value) {
           plPlayerController.triggerFullScreen(status: false);
         }
-        result.toast();
+        // 转场动画还在跑的时候弹提示会抢帧，等路由转场结束再弹。
+        _afterTransition(result.toast);
       }
       isQuerying = false;
     } catch (error, stackTrace) {
@@ -1698,6 +1699,42 @@ class VideoDetailController extends GetxController
 
   /// 已经进入退出流程：后续的请求回包、播放器初始化都不再做了。
   bool _exiting = false;
+
+  /// 路由转场未结束时延后执行，避免和入场动画抢帧。
+  void _afterTransition(VoidCallback action) {
+    void run() {
+      if (_exiting || isClosed) return;
+      action();
+    }
+
+    final ModalRoute<dynamic>? route = Get.routing.route is ModalRoute
+        ? Get.routing.route as ModalRoute<dynamic>
+        : null;
+    final Animation<double>? animation = route?.animation;
+    if (animation == null ||
+        animation.isCompleted ||
+        animation.status == AnimationStatus.dismissed) {
+      run();
+      return;
+    }
+    bool done = false;
+    late final void Function(AnimationStatus) listener;
+    void finish() {
+      if (done) return;
+      done = true;
+      animation.removeStatusListener(listener);
+      run();
+    }
+
+    listener = (AnimationStatus status) {
+      if (status == AnimationStatus.completed) finish();
+    };
+
+    animation.addStatusListener(listener);
+    // 兜底：动画被打断也要弹出来。
+    Future<void>.delayed(const Duration(milliseconds: 700), finish);
+  }
+
 
   /// 退出转场一开始就停掉播放：转场期间不需要新的视频帧。
   void _onTransitionExit() {
