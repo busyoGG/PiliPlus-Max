@@ -334,16 +334,11 @@ class ReplyItemGrpc extends StatelessWidget {
             padding: padding,
             child: _buildVoteOption(colorScheme, replyControl.voteOption),
           ),
-        if (replyControl.hasVoteOption()) const SizedBox(height: 4),
         Padding(
           padding: padding,
-          child: _ExpandableReplyContent(
-            key: ValueKey(replyItem.id),
+          child: TextMore.rich(
             primary: colorScheme.primary,
-            style: TextStyle(
-              height: 1.75 * Pref.replyLineSpacingScale,
-              fontSize: Pref.replyFontSize,
-            ),
+            style: const TextStyle(height: 1.75, fontSize: 14),
             maxLines: replyLevel == 1 ? replyLengthLimit : null,
             TextSpan(
               children: [
@@ -622,13 +617,10 @@ class ReplyItemGrpc extends StatelessWidget {
                   onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
                   child: Padding(
                     padding: padding,
-                    child: custom_text.Text.rich(
-                      primary: colorScheme.primary,
-                      primaryLinkHitTestHeightFactor: 1.5,
+                    child: TextEllipsis.rich(
                       style: TextStyle(
-                        height: 1.6 * Pref.replyLineSpacingScale,
-                        fontSize:
-                            Pref.replyFontSize * Pref.collapsedReplyFontScale,
+                        height: 1.6,
+                        fontSize: 14,
                         color: colorScheme.onSurface.withValues(alpha: 0.85),
                       ),
                       overflow: TextOverflow.ellipsis,

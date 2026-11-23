@@ -1,15 +1,11 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
-import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
-import 'package:PiliPlus/models/common/live/live_dm_silent_type.dart';
-import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliPlus/pages/live_dm_block/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
@@ -33,8 +29,6 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
   @override
   Widget build(BuildContext context) {
     padding = MediaQuery.viewPaddingOf(context);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     Widget tabBar = TabBar(
       controller: _controller.tabController,
       tabs: const [
@@ -62,71 +56,8 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
         padding: .only(left: padding.left, right: padding.right),
         child: Column(
           children: [
-            isPortrait
-                ? ExtendedNestedScrollView(
-                    onlyOneScrollInBody: true,
-                    headerSliverBuilder: (context, innerBoxIsScrolled) {
-                      return [
-                        SliverToBoxAdapter(child: left),
-                        SliverOverlapAbsorber(
-                          handle:
-                              ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
-                                context,
-                              ),
-                          sliver: SliverPinnedHeader(child: tabBar),
-                        ),
-                      ];
-                    },
-                    body: LayoutBuilder(
-                      builder: (context, _) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            top:
-                                ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
-                                  context,
-                                ).layoutExtent ??
-                                0,
-                          ),
-                          child: view,
-                        );
-                      },
-                    ),
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: left),
-                      VerticalDivider(
-                        width: 1,
-                        color: theme.colorScheme.outline.withValues(alpha: 0.1),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            title,
-                            tabBar,
-                            Expanded(child: view),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-            Positioned(
-              right: kFloatingActionButtonMargin,
-              bottom: kFloatingActionButtonMargin + padding.bottom,
-              child: FloatingActionButton(
-                backgroundColor: Theme.of(
-                  context,
-                ).uiColor(ThemeUiElement.liveDmBlockAddBackground),
-                foregroundColor: Theme.of(
-                  context,
-                ).uiColor(ThemeUiElement.liveDmBlockAddContent),
-                tooltip: '添加',
-                onPressed: _addShieldKeyword,
-                child: const Icon(Icons.add),
-              ),
-            ),
+            tabBar,
+            Expanded(child: view),
           ],
         ),
       ),

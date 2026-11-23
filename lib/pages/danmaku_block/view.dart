@@ -5,18 +5,16 @@ import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/models/common/dm_block_type.dart';
-import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/user/danmaku_block.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/pages/danmaku_block/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class DanmakuBlockPage extends StatefulWidget {
   const DanmakuBlockPage({super.key});
@@ -52,18 +50,18 @@ class _DanmakuBlockPageState extends State<DanmakuBlockPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.of(context);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: const Text('弹幕屏蔽'),
-        bottom: TabBar(
-          controller: _controller.tabController,
-          tabs: DmBlockType.values
-              .map(
-                (e) => Obx(
-                  () => Tab(
-                    text: '${e.label}(${_controller.rules[e.index].length})',
+    return SimpleScaffold(
+      appBar: AppBar(title: const Text('弹幕屏蔽')),
+      body: Column(
+        children: [
+          TabBar(
+            controller: _controller.tabController,
+            tabs: DmBlockType.values
+                .map(
+                  (e) => Obx(
+                    () => Tab(
+                      text: '${e.label}(${_controller.rules[e.index].length})',
+                    ),
                   ),
                 )
                 .toList(),
@@ -85,17 +83,18 @@ class _DanmakuBlockPageState extends State<DanmakuBlockPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Theme.of(
-          context,
-        ).uiColor(ThemeUiElement.danmakuBlockAddBackground),
-        foregroundColor: Theme.of(
-          context,
-        ).uiColor(ThemeUiElement.danmakuBlockAddContent),
-        tooltip: '添加',
-        onPressed: () =>
-            _showAddDialog(DmBlockType.values[_controller.tabController.index]),
-        child: const Icon(Icons.add),
+      fab: Padding(
+        padding: .only(
+          right: kFloatingActionButtonMargin + padding.right,
+          bottom: kFloatingActionButtonMargin + padding.bottom,
+        ),
+        child: FloatingActionButton(
+          tooltip: '添加',
+          onPressed: () => _showAddDialog(
+            DmBlockType.values[_controller.tabController.index],
+          ),
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

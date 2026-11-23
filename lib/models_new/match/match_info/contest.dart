@@ -1,6 +1,5 @@
 import 'package:PiliPlus/models_new/match/match_info/season.dart';
 import 'package:PiliPlus/models_new/match/match_info/team.dart';
-import 'package:PiliPlus/utils/parse_string.dart';
 
 class MatchContest {
   int? id;
@@ -13,11 +12,10 @@ class MatchContest {
   int? awayScore;
   int? liveRoom;
   String? playBack;
-  MatchSeason? season;
+  Season? season;
   MatchTeam? homeTeam;
   MatchTeam? awayTeam;
   int? contestStatus;
-  String? playback;
 
   MatchContest({
     this.id,
@@ -34,7 +32,6 @@ class MatchContest {
     this.homeTeam,
     this.awayTeam,
     this.contestStatus,
-    this.playback,
   });
 
   /// 兼容两种返回结构：
@@ -42,7 +39,7 @@ class MatchContest {
   /// - 赛程 x/esports/component/contests/schedule：start_time / end_time / home / away
   factory MatchContest.fromJson(Map<String, dynamic> json) => MatchContest(
     id: json['id'] as int?,
-    gameStage: nonNullOrEmptyString(json['game_stage'] as String?),
+    gameStage: json['game_stage'] as String?,
     stime: (json['stime'] ?? json['start_time']) as int?,
     etime: (json['etime'] ?? json['end_time']) as int?,
     homeId: (json['home_id'] ?? (json['home'] as Map?)?['id']) as int?,
@@ -52,7 +49,7 @@ class MatchContest {
     liveRoom: json['live_room'] as int?,
     playBack: json['play_back'] as String?,
     season: switch (json['season']) {
-      final Map<String, dynamic> season => MatchSeason.fromJson(season),
+      final Map<String, dynamic> season => Season.fromJson(season),
       _ => null,
     },
     homeTeam: switch (json['home_team'] ?? json['home']) {
@@ -76,7 +73,7 @@ class MatchContest {
     liveRoom: json['liveRoom'] as int?,
     season: json['season'] == null
         ? null
-        : MatchMatchSeason.fromJson(json['season']),
+        : MatchSeason.fromJson(json['season']),
     homeTeam: MatchTeam.fromJson(json['homeTeam']),
     awayTeam: MatchTeam.fromJson(json['awayTeam']),
     contestStatus: json['contestStatus'] as int?,

@@ -90,10 +90,7 @@ class PBadge extends StatelessWidget {
         : const .all(.circular(4));
 
     Widget content = Container(
-      constraints: maxWidth == null
-          ? null
-          : BoxConstraints(maxWidth: maxWidth!),
-      padding: padding ?? paddingStyle,
+      padding: padding ?? defPaddingStyle,
       decoration: BoxDecoration(
         borderRadius: br,
         color: bgColor,

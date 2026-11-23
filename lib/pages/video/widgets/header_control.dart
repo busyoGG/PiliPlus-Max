@@ -1830,53 +1830,33 @@ class HeaderControlState extends State<HeaderControl>
       }
     }
 
-    final thicknessScale = plPlayerController.playerControlBarThicknessScale;
-    const btnWidth = 40.0;
-    final btnHeight = 34.0 * thicknessScale;
-    const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
-
-    return AppBar(
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: Colors.transparent,
-      foregroundColor: Colors.white,
-      primary: false,
-      automaticallyImplyLeading: false,
-      toolbarHeight:
-          (showFSActionItem ? 70.0 : 35.0) * thicknessScale,
-      flexibleSpace: Column(
-        mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const .symmetric(vertical: 12),
+      child: Column(
+        mainAxisSize: .min,
         children: [
-          SizedBox(height: 5 * thicknessScale),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: plPlayerController.playerControlHorizontalPadding,
-            ),
-            child: Row(
+          PlayerBar(
+            left: Row(
+              mainAxisSize: .min,
               children: [
-              PlayerNavigationButtons(
-                controller: plPlayerController,
-                isFullScreen: isFullScreen,
-                isPortrait: isPortrait,
-                height: btnHeight,
-              ),
-              title,
-              // show current datetime
-                ...?timeBatteryWidgets,
-                if (isFullScreen) ...[
-                  PlayerSpeedButton(
-                    controller: plPlayerController,
-                    height: btnHeight,
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: IconButton(
+                    tooltip: '返回',
+                    style: btnStyle,
+                    icon: const Icon(
+                      FontAwesomeIcons.arrowLeft,
+                      size: 15,
+                      color: Colors.white,
+                    ),
+                    onPressed: () =>
+                        plPlayerController.onPopInvokedWithResult(false, null),
                   ),
-                  PlayerFitButton(
-                    controller: plPlayerController,
-                    height: btnHeight,
-                  ),
-                ],
-              if (PlatformUtils.isDesktop && !plPlayerController.isDesktopPip)
-                Obx(() {
-                  final isAlwaysOnTop = plPlayerController.isAlwaysOnTop.value;
-                  return SizedBox(
+                ),
+                if (!plPlayerController.isDesktopPip &&
+                    (!isFullScreen || !isPortrait))
+                  SizedBox(
                     width: btnWidth,
                     height: btnHeight,
                     child: IconButton(
@@ -2055,48 +2035,28 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-                if (!isFullScreen)
+                if ((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
+                    (Platform.isIOS && IOSPipHelper.isAvailable) ||
+                    (PlatformUtils.isDesktop && !isFullScreen))
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
-                    child: Obx(
-                      () {
-                        final enableShowDanmaku =
-                            plPlayerController.enableShowDanmaku.value;
-                        return IconButton(
-                          tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
-                          style: btnStyle,
-                          onPressed: () {
-                            final newVal = !enableShowDanmaku;
-                            plPlayerController.setDanmakuEnabled(newVal);
-                          },
-                          icon: enableShowDanmaku
-                              ? const Icon(
-                                  size: 20,
-                                  CustomIcons.dm_on,
-                                  color: Colors.white,
-                                )
-                              : const Icon(
-                                  size: 20,
-                                  CustomIcons.dm_off,
-                                  color: Colors.white,
-                                ),
-                        );
+                    child: IconButton(
+                      tooltip: '画中画',
+                      style: btnStyle,
+                      onPressed: () {
+                        if (PlatformUtils.isDesktop) {
+                          plPlayerController.toggleDesktopPip();
+                        } else {
+                          plPlayerController.enterPip();
+                        }
                       },
+                      icon: const Icon(
+                        Icons.picture_in_picture_outlined,
+                        size: 19,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-              ],
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: IconButton(
-                  tooltip: '弹幕设置',
-                  style: btnStyle,
-                  onPressed: showSetDanmaku,
-                  icon: const Icon(
-                    size: 20,
-                    CustomIcons.dm_settings,
-                    color: Colors.white,
                   ),
                 SizedBox(
                   width: btnWidth,
@@ -2112,22 +2072,9 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: IconButton(
-                  tooltip: "更多设置",
-                  style: btnStyle,
-                  onPressed: showSettingSheet,
-                  icon: const Icon(
-                    Icons.more_vert_outlined,
-                    size: 19,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
               ],
             ),
+            title: title,
           ),
           if (showFSActionItem)
             Row(

@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/utils/mpv_utils.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 typedef MpvVideoTransform = ({double zoom, double panX, double panY});

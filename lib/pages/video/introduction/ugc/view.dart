@@ -402,24 +402,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   ],
                 ),
               ),
-              const TextSpan(text: ' '),
-            ],
-            if (videoDetail.isUpowerExclusive == true) ...[
-              _labelWidget(
-                '充电专属',
-                isDark ? colorScheme.error : colorScheme.errorContainer,
-                isDark ? colorScheme.onError : colorScheme.onErrorContainer,
-              ),
-              const TextSpan(text: ' '),
-            ] else if (videoDetail.hasInteractiveVideoLabel) ...[
-              _labelWidget(
-                '互动视频',
-                colorScheme.secondaryContainer,
-                colorScheme.onSecondaryContainer,
-              ),
-              const TextSpan(text: ' '),
-            ],
-            TextSpan(text: videoDetail.title ?? ''),
+            ),
+            const TextSpan(text: ' '),
           ],
           if (videoDetail.isUpowerExclusive == true) ...[
             _labelWidget(

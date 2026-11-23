@@ -68,9 +68,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
     if (mode == ThemeColorMode.dynamic &&
         !await MyApp.initPlatformState()) {
       SmartDialog.showToast('设备可能不支持动态取色');
-      if (kReleaseMode) {
-        return;
-      }
+      return;
     }
     ctr.colorMode.value = mode;
     await GStorage.setting.putAll({
@@ -480,20 +478,19 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = theme.textTheme.titleMedium!;
-    final subTitleStyle = theme.textTheme.labelMedium!.copyWith(
+    final theme = Theme.of(context);
+    TextStyle titleStyle = theme.textTheme.titleMedium!;
+    TextStyle subTitleStyle = theme.textTheme.labelMedium!.copyWith(
       color: theme.colorScheme.outline,
     );
     final size = MediaQuery.sizeOf(context);
     final padding = MediaQuery.viewPaddingOf(
       context,
     ).copyWith(top: 0, bottom: 0);
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('选择应用主题')),
       body: ListView(
-        padding: .only(
-          bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
-        ),
         children: [
           ListTile(
             onTap: () async {

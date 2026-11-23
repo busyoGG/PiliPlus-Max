@@ -40,6 +40,31 @@ class VideoDetailData {
   bool get hasInteractiveVideoLabel =>
       isUpowerExclusive != true && rights?.isSteinGate == 1;
 
+  bool get hasSeason => ugcSeason != null;
+
+  bool get hasParts => pages != null && pages!.length > 1;
+
+  bool get hasSeasonOrParts => hasSeason || hasParts;
+
+  SeasonInfo? seasonInfo(int index) {
+    if (ugcSeason != null) {
+      try {
+        return SeasonInfo(
+          index: index,
+          id: ugcSeason!.id!,
+          title: ugcSeason!.title!,
+          cover: ugcSeason!.cover!,
+          mid: owner!.mid!,
+          uname: owner!.name!,
+        );
+      } catch (_) {
+        if (kDebugMode) rethrow;
+      }
+    }
+
+    return null;
+  }
+
   VideoDetailData({
     this.bvid,
     this.aid,

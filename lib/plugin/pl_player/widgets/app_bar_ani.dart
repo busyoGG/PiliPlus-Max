@@ -1,5 +1,26 @@
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:material_ui/material_ui.dart';
+
+class PlayerControlBarBuilder extends StatelessWidget {
+  const PlayerControlBarBuilder({
+    super.key,
+    required this.builder,
+  });
+
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder(
+    stream: GStorage.setting.watch().where(
+      (event) =>
+          event.key == SettingBoxKey.playerControlBarThicknessScale ||
+          event.key == SettingBoxKey.fullScreenDanmakuToggleOnLeft,
+    ),
+    builder: (context, _) => builder(context),
+  );
+}
 
 class AppBarAni extends StatelessWidget {
   const AppBarAni({
@@ -9,6 +30,8 @@ class AppBarAni extends StatelessWidget {
     required this.isTop,
     required this.isFullScreen,
     required this.removeSafeArea,
+    this.bottomPadding = 0,
+    this.gradientExtent = 0,
   });
 
   final Widget child;
@@ -16,6 +39,8 @@ class AppBarAni extends StatelessWidget {
   final bool isTop;
   final bool isFullScreen;
   final bool removeSafeArea;
+  final double bottomPadding;
+  final double gradientExtent;
 
   static final _topPos = Tween<Offset>(
     begin: const Offset(0.0, -1.0),
@@ -49,19 +74,30 @@ class AppBarAni extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bar = Padding(
+      padding: EdgeInsets.only(bottom: isTop ? 0 : bottomPadding),
+      child: removeSafeArea
+          ? child
+          : ViewSafeArea(
+              left: isFullScreen,
+              right: isFullScreen,
+              child: child,
+            ),
+    );
+
     return SlideTransition(
       position: controller.drive(isTop ? _topPos : _bottomPos),
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: isTop ? _topDecoration : _bottomDecoration,
         ),
-        child: removeSafeArea
-            ? child
-            : ViewSafeArea(
-                left: isFullScreen,
-                right: isFullScreen,
-                child: child,
-              ),
+        child: Padding(
+          padding: EdgeInsets.only(
+            top: isTop ? 0 : gradientExtent,
+            bottom: isTop ? gradientExtent : 0,
+          ),
+          child: bar,
+        ),
       ),
     );
   }

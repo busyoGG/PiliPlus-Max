@@ -1,4 +1,4 @@
-import 'dart:async' show Completer, StreamSubscription;
+import 'dart:async' show StreamSubscription, Timer;
 
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/search.dart';

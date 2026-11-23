@@ -64,7 +64,7 @@ class _LaterPageState extends State<LaterPage>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.of(context);
+    final padding = MediaQuery.viewPaddingOf(context);
     return Obx(
       () {
         final enableMultiSelect = _baseCtr.enableMultiSelect.value;

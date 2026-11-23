@@ -67,29 +67,16 @@ class HistoryController
 
   @override
   bool customHandleResponse(bool isRefresh, Success<HistoryData> response) {
-    HistoryData data = response.response;
-    if (_lastResponseWasLocal) {
+    final data = response.response;
+    final last = data.list?.lastOrNull;
+    if (last == null) {
       isEnd = true;
-      final localItems = data.list;
-      final currentItems = loadingState.value.dataOrNull;
-      if (!isRefresh &&
-          localItems?.isNotEmpty == true &&
-          currentItems != null) {
-        currentItems
-          ..addAll(localItems!)
-          ..sort(_compareByViewAt);
-        loadingState.refresh();
-        return true;
-      }
-      return false;
+      max = viewAt = null;
+    } else {
+      isEnd = false;
+      max = last.history.oid;
+      viewAt = last.viewAt;
     }
-    isEnd = data.list.isNullOrEmpty;
-    max = (data.cursorMax ?? 0) > 0
-        ? data.cursorMax
-        : data.list?.lastOrNull?.history.oid;
-    viewAt = (data.cursorViewAt ?? 0) > 0
-        ? data.cursorViewAt
-        : data.list?.lastOrNull?.viewAt;
 
     if (isRefresh && type == null) {
       final tab = data.tab;

@@ -10,26 +10,14 @@ class SpaceOpusSkeleton extends StatelessWidget {
     final surface = ColorScheme.of(context).onInverseSurface;
     return Skeleton(
       child: Card(
-        clipBehavior: Clip.hardEdge,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height:
-                      (0.68 + 0.82 * Utils.random.nextDouble()) *
-                      constraints.maxWidth,
-                  color: surface,
-                ),
-                Container(
-                  height: 10,
-                  color: surface,
-                  margin: const EdgeInsets.all(10),
-                  width: constraints.maxWidth * 0.7,
-                ),
-                Container(
-                  height: 10,
+        shape: const RoundedRectangleBorder(borderRadius: .all(.circular(6))),
+        child: Column(
+          crossAxisAlignment: .start,
+          children: [
+            AspectRatio(
+              aspectRatio: 1 / (0.68 + 0.82 * Utils.random.nextDouble()),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
                   color: surface,
                   borderRadius: const .vertical(top: .circular(6)),
                 ),

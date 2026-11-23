@@ -95,15 +95,12 @@ class ZanButtonGrpc extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     late bool isProcessing = false;
     final action = replyItem.replyControl.action;
-      final likeCount = replyItem.like.toInt();
     final isLike = action == $fixnum.Int64.ONE;
     final isDislike = action == $fixnum.Int64.TWO;
     final outline = theme.colorScheme.outline;
     final primary = theme.colorScheme.primary;
     final ButtonStyle style = TextButton.styleFrom(
       padding: EdgeInsets.zero,
-      minimumSize: Size.zero,
-      alignment: Alignment.centerLeft,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
     );
@@ -126,6 +123,28 @@ class ZanButtonGrpc extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        SizedBox(
+          height: 32,
+          child: TextButton(
+            style: const ButtonStyle(
+              visualDensity: .compact,
+              tapTargetSize: .shrinkWrap,
+              padding: WidgetStatePropertyAll(.zero),
+              minimumSize: WidgetStatePropertyAll(.square(40)),
+            ),
+            onPressed: isLogin
+                ? () => wrapProcessing(onHateReply)
+                : _toastNotLogin,
+            child: Icon(
+              isDislike
+                  ? FontAwesomeIcons.solidThumbsDown
+                  : FontAwesomeIcons.thumbsDown,
+              size: 16,
+              color: isDislike ? primary : outline,
+              semanticLabel: isDislike ? '已踩' : '点踩',
+            ),
+          ),
+        ),
         SizedBox(
           height: 32,
           child: TextButton(

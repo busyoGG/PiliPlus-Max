@@ -3,7 +3,7 @@ import 'package:PiliPlus/models/common/recommend_history_filter_settings.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/recommend_history.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class RecommendHistoryFilterDialog extends StatefulWidget {
   final RecommendHistoryFilterSettings initialValue;

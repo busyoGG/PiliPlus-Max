@@ -1,6 +1,7 @@
 import 'dart:async' show FutureOr;
 import 'dart:convert' show utf8, jsonDecode;
-import 'dart:io' show Directory, File;
+import 'dart:io';
+import 'dart:typed_data' show Uint8List;
 
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
@@ -17,8 +18,7 @@ import 'package:flutter/services.dart' show Clipboard;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:intl/intl.dart' show DateFormat;
-import 'package:path/path.dart' as path;
+import 'package:material_ui/material_ui.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/base16/github.dart';
@@ -30,36 +30,17 @@ void exportToClipBoard({
   Utils.copyText(onExport());
 }
 
-Future<void> exportToLocalFile({
+void exportToLocalFile({
   required ValueGetter<String> onExport,
   required ValueGetter<String> localFileName,
-  ValueGetter<String>? localDirectory,
-  String fileExtension = 'json',
-  List<String>? allowedExtensions,
-}) async {
-  try {
-    final res = utf8.encode(onExport());
-    final fileName =
+}) {
+  final res = utf8.encode(onExport());
+  StorageUtils.saveBytes2File(
+    name:
         'piliplus_${localFileName()}_'
-        '${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.$fileExtension';
-    final directoryPath = localDirectory?.call();
-    if (directoryPath == null) {
-      await StorageUtils.saveBytes2File(
-        name: fileName,
-        bytes: res,
-        allowedExtensions: allowedExtensions ?? [fileExtension],
-      );
-      return;
-    }
-
-    final directory = Directory(directoryPath);
-    await directory.create(recursive: true);
-    final filePath = path.join(directory.path, fileName);
-    await File(filePath).writeAsBytes(res, flush: true);
-    SmartDialog.showToast('已导出至 $filePath');
-  } catch (e) {
-    SmartDialog.showToast('导出失败：$e');
-  }
+        '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
+    bytes: res,
+  );
 }
 
 Future<void> importFromClipBoard<T>(

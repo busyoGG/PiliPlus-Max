@@ -545,8 +545,8 @@ abstract final class PageUtils {
     bool off = false,
     bool isVertical = false,
     Dimension? dimension,
-    bool? autoplay,
-    Rect? originRect,
+    int? rootRpId,
+    int? secondRpId,
   }) {
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),

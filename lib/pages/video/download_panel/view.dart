@@ -64,8 +64,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
   final DownloadService _downloadService = Get.find<DownloadService>();
   final ListController _listController = ListController();
 
-  final Set<int> cidSet = {};
-  final Set<int> completedCidSet = {};
+  late final cidSet = widget.cidSet;
   VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
   AudioQuality _audioQuality = AudioQuality.fromCode(Pref.defaultAudioQa);
 
@@ -80,9 +79,6 @@ class _DownloadPanelState extends State<DownloadPanel> {
   @override
   void initState() {
     super.initState();
-    cidSet.addAll(widget.cidSet);
-    completedCidSet.addAll(_downloadService.downloadList.map((e) => e.cid));
-    _downloadService.flagNotifier.add(_syncDownloadState);
     if (widget.index != -1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _listController.jumpToItem(
@@ -273,8 +269,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
                             ugcIntroController: widget.ugcIntroController!,
                             bvid: episode.bvid ?? IdUtils.av2bv(episode.aid!),
                             cidSet: cidSet,
-                            completedCidSet: completedCidSet,
-                            onDownload: (Part part) => _onDownload(
+                            onDownload: (part) => _onDownload(
                               index: index,
                               episode: part,
                               parent: episode,
@@ -302,13 +297,18 @@ class _DownloadPanelState extends State<DownloadPanel> {
     bool isDownloadAll = false,
     ugc.EpisodeItem? parent,
   }) {
-    if (kReleaseMode && episode.badge == '会员' && Accounts.mainEqVideo) {
-      if (vipStatus != 1) {
-        if (!isDownloadAll) {
-          SmartDialog.showToast('需要大会员');
-        }
-        return false;
+    final cid = episode.cid;
+    // on download
+    if (cid == null) {
+      SmartDialog.showToast('null cid');
+      return false;
+    }
+
+    if (cidSet.contains(cid)) {
+      if (kDebugMode) {
+        SmartDialog.showToast('downloaded');
       }
+      return false;
     }
 
     if (episode is ugc.EpisodeItem) {
@@ -593,13 +593,11 @@ class _DownloadPanelState extends State<DownloadPanel> {
                                 bottom: 0,
                                 right: 0,
                                 child: Icon(
-                                  size: 18,
-                                  color: theme.colorScheme.secondary.withValues(
+                                  size: 13,
+                                  color: colorScheme.secondary.withValues(
                                     alpha: 0.8,
                                   ),
-                                  completedCidSet.contains(cid)
-                                      ? FontAwesomeIcons.circleCheck
-                                      : FontAwesomeIcons.circleDown,
+                                  FontAwesomeIcons.circleDown,
                                 ),
                               ),
                           ],

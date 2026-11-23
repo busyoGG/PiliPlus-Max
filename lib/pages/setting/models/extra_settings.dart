@@ -14,8 +14,6 @@ import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
-import 'package:PiliPlus/pages/setting/widgets/history_archive_settings_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -54,16 +52,15 @@ List<SettingsModel> get extraSettings => [
       leading: const Icon(Icons.storage),
       onTap: _showDownPathDialog,
     ),
-  ],
-  NormalModel(
-    title: '历史记录自动归档',
-    subtitle: '增量备份官方记录并扩展本地历史搜索',
-    leading: const Icon(Icons.archive_outlined),
-    onTap: (context, setState) async {
-      await showHistoryArchiveSettingsDialog(context);
-      setState();
-    },
-  ),
+  ] else if (Platform.isAndroid)
+    SwitchModel(
+      title: '允许三方APP访问私有存储',
+      subtitle: '允许三方APP（例如MT管理器）通过访问外部存储的方式访问私有存储下的文件',
+      leading: const Icon(Icons.storage),
+      setKey: SettingBoxKey.enableDocProvider,
+      defaultVal: Pref.enableDocProvider,
+      onChanged: AndroidHelper.updateDocProvider,
+    ),
   SplitModel(
     normalModel: const NormalModel.split(
       title: '空降助手',
@@ -85,126 +82,6 @@ List<SettingsModel> get extraSettings => [
         .put(SettingBoxKey.pgcSkipType, value.index)
         .whenComplete(setState),
   ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: '检查未读动态',
-      subtitle: '点击设置检查周期(min)',
-      leading: Icon(Icons.notifications_none),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: true,
-      setKey: SettingBoxKey.checkDynamic,
-      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
-      onTap: _showDynDialog,
-    ),
-  ),
-  const SwitchModel(
-    title: '显示视频分段信息',
-    leading: Icon(CustomIcons.view_headline_rotate_90),
-    setKey: SettingBoxKey.showViewPoints,
-    defaultVal: true,
-  ),
-  const SplitModel(
-    normalModel: NormalModel.split(
-      title: '竖屏视频全屏底栏避让系统导航栏',
-      subtitle: '开启后点击设置避让高度（0–80dp）',
-      leading: Icon(Icons.vertical_align_bottom),
-    ),
-    switchModel: SwitchModel.split(
-      setKey: SettingBoxKey.verticalFullscreenBottomBarSafeArea,
-      defaultVal: false,
-      onTap: _showVerticalFullscreenBottomBarSafeHeightDialog,
-    ),
-  ),
-  const SwitchModel(
-    title: '视频页显示相关视频',
-    leading: Icon(MdiIcons.motionPlayOutline),
-    setKey: SettingBoxKey.showRelatedVideo,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示视频评论',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showVideoReply,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示番剧评论',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showBangumiReply,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '默认展开视频简介',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.alwaysExpandIntroPanel,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '横屏自动展开视频简介',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.expandIntroPanelH,
-    defaultVal: false,
-  ),
-  SwitchModel(
-    title: '横屏分P/合集列表显示在Tab栏',
-    leading: const Icon(Icons.format_list_numbered_rtl_sharp),
-    setKey: SettingBoxKey.horizontalSeasonPanel,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: '横屏播放页在侧栏打开UP主页',
-    leading: const Icon(Icons.account_circle_outlined),
-    setKey: SettingBoxKey.horizontalMemberPage,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: '横屏在侧栏打开图片预览',
-    leading: const Icon(Icons.photo_outlined),
-    setKey: SettingBoxKey.horizontalPreview,
-    defaultVal: false,
-    onChanged: (value) => ImageGridView.horizontalPreview = value,
-  ),
-  NormalModel(
-    title: '评论折叠行数',
-    subtitle: '0行为不折叠',
-    leading: const Icon(Icons.compress),
-    getTrailing: (theme) => Text(
-      '${ReplyItemGrpc.replyLengthLimit}行',
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showReplyLengthDialog,
-  ),
-  NormalModel(
-    title: '弹幕行高',
-    subtitle: '默认1.6',
-    leading: const Icon(CustomIcons.dm_settings),
-    getTrailing: (theme) => Text(
-      Pref.danmakuLineHeight.toString(),
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showDmHeightDialog,
-  ),
-  const SwitchModel(
-    title: '显示视频警告/争议信息',
-    leading: Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showArgueMsg,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: '显示动态警告/争议信息',
-    leading: const Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showDynDispute,
-    defaultVal: false,
-    onChanged: (val) => ItemModulesModel.showDynDispute = val,
-  ),
-  const SwitchModel(
-    title: '分P/合集：倒序播放从首集开始播放',
-    subtitle: '开启则自动切换为倒序首集，否则保持当前集',
-    leading: Icon(MdiIcons.sort),
-    setKey: SettingBoxKey.reverseFromFirst,
-    defaultVal: true,
-  ),
   const SwitchModel(
     title: '禁用 SSL 证书验证',
     subtitle: '谨慎开启，禁用容易受到中间人攻击',
@@ -218,222 +95,11 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.openInBrowser,
     defaultVal: false,
   ),
-  const SwitchModel(
-    title: '视频详情页 BV 号转为 AV 号',
-    subtitle: '开启后详情页显示并复制 AV 号；关闭则保持显示 BV 号',
-    leading: Icon(Icons.swap_horiz),
-    setKey: SettingBoxKey.videoDetailUseAv,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '全屏接收外部视频跳转时打开竖屏详情',
-    subtitle: '开启后退出全屏并打开视频详情，不自动播放；关闭则保持当前全屏行为',
-    leading: Icon(Icons.stay_current_portrait_outlined),
-    setKey: SettingBoxKey.externalVideoLinkOpenInDetail,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '返回前台时打开剪贴板链接',
-    subtitle: '提取并打开剪贴板首条文本中的第一个链接；相同链接及本 App 刚复制或分享的链接不处理',
-    leading: Icon(Icons.content_paste_outlined),
-    setKey: SettingBoxKey.openClipboardLinkOnResume,
-    defaultVal: false,
-  ),
   NormalModel(
     title: '横向滑动阈值',
     getSubtitle: () => '当前:「${Pref.touchSlopH}」，系统默认值: $deviceTouchSlop',
     onTap: _showTouchSlopDialog,
     leading: const Icon(Icons.pan_tool_alt_outlined),
-  ),
-      NormalModel(
-    title: '横向标签页快滑速度阈值',
-    getSubtitle: () =>
-        '当前：${Pref.tabSwipeVelocityThreshold.toStringAsFixed(0)} dp/s'
-        '（越大越难判定为快滑）',
-    leading: const Icon(Icons.speed_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '横向标签页快滑速度阈值',
-      key: SettingBoxKey.tabSwipeVelocityThreshold,
-      value: Pref.tabSwipeVelocityThreshold,
-      min: 10.0,
-      max: 3000.0,
-      divisions: 299,
-      precise: 0,
-      suffix: 'dp/s',
-    ),
-  ),
-  NormalModel(
-    title: '横向标签页慢滑翻页距离',
-    getSubtitle: () =>
-        '当前：${Pref.tabSwipeDistanceThresholdPercent.toStringAsFixed(0)}%'
-        ' 页面宽度',
-    leading: const Icon(Icons.compare_arrows_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '横向标签页慢滑翻页距离',
-      key: SettingBoxKey.tabSwipeDistanceThresholdPercent,
-      value: Pref.tabSwipeDistanceThresholdPercent,
-      min: 5.0,
-      max: 95.0,
-      divisions: 90,
-      precise: 0,
-      suffix: '%',
-    ),
-  ),
-  NormalModel(
-    title: '进度浮窗垂直位置',
-    getSubtitle: () => Pref.seekTimeInPreview
-        ? '当前：${Pref.seekTimeToastVerticalPercent.toStringAsFixed(0)}%（0%预览窗顶部，100%预览窗底部）'
-        : '当前：${Pref.seekTimeToastVerticalPercent.toStringAsFixed(0)}%（0%播放器顶部，100%播放器底部）',
-    leading: const Icon(Icons.vertical_align_center_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '进度浮窗垂直位置',
-      key: SettingBoxKey.seekTimeToastVerticalPercent,
-      value: Pref.seekTimeToastVerticalPercent,
-      min: 0,
-      max: 100,
-      divisions: 100,
-      precise: 0,
-      suffix: '%',
-    ),
-  ),
-  NormalModel(
-    title: '长按倍速浮窗垂直位置',
-    getSubtitle: () =>
-        '当前：${Pref.longPressSpeedToastVerticalPercent.toStringAsFixed(0)}%（0%播放器顶部，100%播放器底部）',
-    leading: const Icon(Icons.vertical_align_center_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '长按倍速浮窗垂直位置',
-      key: SettingBoxKey.longPressSpeedToastVerticalPercent,
-      value: Pref.longPressSpeedToastVerticalPercent,
-      min: 0,
-      max: 100,
-      divisions: 100,
-      precise: 0,
-      suffix: '%',
-    ),
-  ),
-  NormalModel(
-    title: '进度浮窗字体大小',
-    getSubtitle: () =>
-        '当前：${Pref.seekTimeToastFontSize.toStringAsFixed(1)}dp',
-    leading: const Icon(Icons.format_size_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '进度浮窗字体大小',
-      key: SettingBoxKey.seekTimeToastFontSize,
-      value: Pref.seekTimeToastFontSize,
-      min: 8,
-      max: 32,
-      divisions: 48,
-      precise: 1,
-      suffix: 'dp',
-    ),
-  ),
-  NormalModel(
-    title: '长按倍速浮窗字体大小',
-    getSubtitle: () =>
-        '当前：${Pref.longPressSpeedToastFontSize.toStringAsFixed(1)}dp',
-    leading: const Icon(Icons.format_size_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '长按倍速浮窗字体大小',
-      key: SettingBoxKey.longPressSpeedToastFontSize,
-      value: Pref.longPressSpeedToastFontSize,
-      min: 8,
-      max: 32,
-      divisions: 48,
-      precise: 1,
-      suffix: 'dp',
-    ),
-  ),
-  const SwitchModel(
-    title: '音量与亮度手势使用图形进度条',
-    subtitle: '关闭时显示百分比；开启后显示跟随主题色的图形进度条',
-    leading: Icon(Icons.graphic_eq),
-    setKey: SettingBoxKey.volumeBrightnessGestureProgressBar,
-    defaultVal: false,
-  ),
-  NormalModel(
-    title: '音量手势识别角度',
-    getSubtitle: () =>
-        '当前: ${Pref.volumeGestureAngleThreshold.toStringAsFixed(1)}°（相对竖直方向，越大越容易识别）',
-    leading: const Icon(Icons.volume_up_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '音量手势识别角度',
-      key: SettingBoxKey.volumeGestureAngleThreshold,
-      value: Pref.volumeGestureAngleThreshold,
-      min: 5.0,
-      max: 60.0,
-      divisions: 110,
-      precise: 1,
-      suffix: '°',
-    ),
-  ),
-  NormalModel(
-    title: '亮度手势识别角度',
-    getSubtitle: () =>
-        '当前: ${Pref.brightnessGestureAngleThreshold.toStringAsFixed(1)}°（相对竖直方向，越大越容易识别）',
-    leading: const Icon(Icons.brightness_6_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '亮度手势识别角度',
-      key: SettingBoxKey.brightnessGestureAngleThreshold,
-      value: Pref.brightnessGestureAngleThreshold,
-      min: 5.0,
-      max: 60.0,
-      divisions: 110,
-      precise: 1,
-      suffix: '°',
-    ),
-  ),
-  NormalModel(
-    title: '音量手势调节速度',
-    getSubtitle: () =>
-        '当前: ${Pref.volumeGestureSpeed.toStringAsFixed(2)}×（越大调节越快）',
-    leading: const Icon(Icons.speed_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '音量手势调节速度',
-      key: SettingBoxKey.volumeGestureSpeed,
-      value: Pref.volumeGestureSpeed,
-      min: 0.25,
-      max: 4.0,
-      divisions: 15,
-      precise: 2,
-      suffix: '×',
-    ),
-  ),
-  NormalModel(
-    title: '亮度手势调节速度',
-    getSubtitle: () =>
-        '当前: ${Pref.brightnessGestureSpeed.toStringAsFixed(2)}×（越大调节越快）',
-    leading: const Icon(Icons.speed_outlined),
-    onTap: (context, setState) => _showGestureSliderDialog(
-      context,
-      setState,
-      title: '亮度手势调节速度',
-      key: SettingBoxKey.brightnessGestureSpeed,
-      value: Pref.brightnessGestureSpeed,
-      min: 0.25,
-      max: 4.0,
-      divisions: 15,
-      precise: 2,
-      suffix: '×',
-    ),
   ),
   NormalModel(
     title: '刷新指示器高度',
@@ -443,12 +109,6 @@ List<SettingsModel> get extraSettings => [
     onTap: _showRefreshDialog,
   ),
   const SwitchModel(
-    title: '显示会员彩色弹幕',
-    leading: Icon(MdiIcons.gradientHorizontal),
-    setKey: SettingBoxKey.showVipDanmaku,
-    defaultVal: true,
-  ),
-  const SwitchModel(
     title: '显示热门推荐',
     subtitle: '热门页面显示每周必看等推荐内容入口',
     leading: Icon(Icons.local_fire_department_outlined),
@@ -456,53 +116,17 @@ List<SettingsModel> get extraSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  const SwitchModel(
-    title: '重启 App 时刷新首页',
-    subtitle: '关闭时恢复上次退出前的首页推荐内容与加载进度',
-    leading: Icon(Icons.restart_alt),
-    setKey: SettingBoxKey.refreshHomeOnRestart,
-    defaultVal: false,
-    needReboot: true,
-  ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音量均衡',
-      leading: const Icon(Icons.multitrack_audio),
-      getSubtitle: () {
-        final audioNormalization = AudioNormalization.getTitleFromConfig(
-          Pref.audioNormalization,
-        );
-        String fallback = Pref.fallbackNormalization;
-        if (fallback == '0') {
-          fallback = '';
-        } else {
-          fallback =
-              '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
-        }
-        return '当前:「$audioNormalization」$fallback';
-      },
-      onTap: audioNormalization,
+  const SplitModel(
+    normalModel: NormalModel.split(
+      title: '竖屏视频全屏底栏避让系统导航栏',
+      subtitle: '开启后点击设置避让高度（0–80dp）',
+      leading: Icon(Icons.vertical_align_bottom),
     ),
-  NormalModel(
-    title: '超分辨率',
-    leading: const Icon(Icons.stay_current_landscape_outlined),
-    getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
-    onTap: _showSuperResolutionDialog,
-  ),
-  const SwitchModel(
-    title: '提前初始化播放器',
-    subtitle: '相对减少手动播放加载时间',
-    leading: Icon(Icons.play_circle_outlined),
-    setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '首页切换页面动画',
-    leading: Icon(Icons.home_outlined),
-    setKey: SettingBoxKey.mainTabBarView,
-    defaultVal: false,
-    needReboot: true,
+    switchModel: SwitchModel.split(
+      setKey: SettingBoxKey.verticalFullscreenBottomBarSafeArea,
+      defaultVal: false,
+      onTap: _showVerticalFullscreenBottomBarSafeHeightDialog,
+    ),
   ),
   const SwitchModel(
     title: '搜索建议',
@@ -523,58 +147,6 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.enableLivePhoto,
     defaultVal: true,
     onChanged: (value) => ImageModel.enableLivePhoto = value,
-  ),
-  const SwitchModel(
-    title: '显示高能进度条',
-    subtitle: '高能进度条反应了在时域上，单位时间内弹幕发送量的变化趋势',
-    leading: Icon(Icons.show_chart),
-    setKey: SettingBoxKey.showDmChart,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '记录评论',
-    leading: Icon(Icons.message_outlined),
-    setKey: SettingBoxKey.saveReply,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: '发评反诈',
-    subtitle: '发送评论后检查评论是否可见',
-    leading: Icon(CustomIcons.shield_reply),
-    setKey: SettingBoxKey.enableCommAntifraud,
-    defaultVal: false,
-  ),
-  if (Platform.isAndroid)
-    const SwitchModel(
-      title: '使用「哔哩发评反诈」检查评论',
-      leading: Icon(
-        FontAwesomeIcons.b,
-        size: 22,
-      ),
-      setKey: SettingBoxKey.biliSendCommAntifraud,
-      defaultVal: false,
-    ),
-  const SwitchModel(
-    title: '发布/转发动态反诈',
-    subtitle: '发布/转发动态后检查动态是否可见',
-    leading: Icon(CustomIcons.shield_published),
-    setKey: SettingBoxKey.enableCreateDynAntifraud,
-    defaultVal: false,
-  ),
-  SwitchModel(
-    title: '屏蔽带货动态',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsDyn,
-    defaultVal: false,
-    onChanged: (value) => DynamicsDataModel.antiGoodsDyn = value,
-  ),
-  SwitchModel(
-    title: '屏蔽带货评论',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsReply,
-    defaultVal: false,
-    onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
   ),
   SwitchModel(
     title: '侧滑关闭二级页面',
@@ -811,82 +383,6 @@ void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
       ],
     ),
   );
-}
-
-Future<void> _showGestureSliderDialog(
-  BuildContext context,
-  VoidCallback setState, {
-  required String title,
-  required String key,
-  required double value,
-  required double min,
-  required double max,
-  required int divisions,
-  required int precise,
-  required String suffix,
-}) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: Text(title),
-      value: value,
-      min: min,
-      max: max,
-      divisions: divisions,
-      precise: precise,
-      suffix: suffix,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(key, res);
-    setState();
-  }
-}
-
-Future<void> _showVerticalFullscreenBottomBarSafeHeightDialog(
-  BuildContext context,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('竖屏视频全屏底栏避让高度'),
-      value: Pref.verticalFullscreenBottomBarSafeHeight,
-      min: 0,
-      max: 80,
-      divisions: 80,
-      precise: 0,
-      suffix: 'dp',
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.verticalFullscreenBottomBarSafeHeight,
-      res,
-    );
-  }
-}
-
-Future<void> _showRefreshDragDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('刷新滑动距离'),
-      min: 0.1,
-      max: 0.5,
-      divisions: 8,
-      precise: 2,
-      value: Pref.refreshDragPercentage,
-      suffix: 'x',
-    ),
-  );
-  if (res != null) {
-    kDragContainerExtentPercentage = res;
-    await GStorage.setting.put(SettingBoxKey.refreshDragPercentage, res);
-    setState();
-  }
 }
 
 Future<void> _showRefreshDialog(

@@ -2,7 +2,7 @@ import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/utils/home_card_layout_prefs.dart';
 import 'package:PiliPlus/utils/storage.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 List<SettingsModel> get homeCardLayoutSettings => [

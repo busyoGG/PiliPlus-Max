@@ -12,8 +12,8 @@ import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 mixin DebounceStreamMixin<T> {
@@ -129,7 +129,7 @@ class SSearchController extends GetxController
     if (searchSuggestion) {
       subInit();
       searchSuggestList = <SearchSuggestItem>[].obs;
-      refreshSuggestions();
+      if (text != null) onValueChanged(text);
     }
 
     if (enableSearchRcmd) {
@@ -195,16 +195,16 @@ class SSearchController extends GetxController
     }
 
     searchFocusNode.unfocus();
-    Get.offNamedUntil<void>(
+    Get.toNamed(
       '/searchResult',
-      ModalRoute.withName('/'),
-      parameters: {
-        'keyword': controller.text,
-      },
-      arguments: {
-        'initIndex': initIndex,
-      },
-    );
+      parameters: {'tag': tag, 'keyword': text},
+      arguments: {'initIndex': initIndex, 'fromSearch': true},
+    )?.then((val) {
+      searchFocusNode.requestFocus();
+      if (val is bool && val) {
+        onValueChanged(text);
+      }
+    });
   }
 
   Future<void> queryRecommendList() async {

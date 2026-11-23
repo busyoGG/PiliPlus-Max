@@ -25,10 +25,23 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   SearchVideoData({
     super.numResults,
     super.list,
+    this.numPages,
+    this.hasNext,
   });
+
+  int? numPages;
+  bool? hasNext;
+
+  bool hasMore(int page) => hasNext ?? (numPages == null || page < numPages!);
 
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
+    numPages = (json['numPages'] as num?)?.toInt();
+    hasNext = switch (json['next']) {
+      bool value => value,
+      num value => value != 0,
+      _ => null,
+    };
     list = (json['result'] as List?)
         ?.whereNotBlocked((e) => e['mid'])
         .map((e) => SearchVideoItemModel.fromJson(e))
@@ -88,30 +101,38 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   }
 }
 
-class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
-  SearchVideoData({
-    super.numResults,
-    super.list,
-    this.numPages,
-    this.hasNext,
+class SearchActivity {
+  int? id;
+  String? title;
+  String? desc;
+  String? cover;
+  String url;
+  int? state;
+  int? status;
+  String? author;
+
+  SearchActivity({
+    this.id,
+    this.title,
+    this.desc,
+    this.cover,
+    required this.url,
+    this.state,
+    this.status,
+    this.author,
   });
 
-  int? numPages;
-  bool? hasNext;
-
-  bool hasMore(int page) => hasNext ?? (numPages == null || page < numPages!);
-
-  SearchVideoData.fromJson(Map<String, dynamic> json) {
-    numResults = (json['numResults'] as num?)?.toInt();
-    numPages = (json['numPages'] as num?)?.toInt();
-    hasNext = switch (json['next']) {
-      bool value => value,
-      num value => value != 0,
-      _ => null,
-    };
-    list = (json['result'] as List?)
-        ?.map<SearchVideoItemModel>((e) => SearchVideoItemModel.fromJson(e))
-        .toList();
+  factory SearchActivity.fromJson(Map<String, dynamic> json, String url) {
+    return SearchActivity(
+      id: json['id'] as int?,
+      title: json['title'] as String?,
+      desc: json['desc'] as String?,
+      cover: json['cover'] as String?,
+      url: url,
+      state: json['state'] as int?,
+      status: json['status'] as int?,
+      author: json['author'] as String?,
+    );
   }
 }
 

@@ -185,7 +185,6 @@ seekPreviewScale = 'seekPreviewScale',
           'longPressSpeedToastVerticalPercent',
       seekTimeToastFontSize = 'seekTimeToastFontSize',
       longPressSpeedToastFontSize = 'longPressSpeedToastFontSize',
-      enableScrollVolume = 'enableScrollVolume',
       enableSlideFS = 'enableSlideFS',
       retryCount = 'retryCount',
       retryDelay = 'retryDelay',
@@ -376,8 +375,6 @@ verticalScrollDecelerationScale = 'verticalScrollDecelerationScale',
   uiBlur = 'uiBlur',
   uiBlurEnabled = 'uiBlurEnabled',
       saveReply = 'saveReply';
-      saveReply = 'saveReply',
-      appFont = 'appFont';
 }
 
 abstract final class LocalCacheKey {

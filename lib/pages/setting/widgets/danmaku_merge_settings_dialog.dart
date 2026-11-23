@@ -2,7 +2,7 @@ import 'package:PiliPlus/models/common/danmaku_merge_mode.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 Future<bool> showDanmakuMergeSettingsDialog(

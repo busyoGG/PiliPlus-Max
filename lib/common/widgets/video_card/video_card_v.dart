@@ -16,10 +16,9 @@ import 'package:PiliPlus/utils/extension/dimension_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
 class VideoCardV extends StatelessWidget {
@@ -97,7 +96,7 @@ class VideoCardV extends StatelessWidget {
       children: [
         Card(
           child: InkWell(
-            onTap: () => onPushDetail(context),
+            onTap: onPushDetail,
             onLongPress: onLongPress,
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
             borderRadius: const .all(.circular(12)),
@@ -105,7 +104,7 @@ class VideoCardV extends StatelessWidget {
               crossAxisAlignment: .start,
               children: [
                 AspectRatio(
-                  aspectRatio: aspectRatio,
+                  aspectRatio: Style.aspectRatio,
                   child: LayoutBuilder(
                     builder: (context, boxConstraints) {
                       double maxWidth = boxConstraints.maxWidth;
@@ -117,11 +116,9 @@ class VideoCardV extends StatelessWidget {
                             src: videoItem.cover,
                             width: maxWidth,
                             height: maxHeight,
-                            type: .emote,
-                            fit: BoxFit.cover,
+                            borderRadius: const .vertical(top: .circular(12)),
                           ),
-                          if (!Pref.recommendDurationInStatRow &&
-                              videoItem.duration > 0)
+                          if (videoItem.duration > 0)
                             PBadge(
                               bottom: 6,
                               right: 7,
@@ -244,39 +241,10 @@ class VideoCardV extends StatelessWidget {
     );
   }
 
-  Widget _buildUpIcon(ThemeData theme) {
-    final color = theme.colorScheme.outline.withValues(alpha: 0.85);
-    return ExcludeSemantics(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-        decoration: BoxDecoration(
-          border: Border.all(color: color, width: 0.8),
-          borderRadius: BorderRadius.circular(2.5),
-        ),
-        child: Text(
-          'UP',
-          textScaler: TextScaler.noScaling,
-          style: TextStyle(
-            height: 1,
-            fontSize: 8,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
-        ),
-      ),
-    );
-  }
-
   static final shortFormat = DateFormat('M-d');
   static final longFormat = DateFormat('yy-M-d');
 
-  Widget videoStat(BuildContext context, ThemeData theme) {
-    final durationInStatRow =
-        Pref.recommendDurationInStatRow && videoItem.duration > 0;
-    final trailingStyle = TextStyle(
-      fontSize: theme.textTheme.labelSmall!.fontSize,
-      color: theme.colorScheme.outline.withValues(alpha: 0.8),
-    );
+  Widget videoStat(ThemeData theme) {
     return Row(
       children: [
         StatWidget(
@@ -284,26 +252,21 @@ class VideoCardV extends StatelessWidget {
           value: videoItem.stat.view,
         ),
         if (videoItem.goto != 'picture') ...[
-          SizedBox(width: Pref.recommendStatSpacing),
+          const SizedBox(width: 4),
           StatWidget(
             type: .danmaku,
             value: videoItem.stat.danmu,
           ),
         ],
-        if (durationInStatRow) ...[
-          const Spacer(),
-          Text(
-            DurationUtils.formatDuration(videoItem.duration),
-            maxLines: 1,
-            style: trailingStyle,
-          ),
-          const SizedBox(width: 2),
-        ] else if (videoItem is RcmdVideoItemModel) ...[
+        if (videoItem is RcmdVideoItemModel) ...[
           const Spacer(),
           Text.rich(
             maxLines: 1,
             TextSpan(
-              style: trailingStyle,
+              style: TextStyle(
+                fontSize: theme.textTheme.labelSmall!.fontSize,
+                color: theme.colorScheme.outline.withValues(alpha: 0.8),
+              ),
               text: DateFormatUtils.dateFormat(
                 videoItem.pubdate,
                 short: shortFormat,

@@ -54,7 +54,8 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
-    this.verticalTouchPadding = 0.0,
+    this.onHover,
+    this.onExit,
   });
 
   /// The elapsed playing time of the media.
@@ -185,6 +186,10 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
 
+  final PointerEventListener? onHover;
+
+  final VoidCallback? onExit;
+
   /// Extra transparent hit area added equally above and below the visible bar.
   final double verticalTouchPadding;
 
@@ -207,7 +212,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
-      verticalTouchPadding: verticalTouchPadding,
+      onHover: onHover,
+      onExit: onExit,
     );
   }
 
@@ -233,7 +239,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
       ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
-      ..verticalTouchPadding = verticalTouchPadding;
+      .._onHover = onHover
+      .._onExit = onExit;
   }
 
   @override
@@ -359,17 +366,21 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required this._thumbGlowColor,
     double thumbGlowRadius = 30.0,
     this._thumbCanPaintOutsideBar = true,
-    double verticalTouchPadding = 0.0,
+    PointerEventListener? onHover,
+    VoidCallback? onExit,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
        _thumbRadius = thumbRadius,
        _thumbGlowRadius = thumbGlowRadius,
-       _verticalTouchPadding = verticalTouchPadding,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
        _hitTestSelf = onDragStart != null || onHover != null {
     if (onDragStart != null) {
-      _drag = _createDragRecognizer();
+      _drag = _EagerHorizontalDragGestureRecognizer()
+        ..onStart = _onDragStart
+        ..onUpdate = _onDragUpdate
+        ..onEnd = _onDragEnd
+        ..onCancel = _finishDrag;
     }
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
@@ -861,6 +872,29 @@ void addPointerFromExpandedHitRegion(
     //   _drawHoverIndicator(canvas, localSize, _hoverDx!, thumbPaint);
     // }
     canvas.drawCircle(center, thumbRadius, thumbPaint);
+  }
+
+  static const _kIndicatorX = 6.0;
+  static const _kIndicatorY = 4.0;
+  static const _kIndicatorPadding = 2.0;
+  // ignore: unused_element
+  void _drawHoverIndicator(
+    Canvas canvas,
+    Size localSize,
+    double dx,
+    Paint thumbPaint,
+  ) {
+    final bottomDy = localSize.height + _kIndicatorY;
+    final path = Path()
+      ..moveTo(dx, _kIndicatorPadding)
+      ..lineTo(dx - _kIndicatorX, -_kIndicatorY)
+      ..lineTo(dx + _kIndicatorX, -_kIndicatorY)
+      ..close()
+      ..moveTo(dx, localSize.height - _kIndicatorPadding)
+      ..lineTo(dx - _kIndicatorX, bottomDy)
+      ..lineTo(dx + _kIndicatorX, bottomDy)
+      ..close();
+    canvas.drawPath(path, thumbPaint);
   }
 /// 返回指定播放进度对应的手柄全局横坐标。
 ///

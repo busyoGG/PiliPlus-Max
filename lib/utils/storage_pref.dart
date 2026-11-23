@@ -374,7 +374,7 @@ static int get videoPlayerSwitchForceTimeoutSeconds {
 
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
-    defaultValue: HwDecType.kHwdec,
+    defaultValue: HwDecType.auto.hwdec,
   );
 
   static String get videoSync =>
@@ -987,6 +987,9 @@ static bool get seekPreviewFollowGesture => _setting.get(
     8.0,
     32.0,
   );
+
+  static bool get enableScrollVolume =>
+      _setting.get(SettingBoxKey.enableScrollVolume, defaultValue: true);
 
   static bool get enableSlideFS =>
       _setting.get(SettingBoxKey.enableSlideFS, defaultValue: true);

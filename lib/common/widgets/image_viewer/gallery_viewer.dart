@@ -15,7 +15,7 @@
  * along with PiliPlus.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import 'dart:async' show StreamSubscription, unawaited;
+import 'dart:async';
 import 'dart:io' show File, Platform;
 
 import 'package:PiliPlus/common/widgets/colored_box_transition.dart';

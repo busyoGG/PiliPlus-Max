@@ -6,8 +6,6 @@ import 'package:PiliPlus/common/widgets/button/more_btn.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/follow_order_type.dart';
-import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/follow/list.dart';
 import 'package:PiliPlus/pages/follow/child/child_controller.dart';
 import 'package:PiliPlus/pages/follow/controller.dart';
@@ -15,9 +13,8 @@ import 'package:PiliPlus/pages/follow/widgets/follow_item.dart';
 import 'package:PiliPlus/pages/follow_type/follow_same/view.dart';
 import 'package:PiliPlus/pages/share/view.dart' show UserModel;
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FollowChildPage extends StatefulWidget {
   const FollowChildPage({
@@ -40,17 +37,9 @@ class FollowChildPage extends StatefulWidget {
 }
 
 class _FollowChildPageState extends State<FollowChildPage>
-    with
-        AutomaticKeepAliveClientMixin,
-        SingleTickerProviderStateMixin,
-        BaseFabMixin,
-        LazyFabMixin {
-  static const double _fabRevealDistance = 72.0;
-
+    with AutomaticKeepAliveClientMixin {
   late String _tag;
   late FollowChildController _followController;
-  double _fabUpwardDistance = 0.0;
-  bool _fabHiddenByScroll = false;
 
   String get _newTag =>
       '${widget.tag ?? Utils.generateRandomString(8)}${widget.tagid}';
@@ -149,50 +138,6 @@ class _FollowChildPageState extends State<FollowChildPage>
         ),
       ),
     );
-    if (widget.onSelect != null ||
-        (widget.controller?.isOwner == true && widget.tagid == null)) {
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: _handleFabScroll,
-            child: child,
-          ),
-          Positioned(
-            right: kFloatingActionButtonMargin + padding.right,
-            bottom: 0,
-            child: SlideTransition(
-              position: fabAnimation,
-              child: Padding(
-                padding: .only(
-                  bottom: kFloatingActionButtonMargin + padding.bottom,
-                ),
-                child: FloatingActionButton.extended(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).uiColor(ThemeUiElement.followSortBackground),
-                  foregroundColor: Theme.of(
-                    context,
-                  ).uiColor(ThemeUiElement.followSortContent),
-                  onPressed: () => _followController
-                    ..setOrderType(
-                      _followController.orderType.value == FollowOrderType.def
-                          ? FollowOrderType.attention
-                          : FollowOrderType.def,
-                    )
-                    ..onReload(),
-                  icon: const Icon(Icons.format_list_bulleted, size: 20),
-                  label: Obx(
-                    () => Text(_followController.orderType.value.title),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    return child;
   }
 
   Widget _buildBody(LoadingState<List<FollowItemModel>?> loadingState) {

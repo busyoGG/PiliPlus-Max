@@ -64,23 +64,11 @@ class CustomHorizontalDragGestureRecognizer
       pointerDeviceKind,
       _initialPosition,
       lastPosition.global,
-      acceptLeftDownwardDragAt45Degrees:
-          _acceptLeftDownwardDragAt45Degrees,
     );
   }
 
   @override
-  bool isFlingGesture(
-    VelocityEstimate estimate,
-    PointerDeviceKind kind,
-  ) {
-    final double minDistance =
-        minFlingDistance ?? computeHitSlop(kind, gestureSettings);
-
-    return estimate.pixelsPerSecond.dx.abs() >
-            Pref.tabSwipeVelocityThreshold &&
-        estimate.offset.dx.abs() > minDistance;
-  }
+  Type get runtimeType => HorizontalDragGestureRecognizer;
 }
 
 double touchSlopH = Pref.touchSlopH;
@@ -101,29 +89,15 @@ bool _computeHitSlop(
     case .unknown:
     case .touch:
       return globalDistanceMoved > settings.touchSlop! &&
-          _calcAngle(
-            initialPosition!,
-            lastPosition,
-            acceptLeftDownwardDragAt45Degrees:
-                acceptLeftDownwardDragAt45Degrees,
-          );
+          _calcAngle(initialPosition!, lastPosition);
     case .trackpad:
       return globalDistanceMoved > settings.touchSlop! &&
           _calcAngle(initialPosition!, lastPosition);
   }
 }
 
-bool _calcAngle(
-  Offset initialPosition,
-  Offset lastPosition, {
-  required bool acceptLeftDownwardDragAt45Degrees,
-}) {
+bool _calcAngle(Offset initialPosition, Offset lastPosition) {
   final offset = lastPosition - initialPosition;
-  if (acceptLeftDownwardDragAt45Degrees &&
-      offset.dx < 0 &&
-      offset.dy > 0) {
-    return offset.dx.abs() >= offset.dy;
-  }
   return offset.dx.abs() > offset.dy.abs() * 3;
 }
 

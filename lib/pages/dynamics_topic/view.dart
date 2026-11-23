@@ -100,45 +100,56 @@ class _DynTopicPageState extends State<DynTopicPage>
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      child: Stack(
-        clipBehavior: .none,
-        children: [
-          refreshIndicator(
-            onRefresh: _controller.onRefresh,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleFabScroll,
-              child: CustomScrollView(
-                controller: _controller.scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  Obx(
-                    () => _buildAppBar(
-                      colorScheme,
-                      padding,
-                      _controller.topState.value,
-                    ),
-                  ),
-                  Obx(() {
-                    final allSortBy =
-                        _controller.topicSortByConf.value?.allSortBy;
-                    if (allSortBy != null && allSortBy.isNotEmpty) {
-                      return SliverPinnedHeader(
-                        backgroundColor: colorScheme.surface,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            left: 12 + padding.left,
-                            top: 6,
-                            bottom: 6,
-                          ),
-                          child: Builder(
-                            builder: (context) {
-                              return ToggleButtons(
-                                fillColor: colorScheme.secondaryContainer,
-                                selectedColor: colorScheme.onSecondaryContainer,
-                                constraints: const BoxConstraints(
-                                  minWidth: 54,
-                                  minHeight: 24,
+    return SimpleScaffold(
+      body: refreshIndicator(
+        onRefresh: _controller.onRefresh,
+        child: fabAnimWrapper(
+          child: CustomScrollView(
+            controller: _controller.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              Obx(
+                () => _buildAppBar(
+                  colorScheme,
+                  padding,
+                  _controller.topState.value,
+                ),
+              ),
+              Obx(() {
+                final allSortBy = _controller.topicSortByConf.value?.allSortBy;
+                if (allSortBy != null && allSortBy.isNotEmpty) {
+                  return SliverPinnedHeader(
+                    backgroundColor: colorScheme.surface,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: 12 + padding.left,
+                        top: 6,
+                        bottom: 6,
+                      ),
+                      child: Builder(
+                        builder: (context) {
+                          return ToggleButtons(
+                            fillColor: colorScheme.secondaryContainer,
+                            selectedColor: colorScheme.onSecondaryContainer,
+                            constraints: const BoxConstraints(
+                              minWidth: 54,
+                              minHeight: 24,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            borderRadius: const .all(.circular(25)),
+                            onPressed: (index) {
+                              _controller.onSort(allSortBy[index].sortBy!);
+                              (context as Element).markNeedsBuild();
+                            },
+                            isSelected: allSortBy
+                                .map((e) => e.sortBy == _controller.sortBy)
+                                .toList(),
+                            children: allSortBy.map((e) {
+                              return Text(
+                                e.sortName!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1,
                                 ),
                                 strutStyle: const StrutStyle(
                                   height: 1,
@@ -162,28 +173,8 @@ class _DynTopicPageState extends State<DynTopicPage>
                   right: padding.right,
                   bottom: padding.bottom + 100,
                 ),
-                child: FloatingActionButton.extended(
-                  backgroundColor: Theme.of(context).uiColor(
-                    ThemeUiElement.dynamicsTopicBackground,
-                  ),
-                  foregroundColor: Theme.of(context).uiColor(
-                    ThemeUiElement.dynamicsTopicContent,
-                  ),
-                  onPressed: () {
-                    if (_controller.isLogin) {
-                      CreateDynPanel.onCreateDyn(
-                        context,
-                        topic: Pair(
-                          first: int.parse(_controller.topicId),
-                          second: _controller.topicName,
-                        ),
-                      );
-                    } else {
-                      SmartDialog.showToast('账号未登录');
-                    }
-                  },
-                  icon: const Icon(CustomIcons.topic_tag, size: 20),
-                  label: const Text('参与话题'),
+                sliver: buildPage(
+                  Obx(() => _buildBody(_controller.loadingState.value)),
                 ),
               ),
             ],

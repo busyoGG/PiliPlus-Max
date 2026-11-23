@@ -39,13 +39,12 @@ import 'package:catcher_2/catcher_2.dart';
 import 'package:collection/collection.dart';
 import 'package:dynamic_color/dynamic_color.dart' show DynamicColorPlugin;
 import 'package:flutter/foundation.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -117,11 +116,10 @@ void main() async {
   }
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   await Future.wait([
-    LocalFontManager.loadSavedFonts(),
     _initDownPath(),
     _initTmpPath(),
     CacheManager.ensureInitialized(),
-    ConnectivityUtils.warmUp(),
+    ?FontUtils.init(),
   ]);
   Get
     ..lazyPut(AccountService.new)
@@ -272,31 +270,30 @@ class MyApp extends StatelessWidget {
 
   static (ThemeData, ThemeData) getAllTheme() {
     final dynamicColor = _light != null && _dark != null && Pref.dynamicColor;
-    late final brandColor = colorThemeTypes[Pref.customColor].color;
-    late final variant = Pref.schemeVariant;
 
-    ColorScheme getColorScheme(Brightness brightness) {
-      if (dynamicColor) {
-        return brightness == Brightness.light ? _light! : _dark!;
-      }
-      final scheme = switch (Pref.themeColorMode) {
-        ThemeColorMode.customMultiSeed => Pref.customThemeSeeds
-            .asColorSchemeSeeds(variant, brightness),
-        _ => brandColor.asColorSchemeSeed(variant, brightness),
-      };
-      return Pref.themeColorMode == ThemeColorMode.customMultiSeed
-          ? scheme.applyToneOffsets(Pref.customThemeToneOffsets(brightness))
-          : scheme;
+    final ColorScheme lightScheme, darkScheme;
+    if (dynamicColor) {
+      lightScheme = _light!;
+      darkScheme = _dark!;
+    } else {
+      final customColor = Pref.customColor;
+      final brandColor =
+          colorThemeTypes.elementAtOrNull(customColor)?.color ??
+          Color(customColor);
+      final variant = Pref.schemeVariant;
+
+      lightScheme = brandColor.asColorSchemeSeed(variant, .light);
+      darkScheme = brandColor.asColorSchemeSeed(variant, .dark);
     }
 
     return (
       ThemeUtils.lightTheme = ThemeUtils.getThemeData(
-        colorScheme: getColorScheme(.light),
+        colorScheme: lightScheme,
         isDynamic: dynamicColor,
       ),
       ThemeUtils.darkTheme = ThemeUtils.getThemeData(
         isDark: true,
-        colorScheme: getColorScheme(.dark),
+        colorScheme: darkScheme,
         isDynamic: dynamicColor,
       ),
     );
@@ -329,12 +326,9 @@ class MyApp extends StatelessWidget {
         routeObserver,
         FlutterSmartDialog.observer,
       ],
-      scrollBehavior: CustomScrollBehavior(
-  customDragDevices:
-      PlatformUtils.isDesktop ? desktopDragDevices : null,
-  verticalInertiaScale: Pref.verticalScrollInertiaScale,
-  verticalDecelerationScale: Pref.verticalScrollDecelerationScale,
-),
+      scrollBehavior: PlatformUtils.isDesktop
+          ? const CustomScrollBehavior()
+          : null,
     );
   }
 

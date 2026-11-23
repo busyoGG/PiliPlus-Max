@@ -242,10 +242,11 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> queryLiveUrl({bool autoFullScreenFlag = false}) async {
-    debugPrint('[LiveRoom] queryLiveUrl room=$roomId');
-    currentQn ??= await ConnectivityUtils.isWiFi
-        ? Pref.liveQuality
-        : Pref.liveQualityCellular;
+    currentQn.value ??= .fromCode(
+      await ConnectivityUtils.isWiFi
+          ? Pref.liveQuality
+          : Pref.liveQualityCellular,
+    );
     final res = await LiveHttp.liveRoomInfo(
       roomId: roomId,
       qn: currentQn.value!.code,
@@ -323,407 +324,34 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  /// 时移只在 fmp4(HLS) 上可用。
-  ///
-  /// 当前格式不是 fmp4 时，优先在同一条流里找；找不到就跨流找（例如
-  /// http_stream/flv 与 http_hls/[ts, fmp4] 是两条不同的流）。
-  ({int streamIndex, int formatIndex, int codecIndex}) _resolveTimeShiftSource({
-    required int streamIndex,
-    required int formatIndex,
-    required int codecIndex,
-  }) {
-    ({int streamIndex, int formatIndex, int codecIndex}) current() => (
-      streamIndex: streamIndex,
-      formatIndex: formatIndex,
-      codecIndex: codecIndex,
-    );
-    if (!Pref.liveTimeShift) {
-      return current();
-    }
-    final currentFormat = stream
-        .getOrNull(streamIndex)
-        ?.format
-        .getOrNull(formatIndex);
-    final isFmp4 = currentFormat?.formatName == 'fmp4';
-    if (isFmp4) {
-      return current();
-    }
-    // 先在同一条流里找 fmp4
-    final sameStream = stream
-        .getOrNull(streamIndex)
-        ?.format
-        .indexWhere((f) => f.formatName == 'fmp4');
-    if (sameStream != null && sameStream >= 0) {
-      debugPrint('[LiveTimeshift] format $formatIndex -> $sameStream (fmp4)');
-      return (
-        streamIndex: streamIndex,
-        formatIndex: sameStream,
-        codecIndex: 0,
-      );
-    }
-    // 再跨流找 fmp4
-    for (var i = 0; i < stream.length; i++) {
-      final formats = stream[i].format;
-      final index = formats.indexWhere((f) => f.formatName == 'fmp4');
-      if (index < 0) continue;
-      debugPrint(
-        '[LiveTimeshift] stream $streamIndex/$formatIndex -> '
-        '$i/$index (fmp4)',
-      );
-      return (streamIndex: i, formatIndex: index, codecIndex: 0);
-    }
-    debugPrint('[LiveTimeshift] skipped: no fmp4 format available');
-    return current();
-  }
-
   Future<void>? initLiveUrl({
     int streamIndex = 0,
     int formatIndex = 0,
     int codecIndex = 0,
     int liveUrlIndex = 0,
   }) {
-    final originStream = streamIndex;
-    final originFormat = formatIndex;
-    final originCodec = codecIndex;
-    final source = _resolveTimeShiftSource(
-      streamIndex: originStream,
-      formatIndex: originFormat,
-      codecIndex: originCodec,
-    );
+    this.streamIndex = streamIndex;
+    this.formatIndex = formatIndex;
+    this.codecIndex = codecIndex;
     this.liveUrlIndex = liveUrlIndex;
 
-    CodecItem codecAt(int si, int fi, int ci) => stream
-        .getOrFirst(si)
+    final CodecItem item = stream
+        .getOrFirst(streamIndex)
         .format
-        .getOrFirst(fi)
+        .getOrFirst(formatIndex)
         .codec
-        .getOrFirst(ci);
-
-    void applyItem(int si, int fi, int ci, CodecItem item) {
-      this.streamIndex = si;
-      this.formatIndex = fi;
-      this.codecIndex = ci;
-      // 以服务端返回的码率为准
-      currentQn = item.currentQn;
-      acceptQnList = item.acceptQn.map((e) {
-        return (
-          code: e,
-          desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
-        );
-      }).toList();
-      currentQnDesc.value =
-          LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
-    }
-
-    Future<void>? playPlainLive() {
-      final item = codecAt(originStream, originFormat, originCodec);
-      applyItem(originStream, originFormat, originCodec, item);
-      videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-      plPlayerController
-        ..timeShiftEnabled.value = false
-        ..timeShiftDuration = null
-        ..timeShiftPositionBase = Duration.zero
-        ..timeShiftSeek = null;
-      debugPrint(
-        '[LiveRoom] play plain qn=$currentQn ${videoUrl!.split('?').first}',
-      );
-      return playerInit()?.whenComplete(_startSizeSub);
-    }
-
-    final CodecItem item = codecAt(
-      source.streamIndex,
-      source.formatIndex,
-      source.codecIndex,
-    );
-    final liveUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    videoUrl = liveUrl;
-    final timeShift = _prepareTimeShift(liveUrl);
-    if (timeShift == null) {
-      return playPlainLive();
-    }
-    return timeShift.then((playlistUrl) {
-      if (playlistUrl == null) {
-        return playPlainLive();
-      }
-      final server = _timeShiftServer;
-      if (server == null) {
-        return playPlainLive();
-      }
-      applyItem(source.streamIndex, source.formatIndex, source.codecIndex, item);
-      _logPlaybackState();
-      videoUrl = playlistUrl;
-      _applyTimeShiftTimeline(server);
-      _enableTimeShift(server);
-      debugPrint('[LiveTimeshift] play local playlist $playlistUrl');
-      return playerInit()?.whenComplete(() {
-        _startSizeSub();
-        _watchTimeShiftPlayback();
-      });
-    });
-  }
-
-  /// 服务端已经能给出至少一个播放列表长度的回看范围就打开进度条，
-  /// 这样第一次进直播间也能立刻看到进度条，探测结果回来后再变长。
-  void _enableTimeShift(LiveTimeshiftServer server) {
-    if (plPlayerController.timeShiftEnabled.value) return;
-    final total = server.seekWindowSeconds;
-    if (total < 2) return;
-    plPlayerController
-      ..timeShiftEnabled.value = true
-      ..timeShiftSeek = _onTimeShiftSeek;
-    debugPrint('[LiveTimeshift] 进度条开启，可回看 $total秒');
-  }
-
-  /// 把播放器时间线映射到「窗口时间」，进度条长度取可回看深度。
-  ///
-  /// refreshBase 为 false 时只更新长度：本地缓存变长不代表直播在走，
-  /// 重新计算基准会让进度条位置跑得比真实时间快一倍。
-  void _applyTimeShiftTimeline(
-    LiveTimeshiftServer server, {
-    bool refreshBase = true,
-  }) {
-    final player = plPlayerController;
-    final total = server.seekWindowSeconds;
-    if (total <= 0) return;
-    final timeline = timeShiftTimeline(
-      windowSeconds: total,
-      baseOffset: server.baseOffset,
-      playlistSpan: server.playlistSpan,
-    );
-    player.timeShiftDuration = timeline.duration;
-    player.duration.value = total;
-    if (refreshBase) {
-      player.timeShiftPositionBase = timeline.positionBase;
-    }
-  }
-
-  /// 拖动进度条：改写窗口偏移并重启本地播放列表（连续拖动只重启一次）。
-  Future<void> _onTimeShiftSeek(Duration target) async {
-    _timeShiftSeekTimer?.cancel();
-    _timeShiftSeekTimer = Timer(const Duration(milliseconds: 250), () {
-      unawaited(_restartAtTimeShift(target));
-    });
-  }
-
-  Future<void> _restartAtTimeShift(Duration target) async {
-    final server = _timeShiftServer;
-    final player = plPlayerController;
-    if (server == null || isClosed) return;
-    final total = server.seekWindowSeconds;
-    if (total <= 0) return;
-    // 本地缓存回看时窗口只有缓存那么长，回退太多会拖到没有分片的位置
-    final maxBack = total - server.playlistSpan - 1;
-    final back = (total - target.inSeconds).clamp(1, maxBack < 1 ? 1 : maxBack);
-    server.baseOffset = back;
-    _applyTimeShiftTimeline(server);
-    player.position.value = target.inSeconds;
-    debugPrint(
-      '[LiveTimeshift] seek to ${target.inSeconds}s, back ${back}s',
-    );
-    await playerInit();
-  }
-
-  Timer? _timeShiftSeekTimer;
-
-  Worker? _timeShiftDurationWorker;
-
-  Worker? _timeShiftStartWorker;
-
-  final Stopwatch _timeShiftClock = Stopwatch();
-
-  int _timeShiftStartAttempts = 0;
-
-  Duration _timeShiftLastAttempt = const Duration(seconds: -5);
-
-  Timer? _stateLogger;
-
-  /// 打开时移房间后打印几行播放状态，便于核对进度条是否生效。
-  void _logPlaybackState() {
-    _stateLogger?.cancel();
-    var left = 5;
-    _stateLogger = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (left-- <= 0 || isClosed) {
-        timer.cancel();
-        return;
-      }
-      final p = plPlayerController;
-      debugPrint(
-        '[LivePlayer] pos=${p.position.value} dur=${p.duration.value} '
-        'buffered=${p.buffered.value} seekEnabled=${p.seekEnabled} '
-        'isLive=${p.isLive}',
-      );
-    });
-  }
-
-  /// 时移窗口内 mpv 回报的时长应等于窗口长度；个别设备会回报未重定基准的
-  /// 时间戳（几十万秒），这里按窗口长度兜底修正，否则进度条无法拖动。
-  void _watchTimeShiftPlayback() {
-    _timeShiftDurationWorker?.dispose();
-    _timeShiftDurationWorker = ever<int>(plPlayerController.duration, (value) {
-      final window = _timeShiftServer?.seekWindowSeconds ?? 0;
-      if (window <= 0 || value <= window + 120) {
-        return;
-      }
-      debugPrint('[LiveTimeshift] duration $value 超出窗口，按窗口修正');
-      plPlayerController.durationInMilliseconds = window * 1000;
-      plPlayerController.duration.value = window;
-    });
-    _timeShiftStartWorker?.dispose();
-    _timeShiftStartWorker = ever<int>(plPlayerController.position, (value) {
-      final window = _timeShiftServer?.seekWindowSeconds ?? 0;
-      if (value <= 0 || window < 60) {
-        return;
-      }
-      if (value >= 30) {
-        _timeShiftStartWorker?.dispose();
-        _timeShiftStartWorker = null;
-        _timeShiftClock.stop();
-        return;
-      }
-      // 安卓 mpv 起播时音频 underrun 会把播放位置重启到窗口最早的分片，
-      // 因此起播后短时间内主动跳到直播边缘；位置已经在边缘或用户
-      // 自己拖动过之后就不再干预。
-      final target = timeShiftAdoptTarget(
-        positionSeconds: value,
-        windowSeconds: window,
-        attempts: _timeShiftStartAttempts,
-        elapsed: _timeShiftClock.elapsed,
-        sinceLastAttempt: _timeShiftLastAttempt,
-      );
-      if (target == null) {
-        return;
-      }
-      _timeShiftStartAttempts++;
-      _timeShiftLastAttempt = _timeShiftClock.elapsed;
-      debugPrint('[LiveTimeshift] 起播位置 ${value}s 在窗口开头，拉到 $target');
-      plPlayerController.seekTo(target, isSeek: false);
-    });
-  }
-
-  LiveTimeshiftServer? _timeShiftServer;
-
-  /// 收集当前播放信息里所有 fmp4(HLS) 候选地址。
-  ///
-  /// 时移只对 fmp4 生效，且深历史分片只存在部分 (host, path) 组合上，
-  /// 所以候选越多成功率越高。
-  List<String> _collectFmp4Urls(List<Stream> streams) {
-    final urls = <String>[];
-    final hostOverride = VideoUtils.liveCdnUrl;
-    for (final s in streams) {
-      for (final f in s.format) {
-        if (f.formatName != 'fmp4') continue;
-        for (final c in f.codec) {
-          for (final ui in c.urlInfo) {
-            urls.add((hostOverride ?? ui.host) + c.baseUrl + ui.extra);
-          }
-        }
-      }
-    }
-    return urls;
-  }
-
-  /// 准备时移服务器；返回时移播放列表地址，null 表示走普通直播。
-  Future<String?>? _prepareTimeShift(String liveUrl) {
-    if (!Pref.liveTimeShift) {
-      debugPrint('[LiveTimeshift] skipped: preference off');
-      return null;
-    }
-    if (!liveUrl.contains('index.m3u8')) {
-      debugPrint(
-        '[LiveTimeshift] skipped: not an HLS url: ${liveUrl.split('?').first}',
-      );
-      return null;
-    }
-    final urls = <String>{liveUrl, ..._collectFmp4Urls(stream)}.toList();
-    final previous = _timeShiftServer;
-    _timeShiftServer = null;
-    unawaited(previous?.dispose());
-    final server = LiveTimeshiftServer(roomId: roomId, urls: urls);
-    _timeShiftServer = server;
-    server
-      ..onWindowChanged = (int total) {
-        // 后台探测回来时页面可能已经切走，别再碰已释放的状态
-        if (isClosed || !identical(_timeShiftServer, server)) return;
-        _enableTimeShift(server);
-        // 只有还停在直播边缘时才跟随深度变化，避免打断用户回看
-        if (server.baseOffset != 0) return;
-        _applyTimeShiftTimeline(server);
-      }
-      // 普通直播间服务端没有回看窗口，靠边播边缓存的那几分钟支撑进度条
-      ..onLocalWindowChanged = (int total) {
-        if (isClosed || !identical(_timeShiftServer, server)) return;
-        _enableTimeShift(server);
-        if (server.baseOffset != 0) return;
-        if (!plPlayerController.timeShiftEnabled.value) return;
-        _applyTimeShiftTimeline(server, refreshBase: false);
-      };
-    _timeShiftStartAttempts = 0;
-    _timeShiftLastAttempt = const Duration(seconds: -5);
-    _timeShiftClock
-      ..reset()
-      ..start();
-    debugPrint(
-      '[LiveTimeshift] starting with ${urls.length} candidate urls, '
-      'first: ${liveUrl.split('?').first}',
-    );
-    return server
-        .start()
-        .then((ok) {
-          if (!ok) {
-            debugPrint('[LiveTimeshift] start failed, fallback to plain live');
-            if (identical(_timeShiftServer, server)) {
-              _timeShiftServer = null;
-            }
-            return null;
-          }
-          // 起播后再补候选源，避免和首帧抢带宽。
-          unawaited(
-            Future<void>.delayed(
-              const Duration(milliseconds: 1500),
-              () => _augmentTimeShiftSources(server),
-            ),
-          );
-          return server.playlistUrl;
-        })
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            debugPrint('[LiveTimeshift] start timeout, fallback to plain live');
-            if (identical(_timeShiftServer, server)) {
-              _timeShiftServer = null;
-            }
-            unawaited(server.dispose());
-            return null;
-          },
-        );
-  }
-
-  /// 多抓几次 playinfo，换出新 CDN 节点/路径，提高深历史命中率。
-  Future<void> _augmentTimeShiftSources(LiveTimeshiftServer server) async {
-    if (server.probeDone && server.serverWindowSeconds <= 0) {
-      // 服务端没有深历史时多抓 playinfo 只会白耗流量
-      debugPrint('[LiveTimeshift] 无可回看历史，跳过补充候选源');
-      return;
-    }
-    for (var i = 0; i < 6; i++) {
-      if (!identical(_timeShiftServer, server)) return;
-      final res = await LiveHttp.liveRoomInfo(roomId: roomId, qn: currentQn);
-      if (res case Success(:final response)) {
-        final playurl = response.playurlInfo?.playurl;
-        if (playurl == null) continue;
-        final urls = _collectFmp4Urls(playurl.stream);
-        if (urls.isNotEmpty) server.addSources(urls);
-      } else {
-        return;
-      }
-    }
+        .getOrFirst(codecIndex);
+    acceptQnList = item.acceptQn;
+    // 以服务端返回的码率为准
+    currentQn.value = item.currentQn;
+    videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
+    return playerInit()?.whenComplete(_startSizeSub);
   }
 
   Future<void> queryLiveInfoH5() async {
     final res = await LiveHttp.liveRoomInfoH5(roomId: roomId);
     if (res case Success(:final response)) {
       roomInfoH5.value = response;
-      isEsportsRoom.value = response.roomInfo?.isEsportsArea ?? false;
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
       videoPlayerServiceHandler?.onVideoDetailChange(response, roomId, heroTag);

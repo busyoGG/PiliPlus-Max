@@ -141,34 +141,6 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  NormalModel(
-    title: '页面过渡动画',
-    leading: const Icon(Icons.animation),
-    getSubtitle: () => '当前：${Pref.pageTransition.name}',
-    onTap: _showTransitionDialog,
-  ),
-  const SwitchModel(
-    title: '优化平板导航栏',
-    leading: Icon(Icons.auto_fix_high),
-    setKey: SettingBoxKey.optTabletNav,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: 'MD3样式底栏',
-    subtitle: 'Material You设计规范底栏，关闭可变窄',
-    leading: Icon(Icons.design_services_outlined),
-    setKey: SettingBoxKey.enableMYBar,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: '悬浮底栏',
-    leading: Icon(MdiIcons.soundbar),
-    setKey: SettingBoxKey.floatingNavBar,
-    defaultVal: false,
-    needReboot: true,
-  ),
   SwitchModel(
     title: '界面模糊',
     subtitle: '顶栏、底栏和播放器控条的毛玻璃效果',
@@ -200,6 +172,55 @@ List<SettingsModel> get styleSettings => [
     },
     leading: const Icon(Icons.vertical_align_bottom_outlined),
     onTap: _showLegacyBottomBarBottomPaddingDialog,
+  ),
+  NormalModel(
+    title: '页面过渡动画',
+    leading: const Icon(Icons.animation),
+    getSubtitle: () => '当前：${Pref.pageTransition.name}',
+    onTap: _showTransitionDialog,
+  ),
+  const SwitchModel(
+    title: '优化平板导航栏',
+    leading: Icon(Icons.auto_fix_high),
+    setKey: SettingBoxKey.optTabletNav,
+    defaultVal: true,
+    needReboot: true,
+  ),
+  const SwitchModel(
+    title: 'MD3样式底栏',
+    subtitle: 'Material You设计规范底栏，关闭可变窄',
+    leading: Icon(Icons.design_services_outlined),
+    setKey: SettingBoxKey.enableMYBar,
+    defaultVal: true,
+    needReboot: true,
+  ),
+  const SwitchModel(
+    title: '悬浮底栏',
+    leading: Icon(MdiIcons.soundbar),
+    setKey: SettingBoxKey.floatingNavBar,
+    defaultVal: false,
+    needReboot: true,
+  ),
+  SwitchModel(
+    title: '显示粉丝勋章',
+    leading: const Icon(MdiIcons.medalOutline),
+    setKey: SettingBoxKey.showMedal,
+    defaultVal: true,
+    onChanged: (value) => GlobalData().showMedal = value,
+  ),
+  SwitchModel(
+    title: '展示头像/评论/动态装饰',
+    leading: const Icon(MdiIcons.stickerCircleOutline),
+    setKey: SettingBoxKey.showDecorate,
+    defaultVal: true,
+    onChanged: (value) => PendantAvatar.showDecorate = value,
+  ),
+  SwitchModel(
+    title: '点击表情显示 Tooltip',
+    leading: const Icon(Icons.emoji_emotions_outlined),
+    setKey: SettingBoxKey.enableEmoteTooltip,
+    defaultVal: false,
+    onChanged: (value) => enableEmoteTooltip = value,
   ),
   NormalModel(
     leading: const Icon(Icons.calendar_view_week_outlined),
@@ -421,8 +442,8 @@ List<SettingsModel> get styleSettings => [
     onTap: (context, setState) => Get.toNamed('/colorSetting'),
     leading: const Icon(Icons.color_lens_outlined),
     title: '应用主题',
-    getSubtitle: () => '当前主题：${Pref.themeColorMode.label}',
-    getTrailing: _themeColorTrailing,
+    getSubtitle: () => '当前主题：${Pref.dynamicColor ? '动态取色' : '指定颜色'}',
+    getTrailing: _themeTrailing,
   ),
   NormalModel(
     onTap: _showMineTabsDialog,
@@ -464,18 +485,17 @@ List<SettingsModel> get styleSettings => [
   onTap: _showVerticalScrollPhysicsDialog,
 ),
   NormalModel(
-    onTap: (context, setState) async {
-      final res = await Get.toNamed('/fontSizeSetting');
-      if (res != null) {
-        setState();
-      }
-    },
-    title: '字体大小',
-    leading: const Icon(Icons.format_size_outlined),
-    getSubtitle: () {
-      final scale = Pref.defaultTextScale;
-      return scale == 1.0 ? '默认' : scale.toString();
-    },
+    onTap: (context, setState) => Get.toNamed(
+      '/barSetting',
+      arguments: {
+        'key': SettingBoxKey.tabBarSort,
+        'defaultBars': HomeTabType.values,
+        'title': '首页标签页',
+      },
+    ),
+    title: '首页标签页',
+    subtitle: '删除或调换首页标签页',
+    leading: const Icon(Icons.toc_outlined),
   ),
   NormalModel(
     title: '评论区评论字体大小',
@@ -496,19 +516,6 @@ List<SettingsModel> get styleSettings => [
         '当前：${Pref.replyLineSpacingScale.toStringAsFixed(2)}倍',
     leading: const Icon(Icons.format_line_spacing),
     onTap: _showReplyLineSpacingDialog,
-  ),
-  NormalModel(
-    onTap: (context, setState) => Get.toNamed(
-      '/barSetting',
-      arguments: {
-        'key': SettingBoxKey.tabBarSort,
-        'defaultBars': HomeTabType.values,
-        'title': '首页标签页',
-      },
-    ),
-    title: '首页标签页',
-    subtitle: '删除或调换首页标签页',
-    leading: const Icon(Icons.toc_outlined),
   ),
   NormalModel(
     onTap: (context, setState) => Get.toNamed(
@@ -796,59 +803,6 @@ void _showSpringDialog(BuildContext context, _) {
   );
 }
 
-Future<void> _showVerticalScrollPhysicsDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<(double, double)>(
-    context: context,
-    builder: (context) => DualSliderDialog(
-  title: const Text('页面上下滚动惯性'),
-  value1: Pref.verticalScrollInertiaScale,
-  value2: Pref.verticalScrollDecelerationScale,
-  description1: const Text(
-    '惯性距离倍率（通过缩放松手速度实现，越大通常滑得越远）',
-  ),
-  description2: const Text(
-    '减速度倍率（越大速度衰减越快，越早停止）',
-  ),
-  min: 0.5,
-  max: 2.0,
-  divisions: 30,
-  min2: 0.05,
-  divisions2: 39,
-  suffix: '×',
-  precise: 2,
-),
-  );
-
-  if (res != null) {
-    await GStorage.setting.putAll({
-      SettingBoxKey.verticalScrollInertiaScale: res.$1,
-      SettingBoxKey.verticalScrollDecelerationScale: res.$2,
-    });
-    setState();
-    Get.appUpdate();
-  }
-}
-
-Future<void> _showFontWeightDialog(BuildContext context) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('App字体字重'),
-      value: Pref.appFontWeight.toDouble() + 1,
-      min: 1,
-      max: FontWeight.values.length.toDouble(),
-      divisions: FontWeight.values.length - 1,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.appFontWeight, res.toInt() - 1);
-    Get.updateMyAppTheme();
-  }
-}
-
 Future<void> _showReplyFontSizeDialog(
   BuildContext context,
   VoidCallback setState,
@@ -989,154 +943,12 @@ Future<void> _showCardWidthDialog(
   }
 }
 
-Future<void> _showHomeTabBarHeightDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('首页顶部分类栏高度'),
-      value: Pref.homeTabBarHeight,
-      min: 28,
-      max: 72,
-      divisions: 22,
-      suffix: 'dp',
-      precise: 0,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.homeTabBarHeight, res);
-    Get.appUpdate();
-    setState();
-  }
-}
-
-Future<void> _showLegacyBottomBarBottomPaddingDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final systemPadding = MediaQuery.viewPaddingOf(context).bottom
-      .clamp(0.0, 48.0)
-      .toDouble();
-  double value = Pref.legacyBottomBarBottomPadding ?? systemPadding;
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setDialogState) => AlertDialog(
-        title: const Text('首页传统底栏底部留白'),
-        contentPadding: const .only(top: 20, left: 8, right: 8, bottom: 8),
-        content: SizedBox(
-          height: 40,
-          child: Slider(
-            value: value,
-            min: 0,
-            max: 48,
-            divisions: 48,
-            label: '${value.toStringAsFixed(0)}dp',
-            onChanged: (newValue) =>
-                setDialogState(() => value = newValue),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, -1.0),
-            child: const Text('跟随系统'),
-          ),
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: Text(
-              '取消',
-              style: TextStyle(color: ColorScheme.of(context).outline),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, value),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    ),
-  );
-  if (res != null) {
-    if (res < 0) {
-      await GStorage.setting.delete(
-        SettingBoxKey.legacyBottomBarBottomPadding,
-      );
-    } else {
-      await GStorage.setting.put(
-        SettingBoxKey.legacyBottomBarBottomPadding,
-        res,
-      );
-    }
-    Get.appUpdate();
-    setState();
-  }
-}
-
-Future<void> _showCardRadiusDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('卡片圆角半径（默认10dp）'),
-      value: Pref.cardRadius,
-      min: 0,
-      max: 32,
-      divisions: 32,
-      suffix: 'dp',
-      precise: 0,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.cardRadius, res);
-    Get.updateMyAppTheme();
-    setState();
-  }
-}
-
-Future<void> _showRecommendStatSpacingDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('播放量与弹幕数间距'),
-      value: Pref.recommendStatSpacing,
-      min: 0,
-      max: 24,
-      divisions: 24,
-      suffix: 'dp',
-      precise: 0,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.recommendStatSpacing, res);
-    setState();
-    Get.appUpdate();
-  }
-}
-
-Future<void> _showUpPosDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<UpPanelPosition>(
-    context: context,
-    builder: (context) => SelectDialog<UpPanelPosition>(
-      title: '动态页UP主显示位置',
-      value: Pref.upPanelPosition,
-      values: UpPanelPosition.values.map((e) => (e, e.label)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.upPanelPosition, res.index);
-    SmartDialog.showToast('重启生效');
-    setState();
-  }
+void _setDynBadge(DynamicBadgeMode value, VoidCallback setState) {
+  final mainController = Get.find<MainController>()..dynamicBadgeMode = value;
+  if (value != DynamicBadgeMode.hidden) mainController.getUnreadDynamic();
+  GStorage.setting
+      .put(SettingBoxKey.dynamicBadgeMode, value.index)
+      .whenComplete(setState);
 }
 
 void _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) {
@@ -1311,33 +1123,7 @@ void _onHorizontalScreenChanged(bool value) {
   }
 }
 
-Widget _themeColorTrailing(ThemeData theme) {
-  if (Pref.themeColorMode == ThemeColorMode.dynamic) {
-    return Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary);
-  }
-  final colorScheme = switch (Pref.themeColorMode) {
-    ThemeColorMode.customMultiSeed => Pref.customThemeSeeds
-        .asColorSchemeSeeds(
-          Pref.schemeVariant,
-          theme.brightness,
-        )
-        .applyToneOffsets(Pref.customThemeToneOffsets(theme.brightness)),
-    _ => colorThemeTypes[Pref.customColor].color.asColorSchemeSeed(
-      Pref.schemeVariant,
-      theme.brightness,
-    ),
-  };
-  return SizedBox.square(
-    dimension: 20,
-    child: ColorPalette(
-      colorScheme: colorScheme,
-      selected: false,
-      showBgColor: false,
-    ),
-  );
-}
-
-Future<void> _showDefHomeDialog(
+Future<void> _showMineTabsDialog(
   BuildContext context,
   VoidCallback setState,
 ) async {
