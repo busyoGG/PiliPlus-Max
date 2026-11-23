@@ -111,18 +111,15 @@ class _HomePageState extends CommonPageState<HomePage>
     return Stack(
       children: [
         // 信息流铺到屏幕顶部，滚到顶栏背后被糊住。
+        //
+        // 这里不能跟着顶栏收起的高度改 inset：那是每一帧都在变的 InheritedWidget，
+        // 所有 tab 的列表都会重建、SliverPadding 的顶部内边距每帧变一次，
+        // 顶栏收起的那一段就会掉帧。顶栏自己是浮在上面的，内容固定留出它的高度。
         Positioned.fill(
-          child: Obx(() {
-            final double hidden = _mainController.barOffset?.value ?? 0.0;
-            final double barHeight = (Style.topBarHeight - hidden).clamp(
-              0.0,
-              Style.topBarHeight,
-            );
-            return HomeHeaderOverlay(
-              inset: statusBarHeight + barHeight + tabBarHeight,
-              child: feed,
-            );
-          }),
+          child: HomeHeaderOverlay(
+            inset: statusBarHeight + Style.topBarHeight + tabBarHeight,
+            child: feed,
+          ),
         ),
         // 顶栏铺满到屏幕顶部，毛玻璃连状态栏一起盖住。
         Positioned(
