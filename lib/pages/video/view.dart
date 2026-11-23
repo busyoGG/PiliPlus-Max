@@ -148,6 +148,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     super.initState();
 
     videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
+    videoDetailController.setPageActive(true);
 
     introController = _initIntroCtr();
 
@@ -332,6 +333,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    videoDetailController.setPageActive(false);
     plPlayerController
       ?..removeStatusLister(playerListener)
       ..removePositionListener(positionListener);
@@ -373,6 +375,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   void didPushNext() {
     super.didPushNext();
     isShowing = false;
+    videoDetailController.setPageActive(false);
 
     removeObserverMobile(this);
 
@@ -400,6 +403,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   // 返回当前页面时
   void didPopNext() {
     super.didPopNext();
+
+    videoDetailController.setPageActive(true);
 
     if (videoDetailController.plPlayerController.isCloseAll) {
       return;
