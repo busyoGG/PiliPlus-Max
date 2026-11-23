@@ -1,16 +1,6 @@
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
-import 'package:flutter/gestures.dart'
-    show
-        Offset,
-        GestureRecognizer,
-        PointerDownEvent,
-        HorizontalDragGestureRecognizer,
-        DeviceGestureSettings,
-        PointerDeviceKind,
-        kPrecisePointerHitSlop,
-        kTouchSlop,
-        PointerPanZoomStartEvent;
+import 'package:flutter/gestures.dart';
 
 mixin InitialPositionMixin on GestureRecognizer {
   Offset? _initialPosition;
@@ -18,14 +8,8 @@ mixin InitialPositionMixin on GestureRecognizer {
 
   @override
   void addAllowedPointer(PointerDownEvent event) {
-    _initialPosition = event.position;
     super.addAllowedPointer(event);
-  }
-
-  @override
-  void addAllowedPointerPanZoom(PointerPanZoomStartEvent event) {
     _initialPosition = event.position;
-    super.addAllowedPointerPanZoom(event);
   }
 }
 
@@ -64,11 +48,23 @@ class CustomHorizontalDragGestureRecognizer
       pointerDeviceKind,
       _initialPosition,
       lastPosition.global,
+      acceptLeftDownwardDragAt45Degrees:
+          _acceptLeftDownwardDragAt45Degrees,
     );
   }
 
   @override
-  Type get runtimeType => HorizontalDragGestureRecognizer;
+  bool isFlingGesture(
+    VelocityEstimate estimate,
+    PointerDeviceKind kind,
+  ) {
+    final double minDistance =
+        minFlingDistance ?? computeHitSlop(kind, gestureSettings);
+
+    return estimate.pixelsPerSecond.dx.abs() >
+            Pref.tabSwipeVelocityThreshold &&
+        estimate.offset.dx.abs() > minDistance;
+  }
 }
 
 double touchSlopH = Pref.touchSlopH;
@@ -89,15 +85,28 @@ bool _computeHitSlop(
     case .unknown:
     case .touch:
       return globalDistanceMoved > settings.touchSlop! &&
-          _calcAngle(initialPosition!, lastPosition);
+          _calcAngle(
+            initialPosition!,
+            lastPosition,
+            acceptLeftDownwardDragAt45Degrees:
+                acceptLeftDownwardDragAt45Degrees,
+          );
     case .trackpad:
-      return globalDistanceMoved > settings.touchSlop! &&
-          _calcAngle(initialPosition!, lastPosition);
+      return globalDistanceMoved > settings.touchSlop!;
   }
 }
 
-bool _calcAngle(Offset initialPosition, Offset lastPosition) {
+bool _calcAngle(
+  Offset initialPosition,
+  Offset lastPosition, {
+  required bool acceptLeftDownwardDragAt45Degrees,
+}) {
   final offset = lastPosition - initialPosition;
+  if (acceptLeftDownwardDragAt45Degrees &&
+      offset.dx < 0 &&
+      offset.dy > 0) {
+    return offset.dx.abs() >= offset.dy;
+  }
   return offset.dx.abs() > offset.dy.abs() * 3;
 }
 

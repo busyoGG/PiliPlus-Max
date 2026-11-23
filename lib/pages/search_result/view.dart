@@ -1,17 +1,14 @@
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/models/common/search/search_type.dart';
-import 'package:PiliPlus/pages/search/controller.dart';
-import 'package:PiliPlus/pages/search_panel/all/view.dart';
 import 'package:PiliPlus/pages/search_panel/article/view.dart';
 import 'package:PiliPlus/pages/search_panel/live/view.dart';
 import 'package:PiliPlus/pages/search_panel/pgc/view.dart';
 import 'package:PiliPlus/pages/search_panel/user/view.dart';
 import 'package:PiliPlus/pages/search_panel/video/view.dart';
 import 'package:PiliPlus/pages/search_result/controller.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:get/get.dart';
 
 class SearchResultPage extends StatefulWidget {
   const SearchResultPage({super.key});
@@ -37,35 +34,24 @@ class _SearchResultPageState extends State<SearchResultPage>
     _tabController = TabController(
       vsync: this,
       initialIndex: Get.arguments?['initIndex'] ?? 0,
-      length: SearchType.actives.length,
+      length: SearchType.values.length,
     );
-
-    if (_isFromSearch) {
-      try {
-        sSearchController = Get.find<SSearchController>(
-          tag: Get.parameters['tag'],
-        );
-        _tabController.addListener(listener);
-      } catch (_) {}
-    }
-  }
-
-  void listener() {
-    sSearchController?.initIndex = _tabController.index;
   }
 
   @override
   void dispose() {
-    _tabController
-      ..removeListener(listener)
-      ..dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SimpleScaffold(
+    final titleStyle = theme.textTheme.titleMedium!;
+    final titleLineHeight =
+        titleStyle.fontSize! * (titleStyle.height ?? 1);
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         shape: Border(
           bottom: BorderSide(
@@ -74,23 +60,22 @@ class _SearchResultPageState extends State<SearchResultPage>
           ),
         ),
         title: GestureDetector(
-          onTap: () {
-            if (_isFromSearch) {
-              Get.back(result: true);
-            } else {
-              Get.offNamed(
-                '/search',
-                parameters: {'text': _searchResultController.keyword},
-              );
-            }
-          },
+          onTap: () => Get.toNamed(
+            '/search',
+            parameters: {'text': _searchResultController.keyword},
+            arguments: {'initIndex': _tabController.index},
+          ),
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
             width: double.infinity,
-            child: Text(
-              _searchResultController.keyword,
-              style: theme.textTheme.titleMedium,
-              maxLines: 1,
+            height: titleLineHeight * 2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _searchResultController.keyword,
+                style: titleStyle,
+                maxLines: 1,
+              ),
             ),
           ),
         ),
@@ -104,7 +89,7 @@ class _SearchResultPageState extends State<SearchResultPage>
               splashFactory: NoSplash.splashFactory,
               padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
               controller: _tabController,
-              tabs: SearchType.actives
+              tabs: SearchType.values
                   .map(
                     (item) => Obx(
                       () {
@@ -151,35 +136,36 @@ class _SearchResultPageState extends State<SearchResultPage>
             Expanded(
               child: tabBarView(
                 controller: _tabController,
-                children: SearchType.actives
+                children: SearchType.values
                     .map(
                       (item) => switch (item) {
-                        .all => SearchAllPanel(
+                        // SearchType.all => SearchAllPanel(
+                        //   tag: _tag,
+                        //   searchType: item,
+                        //   keyword: _searchResultController.keyword,
+                        // ),
+                        SearchType.video => SearchVideoPanel(
                           tag: _tag,
                           searchType: item,
                           keyword: _searchResultController.keyword,
                         ),
-                        .video => SearchVideoPanel(
+                        SearchType.media_bangumi ||
+                        SearchType.media_ft => SearchPgcPanel(
                           tag: _tag,
                           searchType: item,
                           keyword: _searchResultController.keyword,
                         ),
-                        .media_bangumi || .media_ft => SearchPgcPanel(
+                        SearchType.live_room => SearchLivePanel(
                           tag: _tag,
                           searchType: item,
                           keyword: _searchResultController.keyword,
                         ),
-                        .live_room => SearchLivePanel(
+                        SearchType.bili_user => SearchUserPanel(
                           tag: _tag,
                           searchType: item,
                           keyword: _searchResultController.keyword,
                         ),
-                        .bili_user => SearchUserPanel(
-                          tag: _tag,
-                          searchType: item,
-                          keyword: _searchResultController.keyword,
-                        ),
-                        .article => SearchArticlePanel(
+                        SearchType.article => SearchArticlePanel(
                           tag: _tag,
                           searchType: item,
                           keyword: _searchResultController.keyword,

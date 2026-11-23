@@ -1,9 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart'
-    show ReloadScrollPhysics;
+import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/member/contribute_type.dart';
@@ -16,8 +14,9 @@ import 'package:PiliPlus/pages/member_video/widgets/video_card_h_member_video.da
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:get/get.dart';
 
 class MemberVideo extends StatefulWidget {
   const MemberVideo({
@@ -109,7 +108,6 @@ class _MemberVideoState extends State<MemberVideo>
     super.initState();
     _controller = Get.put(
       MemberVideoCtr(
-        heroTag: widget.heroTag,
         type: widget.type,
         mid: widget.mid,
         seasonId: widget.seasonId,
@@ -122,119 +120,93 @@ class _MemberVideoState extends State<MemberVideo>
     );
   }
 
-  Future<void> _loadPrevAndKeepPos() async {
-    assert(_controller.hasPrev! && _controller.isLoadPrevious);
-    final lastCount = _controller.loadingState.value.dataOrNull?.length;
-    await _controller.queryData();
-    if (mounted) {
-      final newCount = _controller.loadingState.value.dataOrNull?.length;
-      if (lastCount != null && newCount != null && newCount > lastCount) {
-        _jumpToIndex(newCount - lastCount);
-      }
-    }
-  }
-
-  Future<void> _onRefresh() {
-    if (_controller.isLoadPrevious) {
-      return _loadPrevAndKeepPos();
-    }
-    return _controller.onRefresh();
-  }
-
-  @override
-  Widget fabAnimWrapper({required Widget child}) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: onNotification,
-      child: child,
-    );
-  }
-
-  @override
-  bool onNotification(ScrollNotification notification) {
-    if (notification is UserScrollNotification) {
-      return super.onNotification(notification);
-    }
-    if (_controller.isLocating) {
-      if (notification is ScrollEndNotification &&
-          notification.metrics.pixels == 0) {
-        if (_controller.hasPrev == true && !_controller.isLoading) {
-          _controller
-            ..isLoadPrevious = true
-            ..refreshKey!.currentState?.show();
-        }
-      }
-      return true;
-    }
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
-    Widget child = CustomScrollView(
-      physics: ReloadScrollPhysics(controller: _controller),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.only(bottom: padding.bottom + 100),
-          sliver: Obx(
-            () => _buildBody(theme, _controller.loadingState.value),
+    final child = refreshIndicator(
+      onRefresh: () async {
+        final count = _controller.loadingState.value.dataOrNull?.length;
+        await _controller.onRefresh();
+        if (_controller.isLocating.value && mounted) {
+          final newCount = _controller.loadingState.value.dataOrNull?.length;
+          if (count != null && newCount != null && newCount > count) {
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              _jumpToIndex(newCount - count);
+            });
+          }
+        }
+      },
+      child: CustomScrollView(
+        physics: ReloadScrollPhysics(controller: _controller),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: padding.bottom + 100),
+            sliver: Obx(
+              () => _buildBody(theme, _controller.loadingState.value),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
     if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
-      child = ScaffoldLayout(
-        body: fabAnimWrapper(child: child),
-        fab: Obx(
-          () => !_controller.isLocating
-              ? SlideTransition(
-                  position: fabAnimation,
-                  child: Padding(
-                    padding: .only(
-                      right: kFloatingActionButtonMargin,
-                      bottom: kFloatingActionButtonMargin + padding.bottom,
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          NotificationListener<ScrollNotification>(
+            onNotification: _handleFabScroll,
+            child: child,
+          ),
+          Obx(
+            () => !_controller.isLocating.value
+                ? Positioned(
+                    right: kFloatingActionButtonMargin,
+                    bottom: 0,
+                    child: SlideTransition(
+                      position: fabAnimation,
+                      child: Padding(
+                        padding: .only(
+                          bottom: padding.bottom + kFloatingActionButtonMargin,
+                        ),
+                        child: FloatingActionButton.extended(
+                          backgroundColor: theme.uiColor(
+                            ThemeUiElement.memberVideoLocateBackground,
+                          ),
+                          foregroundColor: theme.uiColor(
+                            ThemeUiElement.memberVideoLocateContent,
+                          ),
+                          onPressed: () {
+                            final fromViewAid = _controller.fromViewAid;
+                            _controller.isLocating.value = true;
+                            final locatedIndex =
+                                _controller.loadingState.value.dataOrNull
+                                    ?.indexWhere(
+                                      (i) => i.param == fromViewAid,
+                                    ) ??
+                                -1;
+                            if (locatedIndex == -1) {
+                              _controller
+                                ..lastAid = fromViewAid
+                                ..reload = true
+                                ..page = 0
+                                ..loadingState.value = LoadingState.loading()
+                                ..queryData();
+                            } else {
+                              _jumpToIndex(locatedIndex);
+                            }
+                          },
+                          label: const Text('定位至上次观看'),
+                        ),
+                      ),
                     ),
-                    child: FloatingActionButton.extended(
-                      onPressed: () {
-                        final fromViewAid = _controller.fromViewAid;
-                        final locatedIndex =
-                            _controller.loadingState.value.dataOrNull
-                                ?.indexWhere(
-                                  (i) => i.param == fromViewAid,
-                                ) ??
-                            -1;
-                        if (locatedIndex == -1) {
-                          _controller
-                            ..setIsLocating(true)
-                            ..lastAid = fromViewAid
-                            ..reload = true
-                            ..page = 0
-                            ..loadingState.value = LoadingState.loading()
-                            ..queryData();
-                        } else {
-                          _controller.setIsLocating(
-                            true,
-                            isOnlyInnerScroll: false,
-                          );
-                          _jumpToIndex(locatedIndex);
-                        }
-                      },
-                      label: const Text('定位至上次观看'),
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
       );
     }
-    return refreshIndicator(
-      key: _controller.refreshKey,
-      isClampingScrollPhysics: true,
-      onRefresh: _onRefresh,
-      child: child,
-    );
+    return child;
   }
 
   @override

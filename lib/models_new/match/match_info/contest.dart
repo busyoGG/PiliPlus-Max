@@ -61,22 +61,5 @@ class MatchContest {
       _ => null,
     },
     contestStatus: json['contest_status'] as int?,
-    playback: json['playback'] as String?,
-  );
-
-  factory MatchContest.fromSearch(Map<String, dynamic> json) => MatchContest(
-    id: json['ID'] as int,
-    gameStage: nonNullOrEmptyString(json['gameStage'] as String?),
-    stime: json['stime'] as int?,
-    homeScore: json['homeScore'] as int?,
-    awayScore: json['awayScore'] as int?,
-    liveRoom: json['liveRoom'] as int?,
-    season: json['season'] == null
-        ? null
-        : MatchSeason.fromJson(json['season']),
-    homeTeam: MatchTeam.fromJson(json['homeTeam']),
-    awayTeam: MatchTeam.fromJson(json['awayTeam']),
-    contestStatus: json['contestStatus'] as int?,
-    playback: json['playback'] as String?,
   );
 }

@@ -1147,4 +1147,22 @@ abstract final class VideoHttp {
     }
     return Error(res.data['message']);
   }
+
+  static Future<String?> vttSubtitles(
+    String subtitleUrl, {
+    SubtitleFormat format = .vtt,
+  }) async {
+    final res = await Request().get("https:$subtitleUrl");
+    if (res.data?['body'] case List list) {
+      switch (format) {
+        case .json:
+          throw UnimplementedError();
+        case .vtt:
+          return compute<List, String>(SubtitleUtils.json2Vtt, list);
+        case .srt:
+          return compute<List, String>(SubtitleUtils.json2Srt, list);
+      }
+    }
+    return null;
+  }
 }

@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show Completer, StreamSubscription;
 
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/search.dart';
@@ -23,7 +23,6 @@ class SearchPanelController<R extends SearchNumData<T>, T>
   final String tag;
   final String keyword;
   final SearchType searchType;
-  SearchType get searchType_ => searchType;
 
   // sort
   // common
@@ -96,14 +95,6 @@ class SearchPanelController<R extends SearchNumData<T>, T>
 
   String? gaiaVtoken;
 
-  Timer? _timer;
-  void _stopTimer() {
-    if (_timer != null) {
-      _timer!.cancel();
-      _timer = null;
-    }
-  }
-
   @override
   Future<void> queryData([bool isRefresh = true]) async {
     if (_queryFuture != null) {
@@ -122,7 +113,7 @@ class SearchPanelController<R extends SearchNumData<T>, T>
 
   @override
   Future<LoadingState<R>> customGetData() => SearchHttp.searchByType<R>(
-    searchType: searchType_,
+    searchType: searchType,
     keyword: keyword,
     page: page,
     order: order,
@@ -134,20 +125,11 @@ class SearchPanelController<R extends SearchNumData<T>, T>
     pubBegin: pubBegin,
     pubEnd: pubEnd,
     gaiaVtoken: gaiaVtoken,
-    onSuccess: _onSuccess,
+    onSuccess: (String gaiaVtoken) {
+      this.gaiaVtoken = gaiaVtoken;
+      queryData(page == 1);
+    },
   );
-
-  void _onSuccess(String gaiaVtoken) {
-    this.gaiaVtoken = gaiaVtoken;
-    SmartDialog.showLoading(onDismiss: _stopTimer);
-    _timer = Timer(const Duration(milliseconds: 500), _onRequery);
-  }
-
-  void _onRequery() {
-    _stopTimer();
-    SmartDialog.dismiss(status: .loading);
-    if (!isClosed) queryData(page == 1);
-  }
 
   @override
   Future<void> onReload() {
@@ -172,11 +154,5 @@ class SearchPanelController<R extends SearchNumData<T>, T>
     } finally {
       _reloadFuture = null;
     }
-  }
-
-  @override
-  void onClose() {
-    _stopTimer();
-    super.onClose();
   }
 }

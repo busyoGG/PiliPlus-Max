@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/disabled_icon.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/sliver_wrap.dart';
-import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/search/search_rcmd/data.dart';
 import 'package:PiliPlus/pages/search/controller.dart';
@@ -16,8 +14,8 @@ import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:get/get.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -36,7 +34,10 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
-    _searchController = Get.put(SSearchController(_tag), tag: _tag);
+    _searchController = Get.put(
+      SSearchController(_tag),
+      tag: _tag,
+    );
   }
 
   @override
@@ -56,7 +57,7 @@ class _SearchPageState extends State<SearchPage> {
         ? _buildHotSearch(isTrending: false)
         : null;
 
-    return SimpleScaffold(
+    return Scaffold(
       appBar: _buildAppBar,
       body: Padding(
         padding: .only(left: padding.left, right: padding.right),
@@ -143,10 +144,7 @@ class _SearchPageState extends State<SearchPage> {
                   .map(
                     (item) => InkWell(
                       borderRadius: const .all(.circular(4)),
-                      onTap: () => _searchController.onClickKeyword(
-                        item.term!,
-                        clearSuggest: false,
-                      ),
+                      onTap: () => _searchController.onClickKeyword(item.term!),
                       child: Padding(
                         padding: const .only(left: 20, top: 9, bottom: 9),
                         child: Text.rich(
@@ -158,7 +156,9 @@ class _SearchPageState extends State<SearchPage> {
                                     style: e.isEm
                                         ? TextStyle(
                                             fontWeight: .bold,
-                                            color: theme.colorScheme.primary,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
                                           )
                                         : null,
                                   ),
@@ -359,10 +359,8 @@ class _SearchPageState extends State<SearchPage> {
                     text: list[index],
                     onTap: _searchController.onClickKeyword,
                     onLongPress: _searchController.onLongSelect,
-                    height: 1,
-                    maxLines: 1,
                     fontSize: 14,
-                    overflow: .ellipsis,
+                    height: 1,
                     padding: const .fromLTRB(11, 8, 11, 0),
                   ),
                 ),

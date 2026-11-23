@@ -4,14 +4,14 @@ import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/fav_order_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/data.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/fav/fav_detail/media.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
-import 'package:PiliPlus/pages/common/page_order/page_order_btn_mixin.dart';
+import 'package:PiliPlus/pages/common/fab_mixin.dart'
+    show NoRightMarginFabLocation;
 import 'package:PiliPlus/pages/dynamics_repost/view.dart';
 import 'package:PiliPlus/pages/fav_detail/controller.dart';
 import 'package:PiliPlus/pages/fav_detail/widget/fav_video_card.dart';
@@ -21,9 +21,9 @@ import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
 
 class FavDetailPage extends StatefulWidget {
   const FavDetailPage({super.key});
@@ -32,19 +32,15 @@ class FavDetailPage extends StatefulWidget {
   State<FavDetailPage> createState() => _FavDetailPageState();
 }
 
-class _FavDetailPageState extends State<FavDetailPage>
-    with
-        GridMixin,
-        PageOrderBtnMixin<FavDetailPage, FavDetailData, FavDetailItemModel> {
-  @override
-  late final FavDetailController controller;
+class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
+  late final FavDetailController _favDetailController;
   late String mediaId;
 
   @override
   void initState() {
     super.initState();
     mediaId = Get.parameters['mediaId']!;
-    controller = Get.put(
+    _favDetailController = Get.put(
       FavDetailController(),
       tag: Utils.makeHeroTag(mediaId),
     );
@@ -59,33 +55,36 @@ class _FavDetailPageState extends State<FavDetailPage>
     padding = MediaQuery.viewPaddingOf(context);
     return Obx(
       () {
-        final enableMultiSelect = controller.enableMultiSelect.value;
+        final enableMultiSelect = _favDetailController.enableMultiSelect.value;
         return popScope(
           canPop: !enableMultiSelect,
           onPopInvokedWithResult: (didPop, result) {
             if (enableMultiSelect) {
-              controller.handleSelect();
+              _favDetailController.handleSelect();
             }
           },
-          child: SimpleScaffold(
-            fab: Padding(
-              padding: .only(
-                right: kFloatingActionButtonMargin + padding.right,
-                bottom: kFloatingActionButtonMargin + padding.bottom,
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            floatingActionButtonLocation: const NoRightMarginFabLocation(),
+            floatingActionButton: Padding(
+              padding: const EdgeInsets.only(
+                right: kFloatingActionButtonMargin,
               ),
               child: Obx(
-                () => controller.folderInfo.value.mediaCount > 0
+                () => _favDetailController.folderInfo.value.mediaCount > 0
                     ? AnimatedSlide(
-                        offset: controller.isPlayAll.value
+                        offset: _favDetailController.isPlayAll.value
                             ? Offset.zero
                             : const Offset(0.75, 0),
                         duration: const Duration(milliseconds: 120),
                         child: GestureDetector(
                           onHorizontalDragDown: (details) =>
-                              controller.dx = details.localPosition.dx,
+                              _favDetailController.dx =
+                                  details.localPosition.dx,
                           onHorizontalDragStart: (details) =>
-                              controller.setIsPlayAll(
-                                details.localPosition.dx < controller.dx,
+                              _favDetailController.setIsPlayAll(
+                                details.localPosition.dx <
+                                    _favDetailController.dx,
                               ),
                           child: FloatingActionButton.extended(
                             backgroundColor: Theme.of(context).uiColor(
@@ -95,10 +94,10 @@ class _FavDetailPageState extends State<FavDetailPage>
                               ThemeUiElement.favPlayAllContent,
                             ),
                             onPressed: () {
-                              if (controller.isPlayAll.value) {
-                                controller.toViewPlayAll();
+                              if (_favDetailController.isPlayAll.value) {
+                                _favDetailController.toViewPlayAll();
                               } else {
-                                controller.setIsPlayAll(true);
+                                _favDetailController.setIsPlayAll(true);
                               }
                             },
                             label: const Text('播放全部'),
@@ -110,10 +109,10 @@ class _FavDetailPageState extends State<FavDetailPage>
               ),
             ),
             body: refreshIndicator(
-              onRefresh: controller.onRefresh,
+              onRefresh: _favDetailController.onRefresh,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                controller: controller.scrollController,
+                controller: _favDetailController.scrollController,
                 slivers: [
                   _buildHeader(enableMultiSelect, theme),
                   SliverPadding(
@@ -126,7 +125,7 @@ class _FavDetailPageState extends State<FavDetailPage>
                       () => _buildBody(
                         enableMultiSelect,
                         theme,
-                        controller.loadingState.value,
+                        _favDetailController.loadingState.value,
                       ),
                     ),
                   ),
@@ -148,13 +147,13 @@ class _FavDetailPageState extends State<FavDetailPage>
               children: [
                 IconButton(
                   tooltip: '取消',
-                  onPressed: controller.handleSelect,
+                  onPressed: _favDetailController.handleSelect,
                   icon: const Icon(Icons.close_outlined),
                 ),
                 Obx(
                   () {
                     return Text(
-                      '已选: ${controller.checkedCount}',
+                      '已选: ${_favDetailController.checkedCount}',
                       style: const TextStyle(fontSize: 15),
                     );
                   },
@@ -170,11 +169,11 @@ class _FavDetailPageState extends State<FavDetailPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  controller.folderInfo.value.title,
+                  _favDetailController.folderInfo.value.title,
                   style: theme.textTheme.titleMedium,
                 ),
                 Text(
-                  '共${controller.folderInfo.value.mediaCount}条视频',
+                  '共${_favDetailController.folderInfo.value.mediaCount}条视频',
                   style: theme.textTheme.labelMedium,
                 ),
               ],
@@ -189,7 +188,7 @@ class _FavDetailPageState extends State<FavDetailPage>
       IconButton(
         tooltip: '搜索',
         onPressed: () {
-          final folderInfo = controller.folderInfo.value;
+          final folderInfo = _favDetailController.folderInfo.value;
           Get.toNamed(
             '/favSearch',
             arguments: {
@@ -197,33 +196,32 @@ class _FavDetailPageState extends State<FavDetailPage>
               'mediaId': int.parse(mediaId),
               'title': folderInfo.title,
               'count': folderInfo.mediaCount,
-              'isOwner': controller.isOwner,
+              'isOwner': _favDetailController.isOwner,
             },
           );
         },
         icon: const Icon(Icons.search_outlined),
       ),
       Obx(() {
-        final attr = controller.folderInfo.value.attr;
+        final attr = _favDetailController.folderInfo.value.attr;
         return attr == -1 || !BiliUtils.isPublicFav(attr)
             ? const SizedBox.shrink()
             : IconButton(
                 iconSize: 22,
                 tooltip: '分享',
                 onPressed: () => ShareUtils.shareText(
-                  'https://www.bilibili.com/medialist/detail/ml${controller.mediaId}',
+                  'https://www.bilibili.com/medialist/detail/ml${_favDetailController.mediaId}',
                 ),
                 icon: const Icon(Icons.share),
               );
       }),
-      pageOrderBtn,
       Obx(
         () {
           return PopupMenuButton<FavOrderType>(
             icon: const Icon(Icons.sort),
-            initialValue: controller.order.value,
+            initialValue: _favDetailController.order.value,
             tooltip: '排序方式',
-            onSelected: (value) => controller
+            onSelected: (value) => _favDetailController
               ..order.value = value
               ..onReload(),
             itemBuilder: (context) => FavOrderType.values
@@ -237,16 +235,16 @@ class _FavDetailPageState extends State<FavDetailPage>
           );
         },
       ),
-      if (controller.account.isLogin)
+      if (_favDetailController.account.isLogin)
         PopupMenuButton(
           icon: const Icon(Icons.more_vert),
           itemBuilder: (context) {
-            final isOwner = controller.isOwner;
-            final folderInfo = controller.folderInfo.value;
+            final isOwner = _favDetailController.isOwner;
+            final folderInfo = _favDetailController.folderInfo.value;
             return [
               if (isOwner) ...[
                 PopupMenuItem(
-                  onTap: controller.onSort,
+                  onTap: _favDetailController.onSort,
                   child: const Text('排序'),
                 ),
                 PopupMenuItem(
@@ -256,14 +254,15 @@ class _FavDetailPageState extends State<FavDetailPage>
                         parameters: {'mediaId': mediaId},
                       )?.then((res) {
                         if (res is FavFolderInfo) {
-                          controller.folderInfo.value = res;
+                          _favDetailController.folderInfo.value = res;
                         }
                       }),
                   child: const Text('编辑信息'),
                 ),
               ] else
                 PopupMenuItem(
-                  onTap: () => controller.onFav(folderInfo.favState == 1),
+                  onTap: () =>
+                      _favDetailController.onFav(folderInfo.favState == 1),
                   child: Text('${folderInfo.favState == 1 ? '取消' : ''}收藏'),
                 ),
               if (BiliUtils.isPublicFav(folderInfo.attr))
@@ -273,7 +272,7 @@ class _FavDetailPageState extends State<FavDetailPage>
                     isScrollControlled: true,
                     useSafeArea: true,
                     builder: (context) => RepostPanel(
-                      rid: controller.mediaId,
+                      rid: _favDetailController.mediaId,
                       dynType: 4300,
                       pic: folderInfo.cover,
                       title: folderInfo.title,
@@ -284,7 +283,7 @@ class _FavDetailPageState extends State<FavDetailPage>
                 ),
               if (isOwner) ...<PopupMenuEntry>[
                 PopupMenuItem(
-                  onTap: controller.cleanFav,
+                  onTap: _favDetailController.cleanFav,
                   child: const Text('清除失效内容'),
                 ),
                 if (!BiliUtils.isDefaultFav(folderInfo.attr)) ...[
@@ -325,7 +324,7 @@ class _FavDetailPageState extends State<FavDetailPage>
     return [
       TextButton(
         style: btnStyle,
-        onPressed: () => controller.handleSelect(checked: true),
+        onPressed: () => _favDetailController.handleSelect(checked: true),
         child: const Text('全选'),
       ),
       TextButton(
@@ -333,9 +332,9 @@ class _FavDetailPageState extends State<FavDetailPage>
         onPressed: () => RequestUtils.onCopyOrMove<FavDetailItemModel>(
           context: context,
           isCopy: true,
-          ctr: controller,
-          mediaId: controller.mediaId,
-          mid: controller.account.mid,
+          ctr: _favDetailController,
+          mediaId: _favDetailController.mediaId,
+          mid: _favDetailController.account.mid,
         ),
         child: Text('复制', style: textStyle),
       ),
@@ -344,15 +343,15 @@ class _FavDetailPageState extends State<FavDetailPage>
         onPressed: () => RequestUtils.onCopyOrMove<FavDetailItemModel>(
           context: context,
           isCopy: false,
-          ctr: controller,
-          mediaId: controller.mediaId,
-          mid: controller.account.mid,
+          ctr: _favDetailController,
+          mediaId: _favDetailController.mediaId,
+          mid: _favDetailController.account.mid,
         ),
         child: Text('移动', style: textStyle),
       ),
       TextButton(
         style: btnStyle,
-        onPressed: controller.onRemove,
+        onPressed: _favDetailController.onRemove,
         child: Text(
           '删除',
           style: TextStyle(color: theme.colorScheme.error),
@@ -380,7 +379,7 @@ class _FavDetailPageState extends State<FavDetailPage>
           height: 110,
           child: Obx(
             () {
-              final folderInfo = controller.folderInfo.value;
+              final folderInfo = _favDetailController.folderInfo.value;
               return Row(
                 spacing: 12,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,7 +388,7 @@ class _FavDetailPageState extends State<FavDetailPage>
                     clipBehavior: Clip.none,
                     children: [
                       Hero(
-                        tag: controller.heroTag,
+                        tag: _favDetailController.heroTag,
                         child: NetworkImgLayer(
                           width: 176,
                           height: 110,
@@ -400,8 +399,9 @@ class _FavDetailPageState extends State<FavDetailPage>
                         right: 6,
                         top: 6,
                         child: Obx(() {
-                          if (controller.isOwner ||
-                              controller.loadingState.value is! Success) {
+                          if (_favDetailController.isOwner ||
+                              _favDetailController.loadingState.value
+                                  is! Success) {
                             return const SizedBox.shrink();
                           }
                           bool isFav = folderInfo.favState == 1;
@@ -409,7 +409,7 @@ class _FavDetailPageState extends State<FavDetailPage>
                             size: 28,
                             iconSize: 18,
                             tooltip: '${isFav ? '取消' : ''}收藏',
-                            onPressed: () => controller.onFav(isFav),
+                            onPressed: () => _favDetailController.onFav(isFav),
                             icon: isFav
                                 ? const Icon(Icons.favorite)
                                 : const Icon(Icons.favorite_border),
@@ -491,12 +491,12 @@ class _FavDetailPageState extends State<FavDetailPage>
                 gridDelegate: gridDelegate,
                 itemBuilder: (context, index) {
                   if (index == response.length) {
-                    controller.onLoadMore();
+                    _favDetailController.onLoadMore();
                     return Container(
                       height: 60,
                       alignment: Alignment.center,
                       child: Text(
-                        controller.isEnd ? '没有更多了' : '加载中...',
+                        _favDetailController.isEnd ? '没有更多了' : '加载中...',
                         style: TextStyle(
                           color: theme.colorScheme.outline,
                           fontSize: 13,
@@ -508,15 +508,15 @@ class _FavDetailPageState extends State<FavDetailPage>
                   return FavVideoCardH(
                     item: item,
                     index: index,
-                    ctr: controller,
+                    ctr: _favDetailController,
                   );
                 },
                 itemCount: response.length + 1,
               )
-            : HttpError(onReload: controller.onReload),
+            : HttpError(onReload: _favDetailController.onReload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: controller.onReload,
+        onReload: _favDetailController.onReload,
       ),
     };
   }

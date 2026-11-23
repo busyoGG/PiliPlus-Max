@@ -104,4 +104,12 @@ extension ListExt<T> on List<T> {
       insert(index, element);
     }
   }
+
+  /// 取满足条件里最接近的目标值（没有满足条件的就用全部元素合并）。
+  T findClosestTarget(
+    bool Function(T) test,
+    T Function(T, T) combine,
+  ) {
+    return where(test).reduceOrNull(combine) ?? reduce(combine);
+  }
 }

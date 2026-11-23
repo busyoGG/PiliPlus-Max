@@ -21,10 +21,9 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart';
-import 'package:flutter/foundation.dart' show kReleaseMode;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
 
 class ColorSelectPage extends StatefulWidget {
   const ColorSelectPage({super.key});
@@ -499,7 +498,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                 builder: (context) => SelectDialog<ThemeType>(
                   title: '主题模式',
                   value: ctr.themeType.value,
-                  values: ThemeType.values.map((e) => (e, e.label)).toList(),
+                  values: ThemeType.values.map((e) => (e, e.desc)).toList(),
                 ),
               );
               if (result != null) {
@@ -515,7 +514,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
             title: Text('主题模式', style: titleStyle),
             subtitle: Obx(
               () => Text(
-                '当前模式：${ctr.themeType.value.label}',
+                '当前模式：${ctr.themeType.value.desc}',
                 style: subTitleStyle,
               ),
             ),
@@ -694,109 +693,6 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildColorPanel() {
-    final currentColor = ctr.currentColor.value;
-    return AnimatedHeightWidgetExt(
-      expand: !ctr.dynamicColor.value,
-      duration: const Duration(milliseconds: 200),
-      child: Wrap(
-        spacing: 22,
-        runSpacing: 18,
-        alignment: .center,
-        children: [
-          Builder(
-            builder: (context) {
-              final isCurr = currentColor > colorThemeTypes.length;
-              final color = isCurr
-                  ? Color(currentColor)
-                  : colorThemeTypes[currentColor].color;
-              return GestureDetector(
-                behavior: .opaque,
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      clipBehavior: .hardEdge,
-                      contentPadding: const .symmetric(vertical: 16),
-                      title: const Text('Color Picker'),
-                      content: SlideColorPicker(
-                        color: color,
-                        onChanged: (Color? color) {
-                          if (color != null) {
-                            final res = color.toARGB32();
-                            ctr.currentColor.value = res;
-                            GStorage.setting
-                                .put(SettingBoxKey.customColor, res)
-                                .whenComplete(Get.updateMyAppTheme);
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                },
-                child: Column(
-                  spacing: 3,
-                  children: [
-                    ColorPalette(
-                      colorScheme: color.asColorSchemeSeed(
-                        _dynamicSchemeVariant,
-                        theme.brightness,
-                      ),
-                      selected: isCurr,
-                    ),
-                    Text(
-                      '自定义',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isCurr
-                            ? null
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          ...colorThemeTypes.mapIndexed(
-            (i, e) {
-              final color = e.color;
-              final isCurr = currentColor == i;
-              return GestureDetector(
-                behavior: .opaque,
-                onTap: () {
-                  ctr.currentColor.value = i;
-                  GStorage.setting
-                      .put(SettingBoxKey.customColor, i)
-                      .whenComplete(Get.updateMyAppTheme);
-                },
-                child: Column(
-                  spacing: 3,
-                  children: [
-                    ColorPalette(
-                      colorScheme: color.asColorSchemeSeed(
-                        _dynamicSchemeVariant,
-                        theme.brightness,
-                      ),
-                      selected: isCurr,
-                    ),
-                    Text(
-                      e.label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isCurr ? null : theme.colorScheme.outline,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
           ),
         ],
       ),

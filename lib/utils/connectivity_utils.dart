@@ -35,4 +35,8 @@ abstract final class ConnectivityUtils {
       return true;
     }
   }
+
+  /// 上一次探测到的网络类型，未探测过时为 null。
+  static bool? get lastIsWiFi => _cachedIsWiFi;
+
 }
