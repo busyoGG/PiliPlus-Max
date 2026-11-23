@@ -126,7 +126,7 @@ class WindowController {
   void _pauseIfNeeded() {
     if (pauseOnMinimize) {
       if (PlPlayerController.instance case final player?) {
-        if (isPlaying = player.playerStatus.isPlaying) {
+        if (isPlaying = player.playerStatus.value.isPlaying) {
           player.pause();
         }
       } else {

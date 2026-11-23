@@ -378,7 +378,7 @@ Future<void> showImportExportDialog<T>(
             exportToLocalFile(
               onExport: onExport,
               localFileName: localFileName,
-              localDirectory: localDirectory,
+              localDirectory: localDirectory?.call(),
             );
           },
         ),

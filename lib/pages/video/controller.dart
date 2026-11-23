@@ -92,6 +92,12 @@ class VideoDetailController extends GetxController
   late final Map args;
   late String bvid;
   late int aid;
+  UgcIntroController get ugcIntroCtr =>
+      Get.find<UgcIntroController>(tag: heroTag);
+
+  Future<void>? initPlayerIfNeeded(bool autoFullScreenFlag) =>
+      _initPlayerIfNeeded(autoFullScreenFlag);
+
   late final RxInt cid;
   int? epId;
   int? seasonId;
@@ -224,7 +230,7 @@ class VideoDetailController extends GetxController
   CDNService? _cdnService;
   Duration? defaultST;
   Duration? playedTime;
-  String get playedTimePos {
+  String playedTimePos([bool addIndex = false]) {
     final pos = playedTime?.inMilliseconds;
     return pos == null || pos == 0 ? '' : '?t=${pos / 1000}';
   }

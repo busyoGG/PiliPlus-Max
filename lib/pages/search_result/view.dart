@@ -139,6 +139,7 @@ class _SearchResultPageState extends State<SearchResultPage>
                 children: SearchType.values
                     .map(
                       (item) => switch (item) {
+                        SearchType.all => const SizedBox.shrink(),
                         // SearchType.all => SearchAllPanel(
                         //   tag: _tag,
                         //   searchType: item,

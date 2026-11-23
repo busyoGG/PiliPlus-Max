@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/utils/bili_colors.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -30,6 +30,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:PiliPlus/common/style.dart';
 
 class MinePage extends StatefulWidget {
   const MinePage({super.key, this.showBackBtn = false});

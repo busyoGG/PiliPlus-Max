@@ -559,7 +559,6 @@ abstract final class PageUtils {
       'pgcType': ?pgcType,
       'cover': ?cover,
       'originRect': ?originRect,
-      'autoplay': ?autoplay,
       'title': ?title,
       'progress': ?progress,
       'videoType': videoType,

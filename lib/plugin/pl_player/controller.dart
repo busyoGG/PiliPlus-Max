@@ -197,7 +197,7 @@ class _StandbyPlayerGateDiagnostics {
 class PlPlayerController with BlockConfigMixin {
   Future<void> seek(Duration position) => seekTo(position);
 
-  void updatePipBounds() {}
+  bool updatePipBounds(Object? window) => false;
   Player? _videoPlayerController;
   VideoController? _videoController;
   SubtitleTrack _subtitleTrack = SubtitleTrack.no();

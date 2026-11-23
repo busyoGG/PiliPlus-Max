@@ -49,6 +49,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class LiveRoomController extends GetxController {
+  void updateBlockRules(Object keywords, Object uids) {}
   LiveRoomController(this.heroTag);
   final String heroTag;
 

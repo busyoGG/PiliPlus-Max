@@ -19,7 +19,7 @@ if (!isBuiltInKotlinEnabled) {
 
 android {
     namespace = "com.max.piliplus"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

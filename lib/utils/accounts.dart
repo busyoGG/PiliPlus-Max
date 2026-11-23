@@ -13,6 +13,7 @@ abstract final class Accounts {
     AnonymousAccount(),
   );
   static bool get isMainVip => Pref.userInfoCache?.vipStatus == 1;
+  static bool get mainEqVideo => main == video;
   static bool get isVideoVip => main == video ? isMainVip : true;
   static Account get main => accountMode[AccountType.main.index];
   static Account get video => accountMode[AccountType.video.index];

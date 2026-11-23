@@ -99,6 +99,8 @@ abstract final class PiliScheme {
     int? businessId,
     int? oid,
     bool external = false,
+    int? rootRpId,
+    int? secondRpId,
   }) async {
     // if (kDebugMode) debugPrint('onAppLink: $uri');
 
@@ -923,6 +925,8 @@ abstract final class PiliScheme {
     int? progress, // milliseconds
     String? part,
     bool external = false,
+    int? rootRpId,
+    int? secondRpId,
   }) async {
     try {
       final openInDetail = await _prepareExternalVideoNavigation(external);

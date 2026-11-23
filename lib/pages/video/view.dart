@@ -385,7 +385,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     videoDetailController
       ..videoState.value = false
       ..cancelBlockListener()
-      ..playerStatus = plPlayerController?.playerStatus
+      ..playerStatus = plPlayerController?.playerStatus.value
       ..brightness = plPlayerController?.brightness.value;
     if (plPlayerController != null) {
       videoDetailController.makeHeartBeat();
@@ -1243,7 +1243,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                         size: Size(width, height),
                       ),
                     ),
-              showEpisodes: showEpisodes,
+              showEpisodes: ([dynamic a, dynamic b, dynamic c, dynamic d, dynamic e, dynamic f]) => showEpisodes(),
               showViewPoints: showViewPoints,
             ),
     ),
