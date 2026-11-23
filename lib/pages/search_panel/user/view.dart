@@ -1,14 +1,13 @@
 import 'package:PiliPlus/common/skeleton/msg_feed_top.dart';
-import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/pages/search_panel/user/controller.dart';
 import 'package:PiliPlus/pages/search_panel/user/widgets/item.dart';
 import 'package:PiliPlus/pages/search_panel/view.dart';
 import 'package:PiliPlus/utils/grid.dart';
-import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart'
+import 'package:flutter/material.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
+import 'package:get/get.dart';
 
 class SearchUserPanel extends CommonSearchPanel {
   const SearchUserPanel({
@@ -46,9 +45,9 @@ class _SearchUserPanelState
   }
 
   @override
-  Widget buildHeader() {
+  Widget buildHeader(ThemeData theme) {
     return SliverFloatingHeaderWidget(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.colorScheme.surface,
       child: Padding(
         padding: const .fromLTRB(25, 0, 12, 4),
         child: Row(
@@ -57,7 +56,7 @@ class _SearchUserPanelState
               () => Text(
                 '排序: ${controller.userOrderType!.value.label}',
                 maxLines: 1,
-                style: TextStyle(color: colorScheme.outline),
+                style: TextStyle(color: theme.colorScheme.outline),
               ),
             ),
             const Spacer(),
@@ -65,7 +64,7 @@ class _SearchUserPanelState
               () => Text(
                 '用户类型: ${controller.userType!.value.label}',
                 maxLines: 1,
-                style: TextStyle(color: colorScheme.outline),
+                style: TextStyle(color: theme.colorScheme.outline),
               ),
             ),
             const Spacer(),
@@ -81,7 +80,7 @@ class _SearchUserPanelState
                 icon: Icon(
                   Icons.filter_list_outlined,
                   size: 18,
-                  color: colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
@@ -97,7 +96,7 @@ class _SearchUserPanelState
   );
 
   @override
-  Widget buildList(List<SearchUserItemModel> list) {
+  Widget buildList(ThemeData theme, List<SearchUserItemModel> list) {
     return SliverGrid.builder(
       gridDelegate: gridDelegate,
       itemBuilder: (BuildContext context, int index) {
@@ -113,11 +112,9 @@ class _SearchUserPanelState
   }
 
   @override
-  Widget get buildLoading => SliverGrid(
+  Widget get buildLoading => SliverGrid.builder(
     gridDelegate: gridDelegate,
-    delegate: const SliverSingleChildDelegate(
-      count: 10,
-      child: MsgFeedTopSkeleton(),
-    ),
+    itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
+    itemCount: 10,
   );
 }

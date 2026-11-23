@@ -126,7 +126,7 @@ abstract final class PiliScheme {
               PageUtils.viewPgc(
                 seasonId: isEp ? null : int.parse(id),
                 epId: isEp ? int.parse(id) : null,
-                progress: int.tryParse(_videoProgress(uri.queryParameters) ?? ''),
+                progress: int.tryParse('\${_videoProgress(uri.queryParameters) ?? ''}'),
               );
               return true;
             }

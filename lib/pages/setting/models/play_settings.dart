@@ -515,7 +515,7 @@ List<SettingsModel> get playSettings => [
     value: () => Pref.btmProgressBehavior,
     items: BtmProgressBehavior.values,
     onSelected: (value, setState) => GStorage.setting
-        .put(SettingBoxKey.btmProgressBehavior, value.index)
+        .put(SettingBoxKey.btmProgressBehavior, value?.index ?? 0)
         .whenComplete(setState),
   ),
   if (PlatformUtils.isMobile)

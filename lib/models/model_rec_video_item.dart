@@ -5,6 +5,7 @@ abstract class BaseRcmdVideoItemModel extends BaseVideoItemModel {
   String? goto;
   String? uri;
   String? rcmdReason;
+  String? historyOccurrenceId;
 
   // app推荐专属
   int? param;

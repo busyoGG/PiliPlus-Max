@@ -6,8 +6,8 @@ import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/search_panel/video/controller.dart';
 import 'package:PiliPlus/pages/search_panel/view.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
 
 class SearchVideoPanel extends CommonSearchPanel {
   const SearchVideoPanel({
@@ -28,7 +28,7 @@ class _SearchVideoPanelState
           SearchVideoData,
           SearchVideoItemModel
         >
-    with GridMixin, SearchVideoPanelMixin<SearchVideoPanel> {
+    with GridMixin {
   @override
   late final SearchVideoController controller;
 
@@ -44,19 +44,11 @@ class _SearchVideoPanelState
       tag: widget.searchType.name + widget.tag,
     );
   }
-}
-
-mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
-    on
-        CommonSearchPanelState<S, SearchVideoData, SearchVideoItemModel>,
-        GridMixin {
-  @override
-  SearchVideoController get controller;
 
   @override
-  Widget buildHeader() {
+  Widget buildHeader(ThemeData theme) {
     return SliverFloatingHeaderWidget(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.colorScheme.surface,
       child: Padding(
         padding: const .fromLTRB(12, 0, 12, 4),
         child: Row(
@@ -73,10 +65,10 @@ mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
                           text: e.desc,
                           bgColor: Colors.transparent,
                           textColor: controller.selectedType.value == e
-                              ? colorScheme.primary
-                              : colorScheme.outline,
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outline,
                           onTap: (_) => controller
-                            ..order = e == .totalrank ? '' : e.name
+                            ..order = e.name
                             ..selectedType.value = e
                             ..onSortSearch(getBack: false),
                         ),
@@ -99,7 +91,7 @@ mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
                 icon: Icon(
                   Icons.filter_list_outlined,
                   size: 18,
-                  color: colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
@@ -110,7 +102,7 @@ mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
   }
 
   @override
-  Widget buildList(List<SearchVideoItemModel> list) {
+  Widget buildList(ThemeData theme, List<SearchVideoItemModel> list) {
     return SliverGrid.builder(
       gridDelegate: gridDelegate,
       itemBuilder: (context, index) {

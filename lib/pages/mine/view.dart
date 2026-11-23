@@ -643,7 +643,7 @@ bool onNotificationType2(ScrollNotification notification) {
                               style: theme.textTheme.titleMedium!.copyWith(
                                 height: 1,
                                 color: isVip && userInfo.vipType == 2
-                                    ? theme.colorScheme.vipColor
+                                    ? (theme.colorScheme.brightness.isLight ? BiliColors.pinkLight : BiliColors.pinkDark)
                                     : null,
                               ),
                               maxLines: 1,

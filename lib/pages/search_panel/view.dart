@@ -4,8 +4,8 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/search/search_type.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/pages/search_panel/controller.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
 
 abstract class CommonSearchPanel extends StatefulWidget {
   const CommonSearchPanel({
@@ -29,14 +29,6 @@ abstract class CommonSearchPanelState<
     with AutomaticKeepAliveClientMixin {
   SearchPanelController<R, T> get controller;
 
-  late ColorScheme colorScheme;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    colorScheme = ColorScheme.of(context);
-  }
-
   @override
   bool get wantKeepAlive => true;
 
@@ -49,18 +41,19 @@ abstract class CommonSearchPanelState<
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final theme = Theme.of(context);
     return refreshIndicator(
       onRefresh: controller.onRefresh,
       child: CustomScrollView(
         controller: controller.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          ?buildHeader(),
+          ?buildHeader(theme),
           SliverPadding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
             ),
-            sliver: Obx(() => _buildBody(controller.loadingState.value)),
+            sliver: Obx(() => _buildBody(theme, controller.loadingState.value)),
           ),
         ],
       ),
@@ -69,12 +62,12 @@ abstract class CommonSearchPanelState<
 
   Widget get buildLoading;
 
-  Widget _buildBody(LoadingState<List<T>?> loadingState) {
+  Widget _buildBody(ThemeData theme, LoadingState<List<T>?> loadingState) {
     return switch (loadingState) {
       Loading() => buildLoading,
       Success(:final response) =>
         response != null && response.isNotEmpty
-            ? buildList(response)
+            ? buildList(theme, response)
             : HttpError(onReload: controller.onReload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
@@ -83,7 +76,7 @@ abstract class CommonSearchPanelState<
     };
   }
 
-  Widget? buildHeader() => null;
+  Widget? buildHeader(ThemeData theme) => null;
 
-  Widget buildList(List<T> list);
+  Widget buildList(ThemeData theme, List<T> list);
 }

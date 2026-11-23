@@ -34,7 +34,7 @@ class _MpvLogsPageState extends State<MpvLogsPage> {
         SmartDialog.showToast('暂无日志');
         return;
       }
-      await exportToLocalFile(
+      exportToLocalFile(
         onExport: () => content,
         localFileName: () => 'mpv_log',
         fileExtension: 'log',

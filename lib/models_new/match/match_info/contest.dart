@@ -64,4 +64,7 @@ class MatchContest {
     },
     contestStatus: json['contest_status'] as int?,
   );
+
+  factory MatchContest.fromSearch(Map<String, dynamic> json) =>
+      MatchContest.fromJson(json);
 }

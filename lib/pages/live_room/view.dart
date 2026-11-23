@@ -7,7 +7,6 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/extra_hittest_stack.dart';
-import 'package:PiliPlus/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
@@ -53,7 +52,7 @@ import 'package:PiliPlus/utils/utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:canvas_danmaku/danmaku_screen.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart' hide PageView;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
@@ -766,13 +765,11 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     return Padding(
       padding: .only(bottom: 12, top: isPortrait ? 12 : 0),
       child: _liveRoomController.showSuperChat
-          ? PageView<CustomHorizontalDragGestureRecognizer>(
+          ? PageView(
               key: pageKey,
               controller: _liveRoomController.pageController,
-              physics: clampingScrollPhysics,
+              physics: const ClampingScrollPhysics(),
               onPageChanged: _liveRoomController.pageIndex.call,
-              horizontalDragGestureRecognizer:
-                  CustomHorizontalDragGestureRecognizer.new,
               children: [
                 KeepAliveWrapper(child: chat()),
                 SuperChatPanel(

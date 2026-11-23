@@ -55,6 +55,8 @@ class VideoReplyReplyPanel extends CommonSlidePage {
     required int oid,
     required int rootId,
     int? rpId,
+    int? rootRpId,
+    int? secondRpId,
     required int type,
     Uri? uri,
   }) {

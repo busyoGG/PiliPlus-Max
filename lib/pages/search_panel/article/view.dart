@@ -4,8 +4,8 @@ import 'package:PiliPlus/pages/search_panel/article/controller.dart';
 import 'package:PiliPlus/pages/search_panel/article/widgets/item.dart';
 import 'package:PiliPlus/pages/search_panel/view.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
 
 class SearchArticlePanel extends CommonSearchPanel {
   const SearchArticlePanel({
@@ -44,9 +44,9 @@ class _SearchArticlePanelState
   }
 
   @override
-  Widget buildHeader() {
+  Widget buildHeader(ThemeData theme) {
     return SliverFloatingHeaderWidget(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.colorScheme.surface,
       child: Padding(
         padding: const .fromLTRB(25, 0, 12, 4),
         child: Row(
@@ -55,7 +55,7 @@ class _SearchArticlePanelState
               () => Text(
                 '排序: ${controller.articleOrderType.value.label}',
                 maxLines: 1,
-                style: TextStyle(color: colorScheme.outline),
+                style: TextStyle(color: theme.colorScheme.outline),
               ),
             ),
             const Spacer(),
@@ -63,7 +63,7 @@ class _SearchArticlePanelState
               () => Text(
                 '分区: ${controller.articleZoneType!.value.label}',
                 maxLines: 1,
-                style: TextStyle(color: colorScheme.outline),
+                style: TextStyle(color: theme.colorScheme.outline),
               ),
             ),
             const Spacer(),
@@ -79,7 +79,7 @@ class _SearchArticlePanelState
                 icon: Icon(
                   Icons.filter_list_outlined,
                   size: 18,
-                  color: colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
@@ -90,7 +90,7 @@ class _SearchArticlePanelState
   }
 
   @override
-  Widget buildList(List<SearchArticleItemModel> list) {
+  Widget buildList(ThemeData theme, List<SearchArticleItemModel> list) {
     return SliverGrid.builder(
       gridDelegate: gridDelegate,
       itemBuilder: (context, index) {

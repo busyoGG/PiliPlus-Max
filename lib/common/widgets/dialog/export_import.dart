@@ -31,6 +31,8 @@ void exportToClipBoard({
 }
 
 void exportToLocalFile({ String? localDirectory,
+  String? fileExtension,
+  List<String>? allowedExtensions,
   required ValueGetter<String> onExport,
   required ValueGetter<String> localFileName,
 }) {

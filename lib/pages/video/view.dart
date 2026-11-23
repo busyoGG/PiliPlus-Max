@@ -202,7 +202,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   void _setPlayCallBack() {
     PlPlayerController.setPlayCallBack(
       playCallBack,
-      playOwner: (tag: heroTag, type: introController.runtimeType),
     );
   }
 
@@ -1964,7 +1963,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   void onShowMemberPage(int? mid) {
     videoDetailController.childKey.currentState?.showBottomSheet(
       constraints: const BoxConstraints(),
-      dragHeight: 100,
       (context) {
         return HorizontalMemberPage(
           mid: mid,
