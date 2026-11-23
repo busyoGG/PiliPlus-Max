@@ -1,5 +1,6 @@
 import 'package:PiliPlus/models_new/match/match_info/season.dart';
 import 'package:PiliPlus/models_new/match/match_info/team.dart';
+typedef Season = MatchSeason;
 
 class MatchContest {
   String? get playback => playBack;

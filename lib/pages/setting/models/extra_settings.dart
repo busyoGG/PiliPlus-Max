@@ -37,6 +37,8 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 
+const double refreshDragExtent = 60;
+
 List<SettingsModel> get extraSettings => [
   if (PlatformUtils.isDesktop) ...[
     SwitchModel(
@@ -614,4 +616,27 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
       ],
     ),
   );
+}
+
+Future<void> _showVerticalFullscreenBottomBarSafeHeightDialog(
+  BuildContext context,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('竖屏视频全屏底栏避让高度'),
+      value: Pref.verticalFullscreenBottomBarSafeHeight,
+      min: 0,
+      max: 80,
+      divisions: 80,
+      precise: 0,
+      suffix: 'dp',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.verticalFullscreenBottomBarSafeHeight,
+      res,
+    );
+  }
 }

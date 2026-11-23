@@ -195,7 +195,7 @@ bool onNotificationType2(
     List<Widget>? actions;
 
     final Widget tabsView = tabBarView(
-      controller: _dynamicsController.tabController,
+      controller: _dynamicsController.tabController!,
       children: DynamicsTabType.values
           .map((e) => DynamicsTabPage(dynamicsType: e))
           .toList(),

@@ -4,6 +4,12 @@ import 'package:PiliPlus/pages/common/common_list_controller.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 
 class RcmdController extends CommonListController {
+  void updateSaveLastData() {}
+
+  void updateSavedRcmdTip() {}
+
+  void setRefreshItemCount(int value) {}
+
   late bool enableSaveLastData = Pref.enableSaveLastData;
   final bool appRcmd = Pref.appRcmd;
 

@@ -1162,3 +1162,170 @@ Future<void> _showMemberTabDialog(
     setState();
   }
 }
+
+Future<void> _showHomeTabBarHeightDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('首页顶部分类栏高度'),
+      value: Pref.homeTabBarHeight,
+      min: 28,
+      max: 72,
+      divisions: 22,
+      suffix: 'dp',
+      precise: 0,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.homeTabBarHeight, res);
+    Get.appUpdate();
+    setState();
+  }
+}
+
+Future<void> _showLegacyBottomBarBottomPaddingDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final systemPadding = MediaQuery.viewPaddingOf(context).bottom
+      .clamp(0.0, 48.0)
+      .toDouble();
+  double value = Pref.legacyBottomBarBottomPadding ?? systemPadding;
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('首页传统底栏底部留白'),
+        contentPadding: const .only(top: 20, left: 8, right: 8, bottom: 8),
+        content: SizedBox(
+          height: 40,
+          child: Slider(
+            value: value,
+            min: 0,
+            max: 48,
+            divisions: 48,
+            label: '${value.toStringAsFixed(0)}dp',
+            onChanged: (newValue) =>
+                setDialogState(() => value = newValue),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, -1.0),
+            child: const Text('跟随系统'),
+          ),
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: Text(
+              '取消',
+              style: TextStyle(color: ColorScheme.of(context).outline),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, value),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (res != null) {
+    if (res < 0) {
+      await GStorage.setting.delete(
+        SettingBoxKey.legacyBottomBarBottomPadding,
+      );
+    } else {
+      await GStorage.setting.put(
+        SettingBoxKey.legacyBottomBarBottomPadding,
+        res,
+      );
+    }
+    Get.appUpdate();
+    setState();
+  }
+}
+
+Future<void> _showCardRadiusDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('卡片圆角半径（默认10dp）'),
+      value: Pref.cardRadius,
+      min: 0,
+      max: 32,
+      divisions: 32,
+      suffix: 'dp',
+      precise: 0,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.cardRadius, res);
+    Get.updateMyAppTheme();
+    setState();
+  }
+}
+
+Future<void> _showRecommendStatSpacingDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('播放量与弹幕数间距'),
+      value: Pref.recommendStatSpacing,
+      min: 0,
+      max: 24,
+      divisions: 24,
+      suffix: 'dp',
+      precise: 0,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.recommendStatSpacing, res);
+    setState();
+    Get.appUpdate();
+  }
+}
+
+Future<void> _showVerticalScrollPhysicsDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(double, double)>(
+    context: context,
+    builder: (context) => DualSliderDialog(
+  title: const Text('页面上下滚动惯性'),
+  value1: Pref.verticalScrollInertiaScale,
+  value2: Pref.verticalScrollDecelerationScale,
+  description1: const Text(
+    '惯性距离倍率（通过缩放松手速度实现，越大通常滑得越远）',
+  ),
+  description2: const Text(
+    '减速度倍率（越大速度衰减越快，越早停止）',
+  ),
+  min: 0.5,
+  max: 2.0,
+  divisions: 30,
+  min2: 0.05,
+  divisions2: 39,
+  suffix: '×',
+  precise: 2,
+),
+  );
+
+  if (res != null) {
+    await GStorage.setting.putAll({
+      SettingBoxKey.verticalScrollInertiaScale: res.$1,
+      SettingBoxKey.verticalScrollDecelerationScale: res.$2,
+    });
+    setState();
+    Get.appUpdate();
+  }
+}

@@ -44,7 +44,7 @@ class Item {
   bool isExpanded;
 }
 
-class _ColorSelectPageState extends State<ColorSelectPage> {
+class _ColorSelectPageState extends State<ColorSelectPage> with TickerProviderStateMixin {
   final ctr = Get.put(_ColorSelectController());
   FlexSchemeVariant _schemeVariant = Pref.schemeVariant;
   Brightness _toneBrightness = Brightness.light;
