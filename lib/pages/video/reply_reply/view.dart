@@ -51,6 +51,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
   final Int64? upMid;
 
   static Future<void>? toReply({
+    String? rpIdStr,
     required int oid,
     required int rootId,
     int? rpId,

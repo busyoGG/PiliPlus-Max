@@ -17,6 +17,8 @@ abstract final class VideoUtils {
 
   static CDNService get cdnService => cdnServices.first;
 
+  static set cdnService(CDNService value) => cdnServices = <CDNService>[value];
+
   static String get cdnDescription => cdnServices.indexed
       .map((item) => '${item.$1 + 1}. ${item.$2.desc}')
       .join('；');

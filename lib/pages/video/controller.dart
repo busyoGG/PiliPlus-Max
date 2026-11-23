@@ -83,6 +83,11 @@ import 'package:media_kit/media_kit.dart' hide Subtitle;
 
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
+  /// 桌面端画面旋转角度（仅桌面端使用）。
+  int rotate = 0;
+
+  int calcRotate(int delta) => (rotate + delta) % 360;
+
   /// 路由传参
   late final Map args;
   late String bvid;

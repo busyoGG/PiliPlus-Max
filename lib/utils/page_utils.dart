@@ -546,6 +546,7 @@ abstract final class PageUtils {
     bool isVertical = false,
     Dimension? dimension,
     Rect? originRect,
+    bool? autoplay,
     int? rootRpId,
     int? secondRpId,
   }) {
@@ -558,6 +559,7 @@ abstract final class PageUtils {
       'pgcType': ?pgcType,
       'cover': ?cover,
       'originRect': ?originRect,
+      'autoplay': ?autoplay,
       'title': ?title,
       'progress': ?progress,
       'videoType': videoType,
