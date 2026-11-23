@@ -372,7 +372,6 @@ class _MainAppState extends PopScopeState<MainApp>
 
     Widget? sideBar;
     Widget? bottomNav;
-    final EdgeInsets padding;
     if (_mainController.useBottomNav) {
       bottomNav = _blurWrapNav(_bottomNav, Theme.of(context));
       if (bottomNav != null) {
@@ -382,7 +381,6 @@ class _MainAppState extends PopScopeState<MainApp>
           child: bottomNav,
         );
       }
-      padding = _padding.copyWith(bottom: 0);
     } else {
       sideBar = DecoratedBox(
         decoration: BoxDecoration(
@@ -394,15 +392,28 @@ class _MainAppState extends PopScopeState<MainApp>
         ),
         child: _sideBar(),
       );
-      padding = .only(top: _padding.top, right: _padding.right);
     }
-
+    final Widget content = child;
     child = Material(
-      child: MainLayout(
-        sideBar: sideBar,
-        bottomNav: bottomNav,
-        body: Padding(padding: padding, child: child),
-      ),
+      child: Obx(() {
+        // 首页、动态、我的自己铺满到状态栏（顶栏毛玻璃盖住那一条），
+        // 这里不能再加顶部内边距，否则状态栏那一条会露出 Scaffold 的底色。
+        final NavigationBarType currentTab =
+            _mainController.navigationBars[_mainController.selectedIndex.value];
+        final bool ownsStatusBar =
+            currentTab == NavigationBarType.home ||
+            currentTab == NavigationBarType.dynamics ||
+            currentTab == NavigationBarType.mine;
+        final double top = ownsStatusBar ? 0 : _padding.top;
+        final EdgeInsets bodyPadding = _mainController.useBottomNav
+            ? _padding.copyWith(top: top, bottom: 0)
+            : .only(top: top, right: _padding.right);
+        return MainLayout(
+          sideBar: sideBar,
+          bottomNav: bottomNav,
+          body: Padding(padding: bodyPadding, child: content),
+        );
+      }),
     );
 
     if (PlatformUtils.isMobile) {

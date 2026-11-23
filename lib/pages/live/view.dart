@@ -65,6 +65,12 @@ class _LivePageState extends State<LivePage>
           controller: controller.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            // 首页 tab 里顶栏盖在内容上，这里让出顶栏高度，列表才能滚到毛玻璃后面。
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: Style.cardSpace + HomeHeaderOverlay.insetOf(context),
+              ),
+            ),
             Obx(() => _buildTop(controller.topState.value)),
             Obx(() => _buildBody(controller.loadingState.value)),
             const SliverPadding(padding: .only(bottom: 100)),
