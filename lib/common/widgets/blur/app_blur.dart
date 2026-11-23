@@ -78,11 +78,12 @@ abstract final class AppBlur {
   static AppBlurStrength get strength => AppBlurStrength.values[Pref.uiBlur
       .clamp(0, AppBlurStrength.values.length - 1)];
 
-  /// 是否启用毛玻璃。
-  static bool get enabled => strength != AppBlurStrength.off;
+  /// 是否启用毛玻璃：总开关关闭或档位为 off 时不画模糊。
+  static bool get enabled =>
+      Pref.uiBlurEnabled && strength != AppBlurStrength.off;
 
   /// 当前档位下某个基准 σ 的实际值；关闭时为 0。
-  static double sigma(double base) => base * strength.scale;
+  static double sigma(double base) => enabled ? base * strength.scale : 0;
 }
 
 /// 毛玻璃容器：模糊背后内容，再叠加半透明主题色。

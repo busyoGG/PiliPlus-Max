@@ -159,11 +159,18 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  NormalModel(
+  SwitchModel(
     title: '界面模糊',
     subtitle: '顶栏、底栏和播放器控条的毛玻璃效果',
     leading: const Icon(Icons.blur_on),
+    setKey: SettingBoxKey.uiBlurEnabled,
+    defaultVal: true,
+    onChanged: (value) => Get.forceAppUpdate(),
+  ),
+  NormalModel(
+    title: '模糊强度',
     getSubtitle: () => '当前：${_uiBlurLabel(Pref.uiBlur)}',
+    leading: const Icon(Icons.blur_linear),
     onTap: _showUiBlurDialog,
   ),
   NormalModel(

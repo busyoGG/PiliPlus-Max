@@ -355,6 +355,7 @@ verticalScrollDecelerationScale = 'verticalScrollDecelerationScale',
 
   /// 界面模糊强度，0 关闭 / 1 轻 / 2 重
   uiBlur = 'uiBlur',
+  uiBlurEnabled = 'uiBlurEnabled',
       saveReply = 'saveReply';
 }
 

@@ -115,6 +115,7 @@ const Map<String, Object> defaultSettingValues = {
   'liveQualityCellular': 10000,
   'liveTimeShift': true,
   'uiBlur': 1,
+  'uiBlurEnabled': true,
   'longPressSpeedToastVerticalPercent': 26.0,
   'longPressSpeedTriggerDelay': 400,
   'mergeDanmaku': false,

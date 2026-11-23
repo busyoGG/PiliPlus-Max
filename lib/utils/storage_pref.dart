@@ -1627,6 +1627,9 @@ static int get playerControlDisplayDurationSeconds {
   /// 界面模糊强度：0 关闭 / 1 轻 / 2 重。
   static int get uiBlur => _setting.get(SettingBoxKey.uiBlur, defaultValue: 1);
 
+  static bool get uiBlurEnabled =>
+      _setting.get(SettingBoxKey.uiBlurEnabled, defaultValue: true);
+
   static bool get showBatteryLevel => _setting.get(
     SettingBoxKey.showBatteryLevel,
     defaultValue: PlatformUtils.isMobile,
