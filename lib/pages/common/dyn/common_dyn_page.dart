@@ -28,6 +28,7 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 
 enum DynType implements EnumWithLabel {
   repost('转发'),

@@ -37,7 +37,7 @@ class _HistorySearchPageState
         return HistoryItem(
           item: item,
           ctr: controller,
-          onDelete: (item) => controller.onDelHistory(index, item),
+          onDelete: (item) => controller.onDelHistory(index, item, item.history.business),
         );
       },
       itemCount: list.length,

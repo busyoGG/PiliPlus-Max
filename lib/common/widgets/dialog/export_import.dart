@@ -30,7 +30,7 @@ void exportToClipBoard({
   Utils.copyText(onExport());
 }
 
-void exportToLocalFile({
+void exportToLocalFile({ String? localDirectory,
   required ValueGetter<String> onExport,
   required ValueGetter<String> localFileName,
 }) {

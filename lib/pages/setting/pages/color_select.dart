@@ -555,7 +555,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
           Padding(
             padding: padding + const .all(12),
             child: Obx(
-              () => AnimatedHeight(
+              () => AnimatedHeight( vsync: this,
                 expand: ctr.colorMode.value == ThemeColorMode.preset,
                 duration: const Duration(milliseconds: 200),
                 child: Wrap(
@@ -601,7 +601,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
             ),
           ),
           Obx(
-            () => AnimatedHeight(
+            () => AnimatedHeight( vsync: this,
               expand: ctr.colorMode.value == ThemeColorMode.customMultiSeed,
               duration: const Duration(milliseconds: 200),
               child: Column(

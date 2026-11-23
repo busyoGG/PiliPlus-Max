@@ -50,7 +50,7 @@ abstract final class FavHttp {
     }
   }
 
-  static Future<LoadingState<FavDetailData>> userFavFolderDetail({
+  static Future<LoadingState<FavDetailData>> userFavFolderDetail({ int? mediaCount,
     required int mediaId,
     required int pn,
     required int ps,

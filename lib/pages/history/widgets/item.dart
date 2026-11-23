@@ -34,7 +34,7 @@ class HistoryItem extends StatelessWidget {
     final hasDuration = item.hasDuration;
     final business = item.history.business;
     final interactiveProgressLabel = business == 'archive'
-        ? InteractiveVideoProgressRepository.get(bvid)?.cardLabel
+        ? InteractiveVideoProgressRepository.get(item.history.bvid)?.cardLabel
         : null;
     final enableMultiSelect = ctr.enableMultiSelect.value;
 

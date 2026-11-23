@@ -138,7 +138,7 @@ int? _lastBurstPositionMs;
     latestAddedPosition = currentPosition;
 
     List<DanmakuElem>? currentDanmakuList = _plDanmakuController
-        .getCurrentDanmaku(currentPosition);
+        .getCurrentDanmaku(currentPosition, DanmakuMergeMode.$DanmakuOptions.mergeMode);
     if (currentDanmakuList != null) {
       final blockColorful = DanmakuOptions.blockColorful;
       final danmakuWeight = DanmakuOptions.danmakuWeight;

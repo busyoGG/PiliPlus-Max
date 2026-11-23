@@ -8,6 +8,7 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
   int? get id => aid;
   String? talkBack;
 
+  String? historyOccurrenceId;
   String? cardType;
   ThreePoint? threePoint;
 

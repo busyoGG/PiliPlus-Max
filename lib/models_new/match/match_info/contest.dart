@@ -2,6 +2,7 @@ import 'package:PiliPlus/models_new/match/match_info/season.dart';
 import 'package:PiliPlus/models_new/match/match_info/team.dart';
 
 class MatchContest {
+  String? get playback => playBack;
   int? id;
   String? gameStage;
   int? stime;
