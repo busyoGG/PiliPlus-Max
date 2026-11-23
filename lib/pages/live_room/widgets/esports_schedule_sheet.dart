@@ -88,48 +88,52 @@ class _EsportsScheduleSheetState extends State<EsportsScheduleSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(theme),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            else if (_error case final error?)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 48),
-                child: Column(
-                  children: [
-                    Text(error, style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: 8),
-                    TextButton(onPressed: _load, child: const Text('重试')),
-                  ],
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(theme),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (_error case final error?)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: Column(
+                    children: [
+                      Text(error, style: theme.textTheme.bodyMedium),
+                      const SizedBox(height: 8),
+                      TextButton(onPressed: _load, child: const Text('重试')),
+                    ],
+                  ),
+                )
+              else if (_days.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Text('暂无赛程'),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    itemCount: _days.length,
+                    itemBuilder: (context, index) =>
+                        _buildDay(theme, _days[index]),
+                  ),
                 ),
-              )
-            else if (_days.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Text('暂无赛程'),
-              )
-            else
-              Flexible(
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  itemCount: _days.length,
-                  itemBuilder: (context, index) => _buildDay(theme, _days[index]),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -176,8 +180,7 @@ class _EsportsScheduleSheetState extends State<EsportsScheduleSheet> {
             ),
           ),
         ),
-        for (final contest in list)
-          _buildContest(theme, contest, nowSeconds),
+        for (final contest in list) _buildContest(theme, contest, nowSeconds),
       ],
     );
   }
