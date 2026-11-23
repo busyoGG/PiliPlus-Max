@@ -1,20 +1,24 @@
 import 'dart:async' show FutureOr;
 import 'dart:convert' show utf8, jsonDecode;
-import 'dart:io' show Directory, File;
+import 'dart:io';
+import 'dart:typed_data' show Uint8List;
 
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliPlus/utils/config_archive.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
+import 'package:PiliPlus/utils/extension/file_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:intl/intl.dart' show DateFormat;
-import 'package:path/path.dart' as path;
+import 'package:material_ui/material_ui.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/base16/github.dart';
@@ -26,36 +30,19 @@ void exportToClipBoard({
   Utils.copyText(onExport());
 }
 
-Future<void> exportToLocalFile({
+void exportToLocalFile({ String? localDirectory,
+  String? fileExtension,
+  List<String>? allowedExtensions,
   required ValueGetter<String> onExport,
   required ValueGetter<String> localFileName,
-  ValueGetter<String>? localDirectory,
-  String fileExtension = 'json',
-  List<String>? allowedExtensions,
-}) async {
-  try {
-    final res = utf8.encode(onExport());
-    final fileName =
+}) {
+  final res = utf8.encode(onExport());
+  StorageUtils.saveBytes2File(
+    name:
         'piliplus_${localFileName()}_'
-        '${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.$fileExtension';
-    final directoryPath = localDirectory?.call();
-    if (directoryPath == null) {
-      await StorageUtils.saveBytes2File(
-        name: fileName,
-        bytes: res,
-        allowedExtensions: allowedExtensions ?? [fileExtension],
-      );
-      return;
-    }
-
-    final directory = Directory(directoryPath);
-    await directory.create(recursive: true);
-    final filePath = path.join(directory.path, fileName);
-    await File(filePath).writeAsBytes(res, flush: true);
-    SmartDialog.showToast('已导出至 $filePath');
-  } catch (e) {
-    SmartDialog.showToast('导出失败：$e');
-  }
+        '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
+    bytes: res,
+  );
 }
 
 Future<void> importFromClipBoard<T>(
@@ -224,6 +211,144 @@ void importFromInput<T>(
   );
 }
 
+Future<void> _exportAllDataToArchive() async {
+  final name =
+      'piliplus_data_'
+      '${DateFormatUtils.only0_9.format(DateTime.now())}.zip';
+  if (PlatformUtils.isDesktop) {
+    final path = await FilePicker.saveFile(
+      fileName: name,
+      bytes: Uint8List(0),
+    );
+    if (path == null) {
+      SmartDialog.showToast("取消保存");
+      return;
+    }
+    try {
+      final out = OutputFileStream(path.toFilePath());
+      ConfigArchive.export(out);
+      await out.close();
+    } catch (e) {
+      SmartDialog.showToast('导出失败：$e');
+      File.fromUri(path).tryDel();
+      return;
+    }
+  } else {
+    final out = OutputMemoryStream();
+    try {
+      ConfigArchive.export(out);
+    } catch (e) {
+      out.closeSync();
+      SmartDialog.showToast('导出失败：$e');
+      return;
+    }
+    final path = await FilePicker.saveFile(
+      fileName: name,
+      bytes: out.getBytes(),
+    );
+    out.closeSync();
+    if (path == null) {
+      SmartDialog.showToast("取消保存");
+    }
+  }
+}
+
+Future<void> _importAllDataFromArchive(BuildContext context) async {
+  final result = await FilePicker.pickFile(
+    type: .custom,
+    allowedExtensions: const ['zip'],
+  );
+  if (result == null) return;
+
+  final Uint8List bytes;
+  try {
+    bytes = await result.readAsBytes();
+  } catch (e) {
+    SmartDialog.showToast('导入失败：$e');
+    return;
+  }
+
+  if (!context.mounted) return;
+
+  final actions = [
+    TextButton(
+      onPressed: Get.back,
+      child: Text(
+        '取消',
+        style: TextStyle(color: ColorScheme.of(context).outline),
+      ),
+    ),
+    TextButton(
+      onPressed: () => Get.back(result: true),
+      child: const Text('继续'),
+    ),
+  ];
+
+  final res = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('导入所有数据？'),
+      content: const Text('将用压缩包内的设置、账号信息、历史评论、搜索记录、黑名单、自定义字体覆盖当前数据，此操作不可撤销。'),
+      actions: actions,
+    ),
+  );
+
+  if (res != true) return;
+
+  try {
+    final res = await ConfigArchive.import(
+      bytes,
+      onWarning: (warning) async {
+        if (!context.mounted) return false;
+        return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('注意'),
+                content: Text(warning),
+                actions: actions,
+              ),
+            ) ??
+            false;
+      },
+    );
+    if (res != null) {
+      SmartDialog.showToast(res.isEmpty ? '导入成功' : '导入成功，但$res');
+    }
+  } catch (e) {
+    SmartDialog.showToast('导入失败：$e');
+  }
+}
+
+Future<void> showDataImportExportDialog(BuildContext context) {
+  final pageContext = context;
+  return showDialog(
+    context: context,
+    builder: (context) {
+      const style = TextStyle(fontSize: 15);
+      return SimpleDialog(
+        clipBehavior: .hardEdge,
+        title: const Text('导入/导出所有数据'),
+        children: [
+          DialogOption(
+            child: const Text('导出到压缩包', style: style),
+            onPressed: () {
+              Get.back();
+              _exportAllDataToArchive();
+            },
+          ),
+          DialogOption(
+            child: const Text('从压缩包导入', style: style),
+            onPressed: () {
+              Get.back();
+              _importAllDataFromArchive(pageContext);
+            },
+          ),
+        ],
+      );
+    },
+  );
+}
+
 Future<void> showImportExportDialog<T>(
   BuildContext context, {
   required String title,
@@ -253,7 +378,7 @@ Future<void> showImportExportDialog<T>(
             exportToLocalFile(
               onExport: onExport,
               localFileName: localFileName,
-              localDirectory: localDirectory,
+              localDirectory: localDirectory?.call(),
             );
           },
         ),

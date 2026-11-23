@@ -1,14 +1,12 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/menu_row.dart';
-import 'package:PiliPlus/pages/setting/widgets/danmaku_merge_settings_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 mixin HeaderMixin<T extends StatefulWidget> on State<T> {
   PlPlayerController get plPlayerController;
@@ -26,22 +24,17 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
     StatefulWidgetBuilder builder, {
     ValueGetter<EdgeInsets>? padding,
   }) {
+    final theme = this.theme;
     return PageUtils.showVideoBottomSheet(
       context,
       maxWidth: 512,
       padding: padding,
-      child: StatefulBuilder(
-        builder: (context, setState) {
-          final theme = this.theme;
-          if (theme != null) {
-            return Theme(
+      child: theme != null
+          ? Theme(
               data: theme,
-              child: builder(this.context, setState),
-            );
-          }
-          return builder(context, setState);
-        },
-      ),
+              child: StatefulBuilder(builder: builder),
+            )
+          : StatefulBuilder(builder: builder),
     );
   }
 
@@ -78,13 +71,15 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         void setOptions() => danmakuController?.updateOption(
           DanmakuOptions.get(
             notFullscreen: !isFullScreen,
-            isLive: isLive,
             speed: plPlayerController.playbackSpeed,
           ),
         );
 
+        const EdgeInsets sliderPadding = .symmetric(vertical: 16);
+
         final sliderTheme = SliderThemeData(
           trackHeight: 10,
+          padding: const .symmetric(horizontal: 6),
           trackShape: const MSliderTrackShape(),
           thumbColor: theme.colorScheme.primary,
           activeTrackColor: theme.colorScheme.primary,
@@ -111,7 +106,7 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         }
 
         void updateFontSizeFS(double val) {
-          DanmakuOptions.danmakuFontScaleFS = val;
+          DanmakuOptions.danmakuFontScaleFS = val.toPrecision(2);
           setState(() {});
           if (isFullScreen) {
             setOptions();
@@ -119,7 +114,7 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         }
 
         void updateFontSize(double val) {
-          DanmakuOptions.danmakuFontScale = val;
+          DanmakuOptions.danmakuFontScale = val.toPrecision(2);
           setState(() {});
           if (!isFullScreen) {
             setOptions();
@@ -127,27 +122,11 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         }
 
         void updateStrokeWidth(double val) {
-  DanmakuOptions.danmakuStrokeWidth = val;
-  setState(() {});
-  setOptions();
+          DanmakuOptions.danmakuStrokeWidth = val;
+          setState(() {});
+          setOptions();
+        }
 
-  // false 表示只刷新样式，不重置高频弹幕统计状态。
-  plPlayerController
-      .onDanmakuMergeSettingsChanged
-      ?.call(false);
-}
-void updateShadowRadius(double val) {
-  DanmakuOptions.danmakuShadowRadius =
-      val.toPrecision(1);
-
-  setState(() {});
-  setOptions();
-
-  // 仅重建高频置顶层，不重置已经统计的高频弹幕。
-  plPlayerController
-      .onDanmakuMergeSettingsChanged
-      ?.call(false);
-}
         void updateFontWeight(double val) {
           DanmakuOptions.danmakuFontWeight = val.toInt();
           setState(() {});
@@ -155,7 +134,7 @@ void updateShadowRadius(double val) {
         }
 
         void updateOpacity(double val) {
-          plPlayerController.danmakuOpacity.value = val;
+          plPlayerController.danmakuOpacity.value = val.toPrecision(2);
           setState(() {});
         }
 
@@ -169,15 +148,7 @@ void updateShadowRadius(double val) {
           DanmakuOptions.danmakuWeight = val.toInt();
           setState(() {});
         }
-void updateHighLikeThreshold(String value) {
-  final parsed = int.tryParse(value);
-  if (parsed == null) {
-    return;
-  }
 
-  DanmakuOptions.highLikeDanmakuThreshold =
-      parsed.clamp(0, 999999).toInt();
-}
         void onUpdateBlockType(int blockType, bool blocked) {
           if (blocked) {
             DanmakuOptions.blockTypes.remove(blockType);
@@ -197,48 +168,43 @@ void updateHighLikeThreshold(String value) {
             borderRadius: const BorderRadius.all(Radius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  const SizedBox(
-                    height: 45,
-                    child: Center(
-                      child: Text('弹幕设置', style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if (!isLive) ...[
-                    Row(
-                      mainAxisAlignment: .spaceBetween,
-                      children: [
-                        Text('智能云屏蔽 ${DanmakuOptions.danmakuWeight} 级'),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () => Get
-                            ..back()
-                            ..toNamed(
-                              '/danmakuBlock',
-                              arguments: plPlayerController,
-                            ),
-                          child: Text(
-                            "屏蔽管理(${plPlayerController.filters.count})",
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 0,
-                        bottom: 6,
-                        left: 10,
-                        right: 10,
+              child: SliderTheme(
+                data: sliderTheme,
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    const SizedBox(
+                      height: 45,
+                      child: Center(
+                        child: Text('弹幕设置', style: TextStyle(fontSize: 14)),
                       ),
-                      child: SliderTheme(
-                        data: sliderTheme,
+                    ),
+                    const SizedBox(height: 10),
+                    if (!isLive) ...[
+                      Row(
+                        mainAxisAlignment: .spaceBetween,
+                        children: [
+                          Text('智能云屏蔽 ${DanmakuOptions.danmakuWeight} 级'),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => Get
+                              ..back()
+                              ..toNamed(
+                                '/danmakuBlock',
+                                arguments: plPlayerController,
+                              ),
+                            child: Text(
+                              "屏蔽管理(${plPlayerController.filters.count})",
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: sliderPadding,
                         child: Slider(
                           min: 0,
                           max: 11,
@@ -248,177 +214,78 @@ void updateHighLikeThreshold(String value) {
                           onChanged: updateDanmakuWeight,
                         ),
                       ),
+                    ],
+                    const Text('按类型屏蔽'),
+                    SingleChildScrollView(
+                      scrollDirection: .horizontal,
+                      padding: const .symmetric(vertical: 10),
+                      child: Row(
+                        spacing: 10,
+                        children: blockTypesList.map(
+                          (e) {
+                            final blocked = DanmakuOptions.blockTypes.contains(
+                              e.value,
+                            );
+                            return ActionRowLineItem(
+                              onTap: () => onUpdateBlockType(e.value, blocked),
+                              text: e.label,
+                              selectStatus: blocked,
+                            );
+                          },
+                        ).toList(),
+                      ),
                     ),
-                    const SizedBox(height: 6),
-Row(
-  children: [
-    const Expanded(
-      child: Text('高赞弹幕标识阈值'),
-    ),
-    SizedBox(
-      width: 120,
-      child: TextFormField(
-        initialValue:
-            DanmakuOptions.highLikeDanmakuThreshold
-                .toString(),
-        keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
-        textAlign: TextAlign.center,
-        decoration: const InputDecoration(
-          isDense: true,
-          suffixText: '赞',
-          helperText: '0 为关闭',
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 10,
-          ),
-        ),
-        onChanged: updateHighLikeThreshold,
-      ),
-    ),
-  ],
-),
-const SizedBox(height: 8),
-ListTile(
-  contentPadding: EdgeInsets.zero,
-  dense: true,
-  leading: const Icon(Icons.compress_outlined),
-  title: const Text('重复弹幕合并'),
-  subtitle: Text(
-    '当前：${DanmakuOptions.mergeMode.label}',
-  ),
-  trailing: const Icon(Icons.chevron_right),
-  onTap: () async {
-    final oldMode = DanmakuOptions.mergeMode;
-    final oldTriggerCount =
-        DanmakuOptions.burstDanmakuTriggerCount;
-    final oldWindowSeconds =
-        DanmakuOptions.burstDanmakuWindowSeconds;
-    final oldCooldownSeconds =
-        DanmakuOptions.burstDanmakuCooldownSeconds;
-    final oldFontScale =
-        DanmakuOptions.burstDanmakuFontScale;
-
-    final changed =
-        await showDanmakuMergeSettingsDialog(
-      context,
-    );
-
-    if (!changed) {
-      return;
-    }
-
-    final shouldReset =
-        oldMode != DanmakuOptions.mergeMode ||
-        oldTriggerCount !=
-            DanmakuOptions.burstDanmakuTriggerCount ||
-        oldWindowSeconds !=
-            DanmakuOptions.burstDanmakuWindowSeconds ||
-        oldCooldownSeconds !=
-            DanmakuOptions
-                .burstDanmakuCooldownSeconds;
-
-    final onlyStyleChanged =
-        !shouldReset &&
-        oldFontScale !=
-            DanmakuOptions.burstDanmakuFontScale;
-
-    if (shouldReset || onlyStyleChanged) {
-      plPlayerController
-          .onDanmakuMergeSettingsChanged
-          ?.call(shouldReset);
-    }
-
-    setState(() {});
-  },
-),
-const SizedBox(height: 8),
-],
-const Text('按类型屏蔽'),
-                  SingleChildScrollView(
-                    scrollDirection: .horizontal,
-                    padding: const .symmetric(vertical: 10),
-                    child: Row(
-                      spacing: 10,
-                      children: blockTypesList.map(
-                        (e) {
-                          final blocked = DanmakuOptions.blockTypes.contains(
-                            e.value,
-                          );
-                          return ActionRowLineItem(
-                            onTap: () => onUpdateBlockType(e.value, blocked),
-                            text: e.label,
-                            selectStatus: blocked,
-                          );
-                        },
-                      ).toList(),
-                    ),
-                  ),
-                  const Text('其他'),
-                  SingleChildScrollView(
-                    scrollDirection: .horizontal,
-                    padding: const .symmetric(vertical: 10),
-                    child: Row(
-                      spacing: 10,
-                      children: [
-                        ActionRowLineItem(
-                          selectStatus: isLive
-                              ? DanmakuOptions.liveDanmakuMassiveMode
-                              : DanmakuOptions.danmakuMassiveMode,
-                          onTap: () {
-                            if (isLive) {
-                              DanmakuOptions.liveDanmakuMassiveMode =
-                                  !DanmakuOptions.liveDanmakuMassiveMode;
-                            } else {
+                    const Text('其他'),
+                    SingleChildScrollView(
+                      scrollDirection: .horizontal,
+                      padding: const .symmetric(vertical: 10),
+                      child: Row(
+                        spacing: 10,
+                        children: [
+                          ActionRowLineItem(
+                            selectStatus: DanmakuOptions.danmakuMassiveMode,
+                            onTap: () {
                               DanmakuOptions.danmakuMassiveMode =
                                   !DanmakuOptions.danmakuMassiveMode;
-                            }
-                            setState(() {});
-                            setOptions();
-                          },
-                          text: '海量弹幕',
+                              setState(() {});
+                              setOptions();
+                            },
+                            text: '海量弹幕',
+                          ),
+                          ActionRowLineItem(
+                            selectStatus: DanmakuOptions.danmakuStatic2Scroll,
+                            onTap: () {
+                              DanmakuOptions.danmakuStatic2Scroll =
+                                  !DanmakuOptions.danmakuStatic2Scroll;
+                              setState(() {});
+                              setOptions();
+                            },
+                            text: '固定转滚动',
+                          ),
+                          ActionRowLineItem(
+                            selectStatus: DanmakuOptions.danmakuFixedV,
+                            onTap: () {
+                              DanmakuOptions.danmakuFixedV =
+                                  !DanmakuOptions.danmakuFixedV;
+                              setState(() {});
+                              setOptions();
+                            },
+                            text: '滚动弹幕固定速度',
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '显示区域 ${(DanmakuOptions.danmakuShowArea * 100).toStringAsFixed(1)}%',
                         ),
-                        ActionRowLineItem(
-                          selectStatus: DanmakuOptions.danmakuStatic2Scroll,
-                          onTap: () {
-                            DanmakuOptions.danmakuStatic2Scroll =
-                                !DanmakuOptions.danmakuStatic2Scroll;
-                            setState(() {});
-                            setOptions();
-                          },
-                          text: '固定转滚动',
-                        ),
-                        ActionRowLineItem(
-                          selectStatus: DanmakuOptions.danmakuFixedV,
-                          onTap: () {
-                            DanmakuOptions.danmakuFixedV =
-                                !DanmakuOptions.danmakuFixedV;
-                            setState(() {});
-                            setOptions();
-                          },
-                          text: '滚动弹幕固定速度',
-                        ),
+                        resetBtn(theme, '50.0%', () => updateShowArea(0.5)),
                       ],
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('显示区域 ${DanmakuOptions.danmakuShowArea * 100}%'),
-                      resetBtn(theme, '50.0%', () => updateShowArea(0.5)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
-                    ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 0.1,
                         max: 1,
@@ -428,51 +295,38 @@ const Text('按类型屏蔽'),
                         onChanged: updateShowArea,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('不透明度 ${plPlayerController.danmakuOpacity * 100}%'),
-                      resetBtn(theme, '100.0%', () => updateOpacity(1.0)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '不透明度 ${(plPlayerController.danmakuOpacity * 100).toStringAsFixed(1)}%',
+                        ),
+                        resetBtn(theme, '100.0%', () => updateOpacity(1.0)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 0,
                         max: 1,
                         value: plPlayerController.danmakuOpacity.value,
-                        divisions: 10,
-                        label: '${plPlayerController.danmakuOpacity * 100}%',
+                        divisions: 100,
+                        label:
+                            '${(plPlayerController.danmakuOpacity * 100).toStringAsFixed(1)}%',
                         onChanged: updateOpacity,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '字体粗细 ${DanmakuOptions.danmakuFontWeight + 1}（可能无法精确调节）',
-                      ),
-                      resetBtn(theme, 6, () => updateFontWeight(5)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '字体粗细 ${DanmakuOptions.danmakuFontWeight + 1}（可能无法精确调节）',
+                        ),
+                        resetBtn(theme, 6, () => updateFontWeight(5)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 0,
                         max: 8,
@@ -482,142 +336,75 @@ const Text('按类型屏蔽'),
                         onChanged: updateFontWeight,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('描边粗细 ${DanmakuOptions.danmakuStrokeWidth}'),
-                      resetBtn(theme, 1.5, () => updateStrokeWidth(1.5)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('描边粗细 ${DanmakuOptions.danmakuStrokeWidth}'),
+                        resetBtn(theme, 1.5, () => updateStrokeWidth(1.5)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 0,
                         max: 5,
                         value: DanmakuOptions.danmakuStrokeWidth,
                         divisions: 10,
-                        label: DanmakuOptions.danmakuStrokeWidth
-                            .toStringAsFixed(0),
+                        label: DanmakuOptions.danmakuStrokeWidth.toString(),
                         onChanged: updateStrokeWidth,
                       ),
                     ),
-                  ),
-                  Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [
-    Text(
-      '阴影大小 '
-      '${DanmakuOptions.danmakuShadowRadius.toStringAsFixed(1)}',
-    ),
-    resetBtn(
-      theme,
-      0.0,
-      () => updateShadowRadius(0.0),
-    ),
-  ],
-),
-Padding(
-  padding: const EdgeInsets.only(
-    top: 0,
-    bottom: 6,
-    left: 10,
-    right: 10,
-  ),
-  child: SliderTheme(
-    data: sliderTheme,
-    child: Slider(
-      min: 0,
-      max: 10,
-      value: DanmakuOptions.danmakuShadowRadius,
-      divisions: 20,
-      label: DanmakuOptions.danmakuShadowRadius
-          .toStringAsFixed(1),
-      onChanged: updateShadowRadius,
-    ),
-  ),
-),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '字体大小 ${(DanmakuOptions.danmakuFontScale * 100).toStringAsFixed(1)}%',
-                      ),
-                      resetBtn(theme, '100.0%', () => updateFontSize(1.0)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '字体大小 ${(DanmakuOptions.danmakuFontScale * 100).toStringAsFixed(1)}%',
+                        ),
+                        resetBtn(theme, '100.0%', () => updateFontSize(1.0)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 0.5,
                         max: 2.5,
                         value: DanmakuOptions.danmakuFontScale,
-                        divisions: 20,
+                        divisions: 200,
                         label:
                             '${(DanmakuOptions.danmakuFontScale * 100).toStringAsFixed(1)}%',
                         onChanged: updateFontSize,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '全屏字体大小 ${(DanmakuOptions.danmakuFontScaleFS * 100).toStringAsFixed(1)}%',
-                      ),
-                      resetBtn(theme, '120.0%', () => updateFontSizeFS(1.2)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '全屏字体大小 ${(DanmakuOptions.danmakuFontScaleFS * 100).toStringAsFixed(1)}%',
+                        ),
+                        resetBtn(theme, '120.0%', () => updateFontSizeFS(1.2)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 0.5,
                         max: 2.5,
                         value: DanmakuOptions.danmakuFontScaleFS,
-                        divisions: 20,
+                        divisions: 200,
                         label:
                             '${(DanmakuOptions.danmakuFontScaleFS * 100).toStringAsFixed(1)}%',
                         onChanged: updateFontSizeFS,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('滚动弹幕时长 ${DanmakuOptions.danmakuDuration} 秒'),
-                      resetBtn(theme, 7.0, () => updateDuration(7.0)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('滚动弹幕时长 ${DanmakuOptions.danmakuDuration} 秒'),
+                        resetBtn(theme, 7.0, () => updateDuration(7.0)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 1,
                         max: 50,
@@ -627,23 +414,17 @@ Padding(
                         onChanged: updateDuration,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('静态弹幕时长 ${DanmakuOptions.danmakuStaticDuration} 秒'),
-                      resetBtn(theme, 4.0, () => updateStaticDuration(4.0)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '静态弹幕时长 ${DanmakuOptions.danmakuStaticDuration} 秒',
+                        ),
+                        resetBtn(theme, 4.0, () => updateStaticDuration(4.0)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 1,
                         max: 50,
@@ -653,23 +434,15 @@ Padding(
                         onChanged: updateStaticDuration,
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('弹幕行高 ${DanmakuOptions.danmakuLineHeight}'),
-                      resetBtn(theme, 1.6, () => updateLineHeight(1.6)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('弹幕行高 ${DanmakuOptions.danmakuLineHeight}'),
+                        resetBtn(theme, 1.6, () => updateLineHeight(1.6)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
+                    Padding(
+                      padding: sliderPadding,
                       child: Slider(
                         min: 1.0,
                         max: 3.0,
@@ -677,8 +450,8 @@ Padding(
                         onChanged: updateLineHeight,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -704,7 +477,7 @@ class MSliderTrackShape extends RoundedRectSliderTrackShape {
     const double trackHeight = 3;
     final double trackLeft = offset.dx;
     final double trackTop =
-        offset.dy + (parentBox.size.height - trackHeight) / 2 + 4;
+        offset.dy + (parentBox.size.height - trackHeight) / 2;
     final double trackWidth = parentBox.size.width;
     return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
   }

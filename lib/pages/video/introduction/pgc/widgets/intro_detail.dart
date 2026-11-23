@@ -1,7 +1,7 @@
-import 'package:PiliPlus/common/widgets/flutter/page/tabs.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
-import 'package:PiliPlus/common/widgets/selectable_text.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show tabBarScrollPhysics;
+import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/models/common/stat_type.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_info_model/result.dart';
@@ -11,8 +11,8 @@ import 'package:PiliPlus/pages/pgc_review/view.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart' hide TabBarView;
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class PgcIntroPanel extends CommonSlidePage {
   final PgcInfoModel item;
@@ -49,7 +49,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
   }
 
   @override
-  Widget buildPage(ThemeData theme) {
+  Widget buildPage() {
     return Material(
       color: theme.colorScheme.surface,
       child: Column(
@@ -85,7 +85,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
             ],
           ),
           Expanded(
-            child: enableSlide ? slideList(theme) : buildList(theme),
+            child: enableSlide ? slideList() : buildList(),
           ),
         ],
       ),
@@ -93,14 +93,13 @@ class _IntroDetailState extends State<PgcIntroPanel>
   }
 
   @override
-  Widget buildList(ThemeData theme) {
-    return TabBarView<TabBarDragGestureRecognizer>(
+  Widget buildList() {
+    return TabBarView(
       controller: _tabController,
-      physics: clampingScrollPhysics,
-      horizontalDragGestureRecognizer: () =>
-          TabBarDragGestureRecognizer(isDxAllowed: isDxAllowed),
+      physics: tabBarScrollPhysics,
+      horizontalDragGestureRecognizer: horizontalDragGestureRecognizer,
       children: [
-        KeepAliveWrapper(child: _buildInfo(theme)),
+        KeepAliveWrapper(child: _buildInfo()),
         PgcReviewPage(
           name: widget.item.title!,
           mediaId: widget.item.mediaId,
@@ -109,7 +108,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
     );
   }
 
-  Widget _buildInfo(ThemeData theme) {
+  Widget _buildInfo() {
     final TextStyle smallTitle = TextStyle(
       fontSize: 12,
       color: theme.colorScheme.onSurface,
@@ -127,7 +126,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
         bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
       ),
       children: [
-        selectableText(
+        SelectionText(
           widget.item.title!,
           style: const TextStyle(fontSize: 16),
         ),
@@ -171,7 +170,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
             style: theme.textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          selectableText(
+          SelectionText(
             widget.item.evaluate!,
             style: textStyle,
           ),

@@ -7,7 +7,7 @@ import 'package:flutter/gestures.dart'
         PointerDeviceKind,
         VelocityEstimate,
         VelocityTracker;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart';
 
 class CustomScrollBehavior extends MaterialScrollBehavior {
@@ -351,6 +351,17 @@ class _AdjustableBouncingScrollSimulation extends Simulation {
   bool isDone(double time) {
     return _simulation(time).isDone(time - _timeOffset);
   }
+}
+
+class NoOverscrollIndicator extends CustomScrollBehavior {
+  const NoOverscrollIndicator();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
 }
 
 const Set<PointerDeviceKind> desktopDragDevices = <PointerDeviceKind>{

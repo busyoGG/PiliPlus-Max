@@ -4,7 +4,7 @@ import 'package:PiliPlus/models_new/match/match_info/contest.dart';
 import 'package:PiliPlus/models_new/match/match_schedule/day.dart';
 import 'package:PiliPlus/utils/esports_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 /// 赛事直播间额外的「赛程」入口。

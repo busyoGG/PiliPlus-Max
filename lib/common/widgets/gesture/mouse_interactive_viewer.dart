@@ -7,10 +7,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:vector_math/vector_math_64.dart' show Quad, Vector3;
 
 class MouseInteractiveViewer extends StatefulWidget {
@@ -23,9 +23,11 @@ class MouseInteractiveViewer extends StatefulWidget {
     this.maxScale = 2.5,
     this.minScale = 0.8,
     this.interactionEndFrictionCoefficient = _kDrag,
-    required this.pointerSignalFallback,
+    this.pointerSignalFallback,
     this.onPointerPanZoomUpdate,
     this.onPointerPanZoomEnd,
+    this.onPointerUp,
+    this.onPointerCancel,
     required this.onPointerDown,
     required this.onPanEnd,
     required this.onPanCancel,
@@ -67,9 +69,11 @@ class MouseInteractiveViewer extends StatefulWidget {
   final double maxScale;
   final double minScale;
   final double interactionEndFrictionCoefficient;
-  final PointerSignalEventListener pointerSignalFallback;
+  final PointerSignalEventListener? pointerSignalFallback;
   final PointerPanZoomUpdateEventListener? onPointerPanZoomUpdate;
   final PointerPanZoomEndEventListener? onPointerPanZoomEnd;
+  final PointerUpEventListener? onPointerUp;
+  final PointerCancelEventListener? onPointerCancel;
   final PointerDownEventListener onPointerDown;
   final GestureScaleEndCallback onPanEnd;
   final VoidCallback onPanCancel;
@@ -517,6 +521,13 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   }
 
   void _receivedPointerSignal(PointerSignalEvent event) {
+    GestureBinding.instance.pointerSignalResolver.register(
+      event,
+      _handlePointerScroll,
+    );
+  }
+
+  void _handlePointerScroll(PointerSignalEvent event) {
     final Offset local = event.localPosition;
     final Offset global = event.position;
     final double scaleChange;
@@ -577,7 +588,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
         _handleMouseWheelPanAsScale(event, local, global, shift);
         return;
       }
-      widget.pointerSignalFallback(event);
+      widget.pointerSignalFallback?.call(event);
     }
   }
 
@@ -605,6 +616,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     Offset global,
     bool flip,
   ) {
+    if (_transformer.value[0] == 1.0) return;
     final Offset translation = flip
         ? event.scrollDelta.flip
         : event.scrollDelta;
@@ -709,6 +721,8 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
       behavior: HitTestBehavior.opaque,
       onPointerSignal: _receivedPointerSignal,
       onPointerDown: widget.onPointerDown,
+      onPointerUp: widget.onPointerUp,
+      onPointerCancel: widget.onPointerCancel,
       onPointerPanZoomStart: _scaleGestureRecognizer.addPointerPanZoom,
       onPointerPanZoomUpdate: widget.onPointerPanZoomUpdate,
       onPointerPanZoomEnd: widget.onPointerPanZoomEnd,

@@ -173,6 +173,7 @@ class ItemModulesModel {
   List<ArticleContentModel>? moduleContent;
   ModuleBlocked? moduleBlocked;
   ModuleFold? moduleFold;
+  ModuleTribee? moduleTribee;
 
   static bool showDynDispute = Pref.showDynDispute;
   static bool showDynInteraction = Pref.showDynInteraction;
@@ -248,8 +249,41 @@ class ItemModulesModel {
               ? null
               : ModuleStatModel.fromJson(i['module_stat']);
           break;
+        case 'MODULE_TYPE_TRIBEE':
+          moduleTribee = i['module_tribee'] == null
+              ? null
+              : ModuleTribee.fromJson(i['module_tribee']);
+          break;
       }
     }
+  }
+}
+
+class ModuleTribee {
+  List<Tribee>? items;
+
+  ModuleTribee.fromJson(Map<String, dynamic> json) {
+    items = (json['items'] as List?)?.map((e) => Tribee.fromJson(e)).toList();
+  }
+}
+
+class Tribee {
+  String? tribeeId;
+  String? name;
+  String? suffix;
+  String? faceUrl;
+  String? jumpUrl;
+  String? dynCountText;
+  String? latestTimeText;
+
+  Tribee.fromJson(Map<String, dynamic> json) {
+    tribeeId = json['tribee_id'];
+    name = json['name'];
+    suffix = json['suffix'];
+    faceUrl = json['face_url'];
+    jumpUrl = json['jump_url'];
+    dynCountText = json['dyn_count_text'];
+    latestTimeText = json['latest_time_text'];
   }
 }
 
@@ -400,6 +434,18 @@ class Basic {
   int? commentType;
   String? ridStr;
 
+  ({int oid, int replyType})? get replyInfo {
+    if (commentIdStr != null && commentType != null) {
+      try {
+        return (
+          oid: int.parse(commentIdStr!),
+          replyType: commentType!,
+        );
+      } catch (_) {}
+    }
+    return null;
+  }
+
   Basic.fromJson(Map<String, dynamic> json) {
     commentIdStr = json['comment_id_str'];
     commentType = safeToInt(json['comment_type']);
@@ -422,15 +468,16 @@ class ModuleAuthorModel extends Avatar {
       officialVerify ??= BaseOfficialVerify.fromJson(json['official']); // opus
     }
     pubAction = json['pub_action'];
-    pubTime = json['pub_time'];
+    pubTime = nonNullOrEmptyString(json['pub_time']);
     if (safeToInt(json['pub_ts']) case final pubTs? when pubTs > 0) {
       this.pubTs = pubTs;
     }
     type = json['type'];
     if (PendantAvatar.showDecorate) {
-      decorate = json['decorate'] == null
-          ? null
-          : Decorate.fromJson(json['decorate']);
+      final decorate = json['decorate'] ?? json['decoration_card'];
+      if (decorate != null) {
+        this.decorate = Decorate.fromJson(decorate);
+      }
     } else {
       pendant = null;
     }
@@ -465,7 +512,7 @@ class Fan {
 
   factory Fan.fromJson(Map<String, dynamic> json) => Fan(
     color: json["color"],
-    numStr: json["num_str"],
+    numStr: json["num_str"] ?? json['num_desc'],
   );
 }
 
@@ -528,7 +575,10 @@ class DynamicAddModel {
     upowerLottery = json['upower_lottery'] != null
         ? UpowerLottery.fromJson(json['upower_lottery'])
         : null;
-    common = json['common'] != null ? AddCommon.fromJson(json['common']) : null;
+    final common = json['common'];
+    if (common != null && common['sub_type'] != 'game') {
+      this.common = AddCommon.fromJson(common);
+    }
     match = json['match'] != null ? AddMatch.fromJson(json['match']) : null;
   }
 }
@@ -1175,6 +1225,7 @@ class RichTextNodeItem {
 class Emoji {
   String? url;
   late num size;
+  String? jumpUrl;
 
   Emoji.fromJson(Map<String, dynamic> json) {
     url =
@@ -1182,6 +1233,7 @@ class Emoji {
         nonNullOrEmptyString(json['gif_url']) ??
         nonNullOrEmptyString(json['icon_url']);
     size = json['size'] ?? 1;
+    jumpUrl = json['jump_url'];
   }
 }
 
@@ -1343,7 +1395,7 @@ class DynamicStat {
   bool? status;
 
   DynamicStat.fromJson(Map<String, dynamic> json) {
-    if (safeToInt(json['count']) case final count? when count > 0) {
+    if (safeToInt(json['count']) case final count? when count >= 0) {
       this.count = count;
     }
     status = safeToBool(json['status'], () => 'STATE_LIKE');

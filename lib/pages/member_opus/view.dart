@@ -11,10 +11,9 @@ import 'package:PiliPlus/pages/member_opus/widgets/space_opus_item.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
+import 'package:waterfall_flow/waterfall_flow.dart';
 
 class MemberOpus extends StatefulWidget {
   const MemberOpus({
@@ -113,7 +112,9 @@ class _MemberOpusState extends State<MemberOpus>
                     right: Style.safeSpace,
                     bottom: bottom + 100,
                   ),
-                  sliver: Obx(() => _buildBody(_controller.loadingState.value)),
+                  sliver: Obx(() => _buildBody(
+          _controller.loadingState.value as LoadingState<List<SpaceOpusItemModel>?>,
+        )),
                 ),
               ],
             ),

@@ -58,7 +58,7 @@ import 'package:PiliPlus/utils/utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
@@ -70,7 +70,7 @@ import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:window_manager/legacy.dart';
 
 typedef PlayCallback = Future<void>? Function();
 typedef _PlayerPair = ({
@@ -195,6 +195,9 @@ class _StandbyPlayerGateDiagnostics {
 }
 
 class PlPlayerController with BlockConfigMixin {
+  Future<void> seek(Duration position) => seekTo(position);
+
+  bool updatePipBounds(Object? window) => false;
   Player? _videoPlayerController;
   VideoController? _videoController;
   SubtitleTrack _subtitleTrack = SubtitleTrack.no();

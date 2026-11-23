@@ -5,8 +5,6 @@ class RoomInfo {
   String? appBackground;
   int? areaId;
   int? parentAreaId;
-  String? areaName;
-  String? parentAreaName;
 
   RoomInfo({
     this.uid,
@@ -15,9 +13,10 @@ class RoomInfo {
     this.appBackground,
     this.areaId,
     this.parentAreaId,
-    this.areaName,
-    this.parentAreaName,
   });
+
+  /// 赛事分区（父分区 13 / 分区 561）的直播间会显示额外的「赛程」入口。
+  bool get isEsportsArea => parentAreaId == 13 || areaId == 561;
 
   factory RoomInfo.fromJson(Map<String, dynamic> json) => RoomInfo(
     uid: json['uid'] as int?,
@@ -26,10 +25,5 @@ class RoomInfo {
     appBackground: json['app_background'] as String?,
     areaId: json['area_id'] as int?,
     parentAreaId: json['parent_area_id'] as int?,
-    areaName: json['area_name'] as String?,
-    parentAreaName: json['parent_area_name'] as String?,
   );
-
-  /// 赛事分区（parent_area_id 13 / area_id 561）。
-  bool get isEsportsArea => parentAreaId == 13 || areaId == 561;
 }

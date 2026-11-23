@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 /// Sizes [SimpleVideo] by the media's real display aspect ratio instead of the

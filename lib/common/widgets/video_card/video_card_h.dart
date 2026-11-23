@@ -14,7 +14,7 @@ import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/interactive_video_progress.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 水平布局
 class VideoCardH extends StatelessWidget {
@@ -30,13 +30,14 @@ class VideoCardH extends StatelessWidget {
   final ValueChanged<int>? onViewLater;
   final VoidCallback? onRemove;
 
+  void onLongPress() => imageSaveDialog(
+    bvid: videoItem.bvid,
+    title: videoItem.title,
+    cover: videoItem.cover,
+  );
+
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
-      bvid: videoItem.bvid,
-      title: videoItem.title,
-      cover: videoItem.cover,
-    );
     final theme = Theme.of(context);
     return Material(
       type: .transparency,
@@ -248,25 +249,68 @@ class VideoCardH extends StatelessWidget {
               fontSize: 12,
               height: 1,
               color: theme.colorScheme.outline,
-              overflow: .clip,
+              overflow: .ellipsis,
             ),
           ),
-          const SizedBox(height: 3),
-          Row(
-            spacing: 8,
-            children: [
-              StatWidget(
-                type: .play,
-                value: videoItem.stat.view,
-              ),
-              StatWidget(
-                type: .danmaku,
-                value: videoItem.stat.danmu,
-              ),
-            ],
-          ),
+          if (videoItem.isLive != true) ...[
+            const SizedBox(height: 3),
+            Row(
+              spacing: 8,
+              children: [
+                StatWidget(
+                  type: .play,
+                  value: videoItem.stat.view,
+                ),
+                StatWidget(
+                  type: .danmaku,
+                  value: videoItem.stat.danmu,
+                ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+Future<void> pushVideoH(HorizontalVideoModel videoItem) async {
+  if (videoItem.isPugv ?? false) {
+    PageUtils.viewPugv(seasonId: videoItem.seasonId);
+    return;
+  }
+
+  if (videoItem.isLive ?? false) {
+    if (videoItem.roomId case final roomId?) {
+      PageUtils.toLiveRoom(roomId);
+    }
+    return;
+  }
+
+  if (videoItem.redirectUrl?.isNotEmpty == true &&
+      PageUtils.viewPgcFromUri(videoItem.redirectUrl!)) {
+    return;
+  }
+
+  int? cid = videoItem.cid;
+  Dimension? dimension = videoItem.dimension;
+  if (cid == null) {
+    if (await SearchHttp.ab2cWithDimension(
+          aid: videoItem.aid,
+          bvid: videoItem.bvid,
+        )
+        case final res?) {
+      cid = res.cid;
+      dimension = res.dimension;
+    }
+  }
+  if (cid != null) {
+    PageUtils.toVideoPage(
+      bvid: videoItem.bvid,
+      cid: cid,
+      cover: videoItem.cover,
+      title: videoItem.title,
+      dimension: dimension,
     );
   }
 }

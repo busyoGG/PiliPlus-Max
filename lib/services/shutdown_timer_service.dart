@@ -8,8 +8,14 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get_rx/src/rx_types/rx_types.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPicker;
+import 'package:PiliPlus/utils/theme_utils.dart';
+import 'package:PiliPlus/utils/duration_utils.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 
 enum _ShutdownType with EnumWithLabel {
   pause('暂停视频'),
@@ -30,6 +36,10 @@ class ShutdownTimerService {
   ValueGetter<bool>? isPlaying;
 
   Timer? _shutdownTimer;
+  DateTime? _deadline;
+
+  /// 定时关闭的预计时间，未开始定时时为 null。
+  DateTime? get deadline => _deadline;
   bool get isActive => _shutdownTimer?.isActive ?? false;
   int _durationInMinutes = 0;
   _ShutdownType _shutdownType = .pause;
@@ -47,6 +57,7 @@ class ShutdownTimerService {
 
   void reset([int durationInMinutes = 0]) {
     _stopTimer();
+    _deadline = null;
     _isWaiting = false;
     _durationInMinutes = durationInMinutes;
   }
@@ -58,6 +69,7 @@ class ShutdownTimerService {
       return;
     }
     SmartDialog.showToast('设置 ${_format(durationInMinutes)} 后定时关闭');
+    _deadline = DateTime.now().add(Duration(minutes: durationInMinutes));
     _shutdownTimer = Timer(
       Duration(minutes: durationInMinutes),
       _handleShutdown,
@@ -270,5 +282,101 @@ class ShutdownTimerService {
         },
       ),
     );
+  }
+}
+
+const _kSqueeze = 1.25;
+const _kItemExtent = 38.0;
+typedef ShutdownStatefulWidgetBuilder = Widget Function(
+  BuildContext context,
+  Widget countdown,
+  VoidCallback onCountdown,
+  StateSetter setState,
+);
+
+class ShutdownPanel extends StatefulWidget {
+  const ShutdownPanel({
+    super.key,
+    required this.builder,
+    this.buildCountdownText = _kBuildCountdownText,
+  });
+
+  final ShutdownStatefulWidgetBuilder builder;
+  final Widget Function(String? text) buildCountdownText;
+
+  static Widget _kBuildCountdownText(String? text) {
+    if (text == null) {
+      return const SizedBox.shrink();
+    }
+    return Text(text);
+  }
+
+  @override
+  State<ShutdownPanel> createState() => _ShutdownPanelState();
+}
+
+class _ShutdownPanelState extends State<ShutdownPanel> with ShutdownMixin {
+  @override
+  Widget build(BuildContext context) {
+    final countdown = Obx(() => widget.buildCountdownText(countdownText.value));
+    return widget.builder(context, countdown, _startTimer, setState);
+  }
+}
+
+mixin ShutdownMixin<T extends StatefulWidget> on State<T> {
+  Timer? _countdownTimer;
+  final RxnString countdownText = RxnString(null);
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _updateCountdownTextEnd([String? value]) {
+    _stopTimer();
+    countdownText.value = value;
+  }
+
+  bool _updateCountdownText([_]) {
+    if (shutdownTimerService.isWaiting) {
+      _updateCountdownTextEnd('当前播放结束后关闭');
+      return false;
+    }
+    final deadline = shutdownTimerService.deadline;
+    if (deadline == null) {
+      _updateCountdownTextEnd();
+      return false;
+    }
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= .zero) {
+      _updateCountdownTextEnd();
+      return false;
+    }
+    countdownText.value = DurationUtils.formatDuration(remaining.inSeconds);
+    return true;
+  }
+
+  void _startTimer() {
+    _stopTimer();
+    if (_updateCountdownText()) {
+      _countdownTimer = .periodic(
+        const Duration(seconds: 1),
+        _updateCountdownText,
+      );
+    }
+  }
+
+  void _stopTimer() {
+    if (_countdownTimer != null) {
+      _countdownTimer!.cancel();
+      _countdownTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopTimer();
+    super.dispose();
   }
 }

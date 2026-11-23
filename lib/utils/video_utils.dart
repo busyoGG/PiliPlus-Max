@@ -1,46 +1,21 @@
-import 'dart:async' show unawaited;
-
+import 'dart:async';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
+import 'package:PiliPlus/models/video/play/url.dart'
+    show AudioItem, VideoItem, FormatItem;
 import 'package:PiliPlus/models_new/live/live_room_play_info/codec.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 
 abstract final class VideoUtils {
-  static List<CDNService> cdnServices = Pref.cdnServices;
-  static int _cdnRotationIndex = Pref.cdnRotationIndex;
+  static int _cdnRotationIndex = 0;
+  static CDNService cdnService = Pref.defaultCDNService;
   static String? liveCdnUrl = Pref.liveCdnUrl;
   static bool disableAudioCDN = Pref.disableAudioCDN;
-
-  static CDNService get cdnService => cdnServices.first;
-
-  static String get cdnDescription => cdnServices.indexed
-      .map((item) => '${item.$1 + 1}. ${item.$2.desc}')
-      .join('；');
-
-  static void setCdnServices(Iterable<CDNService> services) {
-    final ordered = services.take(3).toList();
-    cdnServices = ordered.isEmpty ? [CDNService.backupUrl] : ordered;
-    _cdnRotationIndex = 0;
-  }
-
-  static int get cdnRotationIndex => _cdnRotationIndex;
-
-  static CDNService takeNextCdnService() {
-    final index = _cdnRotationIndex % cdnServices.length;
-    final service = cdnServices[index];
-    _cdnRotationIndex = (index + 1) % cdnServices.length;
-    unawaited(
-      GStorage.setting.put(
-        SettingBoxKey.cdnRotationIndex,
-        _cdnRotationIndex,
-      ),
-    );
-    return service;
-  }
 
   static const _proxyTf = 'proxy-tf-all-ws.bilivideo.com';
 
@@ -61,6 +36,17 @@ abstract final class VideoUtils {
 
     if (defaultCDNService == CDNService.baseUrl) {
       return urls.first;
+    }
+
+    if (defaultCDNService == CDNService.akamai &&
+        !(isAudio && disableAudioCDN)) {
+      // Akamai URLs have their own signature (e.g. hdnts). Replacing another
+      // CDN's host preserves the wrong signature and results in HTTP 403.
+      // Keep the API-provided URL intact, including its encoded query string.
+      return urls.firstWhere(
+        (url) => Uri.tryParse(url)?.host == CDNService.akamai.host,
+        orElse: () => urls.first,
+      );
     }
 
     String? mcdnTf;
@@ -150,4 +136,113 @@ abstract final class VideoUtils {
     }
     return VideoDecodeFormatType.fromString(codecs.first);
   }
+
+  static int _findAvailableVideoQuality(
+    List<VideoItem> videoList,
+    List<int>? acceptQuality,
+    int preferQuality,
+  ) {
+    final highestVideoQa = videoList.first.id;
+    if (preferQuality >= highestVideoQa) {
+      return highestVideoQa;
+    }
+
+    if (acceptQuality != null && acceptQuality.isNotEmpty) {
+      return acceptQuality.findTargetMedia((e) => e, preferQuality);
+    }
+
+    return videoList.findTargetMedia((e) => e.id, preferQuality).quality.code;
+  }
+
+  static (
+    int targetQuality,
+    FormatItem targetFormat,
+    VideoDecodeFormatType targetDecode,
+    VideoItem targetVideo,
+  )
+  findTargetVideo(
+    List<VideoItem> videoList,
+    int preferQuality,
+    List<int>? acceptQuality,
+    List<FormatItem> supportFormats,
+    List<VideoDecodeFormatType> preferCodecs,
+  ) {
+    assert(videoList.isNotEmpty);
+
+    final targetQuality = _findAvailableVideoQuality(
+      videoList,
+      acceptQuality,
+      preferQuality,
+    );
+
+    final targetFormat = supportFormats.firstWhere(
+      (e) => e.quality == targetQuality,
+      orElse: () => supportFormats.first,
+    );
+
+    final targetDecode = VideoUtils.selectCodec(
+      targetFormat.codecs!,
+      preferCodecs,
+    );
+
+    final targetQaVideoList = videoList
+        .where((e) => e.id == targetQuality)
+        .toList();
+
+    final targetVideo = targetQaVideoList.firstWhere(
+      (e) => targetDecode.codes.any(e.codecs!.startsWith),
+      orElse: () => targetQaVideoList.first,
+    );
+
+    return (targetVideo.id, targetFormat, targetDecode, targetVideo);
+  }
+
+  static AudioItem findTargetAudio(
+    List<AudioItem> audioList,
+    int preferQuality,
+  ) {
+    assert(audioList.isNotEmpty);
+
+    final preferredRank = AudioQuality.fromCode(preferQuality).rank;
+    return audioList.findTargetMedia(
+      (audio) => AudioQuality.fromCode(audio.id).rank,
+      preferredRank,
+    );
+  }
+
+  static String get cdnDescription => cdnServices.indexed
+      .map((item) => '${item.$1 + 1}. ${item.$2.desc}')
+      .join('；');
+
+
+
+  static void setCdnServices(Iterable<CDNService> services) {
+    final ordered = services.take(3).toList();
+    cdnServices = ordered.isEmpty ? [CDNService.backupUrl] : ordered;
+    _cdnRotationIndex = 0;
+  }
+
+
+
+  static int get cdnRotationIndex => _cdnRotationIndex;
+
+
+  static List<CDNService> cdnServices = Pref.cdnServices;
+
+
+
+  static CDNService takeNextCdnService() {
+    final index = _cdnRotationIndex % cdnServices.length;
+    final service = cdnServices[index];
+    _cdnRotationIndex = (index + 1) % cdnServices.length;
+    unawaited(
+      GStorage.setting.put(
+        SettingBoxKey.cdnRotationIndex,
+        _cdnRotationIndex,
+      ),
+    );
+    return service;
+  }
+
+
 }

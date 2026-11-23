@@ -32,6 +32,25 @@ class RcmdVideoItemModel extends BaseRcmdVideoItemModel {
     rcmdReason = json["rcmd_reason"]?['content'];
   }
 
+  // @override
+  // String? get desc => null;
+  Map<String, dynamic> toCacheJson() => {
+    'aid': aid,
+    'bvid': bvid,
+    'cid': cid,
+    'goto': goto,
+    'uri': uri,
+    'cover': cover,
+    'title': title,
+    'duration': duration,
+    'pubdate': pubdate,
+    'owner': {'mid': owner.mid, 'name': owner.name},
+    'stat': {'view': stat.view, 'like': stat.like, 'danmu': stat.danmu},
+    'isFollowed': isFollowed,
+    'rcmdReason': rcmdReason,
+    'historyOccurrenceId': historyOccurrenceId,
+  };
+
   RcmdVideoItemModel.fromCacheJson(Map<String, dynamic> json) {
     aid = (json['aid'] as num?)?.toInt();
     bvid = json['bvid'] as String?;
@@ -53,26 +72,6 @@ class RcmdVideoItemModel extends BaseRcmdVideoItemModel {
     rcmdReason = json['rcmdReason'] as String?;
     historyOccurrenceId = json['historyOccurrenceId'] as String?;
   }
-
-  Map<String, dynamic> toCacheJson() => {
-    'aid': aid,
-    'bvid': bvid,
-    'cid': cid,
-    'goto': goto,
-    'uri': uri,
-    'cover': cover,
-    'title': title,
-    'duration': duration,
-    'pubdate': pubdate,
-    'owner': {'mid': owner.mid, 'name': owner.name},
-    'stat': {'view': stat.view, 'like': stat.like, 'danmu': stat.danmu},
-    'isFollowed': isFollowed,
-    'rcmdReason': rcmdReason,
-    'historyOccurrenceId': historyOccurrenceId,
-  };
-
-  // @override
-  // String? get desc => null;
 }
 
 // @HiveType(typeId: 2)

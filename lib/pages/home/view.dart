@@ -1,21 +1,19 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
-import 'package:PiliPlus/models/common/home_tab_type.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/common/common_page.dart';
-import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
-import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/models/common/home_tab_type.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +24,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends CommonPageState<HomePage>
     with AutomaticKeepAliveClientMixin {
+  late ColorScheme _colorScheme;
   final _homeController = Get.putOrFind(HomeController.new);
   final _mainController = Get.find<MainController>();
 
@@ -45,9 +44,14 @@ class _HomePageState extends CommonPageState<HomePage>
   bool get wantKeepAlive => true;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _colorScheme = ColorScheme.of(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
-    final theme = Theme.of(context);
     Widget tabBar;
     if (_homeController.tabs.length > 1) {
       tabBar = Padding(
@@ -75,75 +79,24 @@ class _HomePageState extends CommonPageState<HomePage>
       if (_homeController.hideTopBar &&
           _mainController.barHideType == .instant) {
         tabBar = Material(
-          color: theme.colorScheme.surface,
+          color: _colorScheme.surface,
           child: tabBar,
         );
       }
     } else {
       tabBar = const SizedBox(height: 6);
     }
-    final bool showHeader =
-        !_mainController.useSideBar && MediaQuery.sizeOf(context).isPortrait;
-    final Widget feed = onBuild(
-      tabBarView(
-        controller: _homeController.tabController,
-        children: _homeController.tabs.map((e) => e.page).toList(),
-      ),
-    );
-    // 状态栏高度：无论走不走毛玻璃，内容都要让出这一条，否则页头会压进状态栏。
-    final double statusBarHeight = MediaQuery.paddingOf(context).top;
-    if (!showHeader || !AppBlur.enabled) {
-      return Column(
-        children: [
-          if (showHeader) ...[
-            SizedBox(height: statusBarHeight),
-            customAppBar(theme),
-          ],
-          tabBar,
-          Expanded(child: feed),
-        ],
-      );
-    }
-    final double tabBarHeight = _homeController.tabs.length > 1
-        ? Pref.homeTabBarHeight + 4
-        : 6;
-    // 顶栏浮在内容之上：列表一直滚到顶栏背后，被毛玻璃糊住。
-    return Stack(
+    return Column(
       children: [
-        // 信息流铺到屏幕顶部，滚到顶栏背后被糊住。
-        //
-        // 这里不能跟着顶栏收起的高度改 inset：那是每一帧都在变的 InheritedWidget，
-        // 所有 tab 的列表都会重建、SliverPadding 的顶部内边距每帧变一次，
-        // 顶栏收起的那一段就会掉帧。顶栏自己是浮在上面的，内容固定留出它的高度。
-        Positioned.fill(
-          child: HomeHeaderOverlay(
-            inset: statusBarHeight + Style.topBarHeight + tabBarHeight,
-            child: feed,
-          ),
-        ),
-        // 顶栏铺满到屏幕顶部，毛玻璃连状态栏一起盖住。
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: BlurSurface(
-            sigma: AppBlur.barSigma,
-            tint: theme.colorScheme.surface,
-            tintAlpha: 0.6,
-            // 模糊和底色一起裁圆角：采样不溢出顶栏范围。
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(14),
-            ),
-            boxShadow: AppBlur.barShadow,
-            child: Column(
-              children: [
-                // 状态栏占位矩形：只占高度、只露毛玻璃，不放任何内容。
-                SizedBox(height: statusBarHeight, width: double.infinity),
-                // 顶栏上移（下拉/收起）时超出上边界的绘制被裁掉，不会压到占位矩形上。
-                ClipRect(
-                  child: Column(children: [_customAppBar(theme), tabBar]),
-                ),
-              ],
+        if (!_mainController.useSideBar &&
+            MediaQuery.sizeOf(context).isPortrait)
+          customAppBar(),
+        tabBar,
+        Expanded(
+          child: onBuild(
+            tabBarView(
+              controller: _homeController.tabController,
+              children: _homeController.tabs.map((e) => e.page).toList(),
             ),
           ),
         ),
@@ -151,18 +104,15 @@ class _HomePageState extends CommonPageState<HomePage>
     );
   }
 
-  /// 顶栏本体；毛玻璃由外层（覆盖式布局）统一套上。
-  Widget customAppBar(ThemeData theme) => _customAppBar(theme);
-
-  Widget _customAppBar(ThemeData theme) {
+  Widget customAppBar() {
     const padding = EdgeInsets.fromLTRB(14, 6, 14, 0);
     final child = Row(
       children: [
-        searchBar(theme),
+        searchBar(),
         const SizedBox(width: 4),
         msgBadge(_mainController),
         const SizedBox(width: 8),
-        userAvatar(theme: theme, mainController: _mainController),
+        userAvatar(colorScheme: _colorScheme, mainController: _mainController),
       ],
     );
     if (_homeController.hideTopBar) {
@@ -205,17 +155,17 @@ class _HomePageState extends CommonPageState<HomePage>
     );
   }
 
-  Widget searchBar(ThemeData theme) {
+  Widget searchBar() {
     const borderRadius = BorderRadius.all(Radius.circular(25));
     return Expanded(
       child: SizedBox(
         height: 44,
         child: Material(
           borderRadius: borderRadius,
-          color: theme.colorScheme.onSecondaryContainer.withValues(alpha: 0.05),
+          color: _colorScheme.onSecondaryContainer.withValues(alpha: 0.05),
           child: InkWell(
             borderRadius: borderRadius,
-            splashColor: theme.colorScheme.primaryContainer.withValues(
+            splashColor: _colorScheme.primaryContainer.withValues(
               alpha: 0.3,
             ),
             onTap: () => Get.toNamed(
@@ -229,7 +179,7 @@ class _HomePageState extends CommonPageState<HomePage>
                 const SizedBox(width: 14),
                 Icon(
                   Icons.search_outlined,
-                  color: theme.colorScheme.onSecondaryContainer,
+                  color: _colorScheme.onSecondaryContainer,
                   semanticLabel: '搜索',
                 ),
                 const SizedBox(width: 10),
@@ -239,7 +189,7 @@ class _HomePageState extends CommonPageState<HomePage>
                       _homeController.defaultSearch.value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: theme.colorScheme.outline),
+                      style: TextStyle(color: _colorScheme.outline),
                     ),
                   ),
                 ),
@@ -254,7 +204,7 @@ class _HomePageState extends CommonPageState<HomePage>
 }
 
 Widget userAvatar({
-  required ThemeData theme,
+  required ColorScheme colorScheme,
   required MainController mainController,
 }) {
   return Semantics(
@@ -276,7 +226,7 @@ Widget userAvatar({
                   type: .transparency,
                   child: InkWell(
                     onTap: mainController.toMinePage,
-                    splashColor: theme.colorScheme.primaryContainer.withValues(
+                    splashColor: colorScheme.primaryContainer.withValues(
                       alpha: 0.3,
                     ),
                     customBorder: const CircleBorder(),
@@ -293,12 +243,12 @@ Widget userAvatar({
                             padding: const .all(2),
                             decoration: BoxDecoration(
                               shape: .circle,
-                              color: theme.colorScheme.secondaryContainer,
+                              color: colorScheme.secondaryContainer,
                             ),
                             child: Icon(
                               size: 14,
                               MdiIcons.incognito,
-                              color: theme.colorScheme.onSecondaryContainer,
+                              color: colorScheme.onSecondaryContainer,
                             ),
                           ),
                         )
@@ -315,13 +265,13 @@ Widget userAvatar({
             tooltip: '点击登录',
             style: IconButton.styleFrom(
               padding: .zero,
-              backgroundColor: theme.colorScheme.onInverseSurface,
+              backgroundColor: colorScheme.onInverseSurface,
             ),
             onPressed: mainController.toMinePage,
             icon: Icon(
               Icons.person_rounded,
               size: 22,
-              color: theme.colorScheme.primary,
+              color: colorScheme.primary,
             ),
           ),
         );
@@ -340,17 +290,17 @@ Widget msgBadge(MainController mainController) {
           tooltip: '消息',
           onPressed: () {
             mainController
-              ..msgUnReadCount.value = ''
+              ..clearUnreadMsg()
               ..lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
             Get.toNamed('/whisper');
           },
           icon: Badge(
             isLabelVisible:
-                mainController.msgBadgeMode != .hidden && count.isNotEmpty,
+                mainController.msgBadgeMode != .hidden && count != null,
             alignment: isNumBadge
                 ? const Alignment(0.0, -0.85)
                 : const Alignment(1.0, -0.85),
-            label: isNumBadge && count.isNotEmpty ? Text(count) : null,
+            label: isNumBadge && count != null ? Text(count) : null,
             child: const Icon(Icons.notifications_none),
           ),
         );

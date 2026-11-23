@@ -1,7 +1,7 @@
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/utils/bili_colors.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart';
-import 'package:flutter/material.dart'
+import 'package:material_ui/material_ui.dart'
     show ThemeData, ThemeExtension, Color, ColorScheme, Brightness, Colors;
 import 'package:material_color_utilities/hct/hct.dart' as mcu;
 

@@ -2,7 +2,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 
 /// 界面模糊的强度档位。

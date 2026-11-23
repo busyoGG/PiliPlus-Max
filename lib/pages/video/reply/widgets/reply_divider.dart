@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ReplyDivider extends StatelessWidget {
   const ReplyDivider({super.key, this.fullWidth = false});

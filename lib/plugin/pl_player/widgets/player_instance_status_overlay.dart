@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class PlayerInstanceStatusOverlay extends StatefulWidget {

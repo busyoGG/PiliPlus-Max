@@ -1,5 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:nm/nm.dart';
 
 abstract final class ConnectivityUtils {
   static bool? _cachedIsWiFi;
@@ -32,4 +35,8 @@ abstract final class ConnectivityUtils {
       return true;
     }
   }
+
+  /// 上一次探测到的网络类型，未探测过时为 null。
+  static bool? get lastIsWiFi => _cachedIsWiFi;
+
 }

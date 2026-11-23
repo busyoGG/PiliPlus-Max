@@ -18,11 +18,11 @@ import 'package:PiliPlus/models/common/sponsor_block/action_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
-import 'package:PiliPlus/models/common/video/audio_quality.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
-import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
@@ -74,7 +74,7 @@ import 'package:collection/collection.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -83,10 +83,21 @@ import 'package:media_kit/media_kit.dart' hide Subtitle;
 
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
+  /// 桌面端画面旋转角度（仅桌面端使用）。
+  int rotate = 0;
+
+  int calcRotate(int delta) => (rotate + delta) % 360;
+
   /// 路由传参
   late final Map args;
   late String bvid;
   late int aid;
+  UgcIntroController get ugcIntroCtr =>
+      Get.find<UgcIntroController>(tag: heroTag);
+
+  Future<void>? initPlayerIfNeeded(bool autoFullScreenFlag) =>
+      _initPlayerIfNeeded(autoFullScreenFlag);
+
   late final RxInt cid;
   int? epId;
   int? seasonId;
@@ -219,7 +230,7 @@ class VideoDetailController extends GetxController
   CDNService? _cdnService;
   Duration? defaultST;
   Duration? playedTime;
-  String get playedTimePos {
+  String playedTimePos([bool addIndex = false]) {
     final pos = playedTime?.inMilliseconds;
     return pos == null || pos == 0 ? '' : '?t=${pos / 1000}';
   }
@@ -448,6 +459,7 @@ class VideoDetailController extends GetxController
   void initFileSource(BiliDownloadEntryInfo entry, {bool isInit = true}) {
     this.entry = entry;
     firstVideo = VideoItem(
+      id: 0,
       quality: VideoQuality.fromCode(entry.preferedVideoQuality),
       width: entry.ep?.width ?? entry.pageData?.width ?? 1,
       height: entry.ep?.height ?? entry.pageData?.height ?? 1,
@@ -1112,6 +1124,9 @@ class VideoDetailController extends GetxController
       // 播放地址请求不依赖网络类型，先发出去，省掉一次串行等待。
       final urlFuture = VideoHttp.videoUrl(
         cid: cid.value,
+        qn: (ConnectivityUtils.lastIsWiFi ?? true)
+            ? Pref.defaultVideoQa
+            : Pref.defaultVideoQaCellular,
         bvid: bvid,
         epid: epId,
         seasonId: seasonId,

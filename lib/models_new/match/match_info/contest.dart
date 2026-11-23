@@ -1,7 +1,9 @@
 import 'package:PiliPlus/models_new/match/match_info/season.dart';
 import 'package:PiliPlus/models_new/match/match_info/team.dart';
+typedef Season = MatchSeason;
 
 class MatchContest {
+  String? get playback => playBack;
   int? id;
   String? gameStage;
   int? stime;
@@ -62,4 +64,7 @@ class MatchContest {
     },
     contestStatus: json['contest_status'] as int?,
   );
+
+  factory MatchContest.fromSearch(Map<String, dynamic> json) =>
+      MatchContest.fromJson(json);
 }

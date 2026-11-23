@@ -12,23 +12,20 @@ import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
 class VideoCardVMemberHome extends StatelessWidget {
   final SpaceArchiveItem videoItem;
 
-  const VideoCardVMemberHome({
-    super.key,
-    required this.videoItem,
-  });
+  const VideoCardVMemberHome(this.videoItem, {super.key});
 
   Future<void> onPushDetail(BuildContext context) async {
     final Rect? originRect = videoCardRectOf(context);
     String? goto = videoItem.goto;
     switch (goto) {
       case 'bangumi':
-        PageUtils.viewPgc(epId: videoItem.param);
+        PageUtils.viewPgc(epId: .parse(videoItem.param!));
         break;
 
       case 'av':
@@ -83,11 +80,11 @@ class VideoCardVMemberHome extends StatelessWidget {
       bvid: videoItem.bvid,
     );
     return Card(
-      clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () => onPushDetail(context),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+        borderRadius: const .all(.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -104,7 +101,7 @@ class VideoCardVMemberHome extends StatelessWidget {
                         src: videoItem.cover,
                         width: maxWidth,
                         height: maxHeight,
-                        type: .emote,
+                        borderRadius: const .vertical(top: .circular(12)),
                       ),
                       if (videoItem.duration > 0)
                         PBadge(

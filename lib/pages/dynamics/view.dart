@@ -14,7 +14,7 @@ import 'package:PiliPlus/pages/dynamics_create/view.dart';
 import 'package:PiliPlus/pages/dynamics_tab/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
-import 'package:flutter/material.dart' hide DraggableScrollableSheet;
+import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
 import 'package:get/get.dart';
 
 class DynamicsPage extends StatefulWidget {
@@ -279,7 +279,7 @@ bool onNotificationType2(
             dividerColor: Colors.transparent,
             labelColor: theme.colorScheme.primary,
             indicatorColor: theme.colorScheme.primary,
-            controller: _dynamicsController.tabController,
+            controller: _dynamicsController.tabController!,
             unselectedLabelColor: theme.colorScheme.onSurface,
             labelStyle:
                 TabBarTheme.of(context).labelStyle?.copyWith(fontSize: 13) ??

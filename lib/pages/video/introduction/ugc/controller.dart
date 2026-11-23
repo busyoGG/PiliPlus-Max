@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
-import 'package:PiliPlus/grpc/dm.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart' show ReloadMixin;
 import 'package:PiliPlus/http/api.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -16,14 +16,12 @@ import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models_new/member_card_info/data.dart';
 import 'package:PiliPlus/models_new/relation/data.dart';
 import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
+import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/models_new/video/video_detail/episode.dart';
 import 'package:PiliPlus/models_new/video/video_detail/page.dart';
-import 'package:PiliPlus/models_new/video/video_detail/section.dart';
 import 'package:PiliPlus/models_new/video/video_detail/staff.dart';
 import 'package:PiliPlus/models_new/video/video_detail/stat_detail.dart';
-import 'package:PiliPlus/models_new/video/video_detail/ugc_season.dart';
-import 'package:PiliPlus/models_new/video/video_play_info/subtitle.dart';
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/dynamics_repost/view.dart';
 import 'package:PiliPlus/pages/video/related/controller.dart';
@@ -31,6 +29,7 @@ import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -42,12 +41,11 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class UgcIntroController extends CommonIntroController with ReloadMixin {
   late final RxBool expand;
@@ -69,6 +67,16 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   AiConclusionResult? aiConclusionResult;
 
   late final Map<int?, bool> seasonFavState = {};
+
+  int? _seasonCid;
+  int? get seasonCid => _seasonCid;
+  late int _sectionIndex = 0;
+  int get sectionIndex => _sectionIndex;
+  late int _seasonIndex = 0;
+  int get seasonIndex => _seasonIndex;
+  late int _partIndex = 0;
+  int get partIndex => _partIndex;
+  final indexNotifier = ValueNotifier(null);
 
   @override
   void onInit() {
@@ -104,17 +112,19 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         cid.value,
         heroTag,
       );
-      if (videoDetail.value.ugcSeason?.id == response.ugcSeason?.id) {
+      final currentDetail = videoDetail.value;
+      if (currentDetail.ugcSeason?.id == response.ugcSeason?.id) {
         // keep reversed season
-        response.ugcSeason = videoDetail.value.ugcSeason;
+        response.ugcSeason = currentDetail.ugcSeason;
       }
-      if (videoDetail.value.cid == response.cid) {
+      if (currentDetail.cid == response.cid) {
         // keep reversed pages
         response
-          ..pages = videoDetail.value.pages
-          ..isPageReversed = videoDetail.value.isPageReversed;
+          ..pages = currentDetail.pages
+          ..isPageReversed = currentDetail.isPageReversed;
       }
       videoDetail.value = response;
+      updateIndex(data: response);
       try {
         if (videoDetailCtr.cover.value.isEmpty ||
             (videoDetailCtr.videoUrl.isNullOrEmpty &&
@@ -123,15 +133,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         }
         if (videoDetailCtr.showReply) {
           try {
-            Get.find<VideoReplyController>(tag: heroTag).count.value =
-                response.stat?.reply ?? 0;
+            Get.find<VideoReplyController>(tag: heroTag)
+              ..count.value = response.stat?.reply ?? 0
+              ..intro = response.desc?.trim();
           } catch (_) {}
         }
       } catch (_) {}
-      final pages = videoDetail.value.pages;
-      if (pages != null && pages.isNotEmpty && cid.value == 0) {
-        cid.value = pages.first.cid!;
-      }
       queryUserStat(response.staff);
     } else {
       res.toast();
@@ -142,6 +149,44 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       queryAllStatus();
       queryFollowStatus();
     }
+  }
+
+  void updateIndex({
+    VideoDetailData? data,
+    bool force = false,
+  }) {
+    data ??= videoDetail.rawValue;
+
+    final pages = data.pages;
+    if (pages != null && pages.length > 1) {
+      final cid = this.cid.rawValue;
+      _partIndex = math.max(0, pages.indexWhere((e) => e.cid == cid));
+    } else {
+      _partIndex = 0;
+    }
+
+    final seasonCid = data.isPageReversed ? data.pages!.last.cid : data.cid;
+    if (force || _seasonCid != seasonCid) {
+      _seasonCid = seasonCid;
+      final season = data.ugcSeason;
+      if (season == null) {
+        _seasonIndex = 0;
+      } else {
+        for (final (sectionIndex, section) in season.sections!.indexed) {
+          final episodes = section.episodes!;
+          for (final (seasonIndex, episode) in episodes.indexed) {
+            if (episode.cid == seasonCid) {
+              _sectionIndex = sectionIndex;
+              _seasonIndex = seasonIndex;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+    indexNotifier.notifyListeners();
   }
 
   // 获取up主粉丝数
@@ -277,7 +322,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   int get copyright => videoDetail.value.copyright ?? 1;
 
   @override
-  (Object, int) get getFavRidType => (IdUtils.bv2av(bvid), 2);
+  (Object, int) get getFavRidType => (aid, 2);
 
   @override
   StatDetail? getStat() => videoDetail.value.stat;
@@ -286,8 +331,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   @override
   void actionShareVideo(BuildContext context) {
     final videoDetail = this.videoDetail.value;
-    final playedTimePos = videoDetailCtr.playedTimePos;
-    String videoUrl = '${HttpString.baseUrl}/video/$bvid';
+    final cid = this.cid.value;
+    final partIndex = videoDetail.pages?.indexWhere((e) => e.cid == cid);
+    final addIndex = partIndex != null && partIndex > 0;
+    final playedTimePos = videoDetailCtr.playedTimePos(addIndex);
+    final videoUrl =
+        '${HttpString.baseUrl}/video/$bvid/${addIndex ? '?p=${partIndex + 1}' : ''}';
     showDialog(
       context: context,
       builder: (_) => SimpleDialog(
@@ -323,7 +372,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
             ),
             onTap: () {
               Get.back();
-              PageUtils.launchURL(videoUrl);
+              PiliAndroidHelper.openUrl(videoUrl);
             },
           ),
           if (PlatformUtils.isMobile)
@@ -361,6 +410,11 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                     pic: videoDetail.pic,
                     title: videoDetail.title,
                     uname: videoDetail.owner?.name,
+                    replyInfo: (
+                      oid: videoDetailCtr.aid,
+                      replyType: videoDetailCtr.videoType.replyType,
+                    ),
+                    mentionItem: videoDetail.owner?.mentionItem,
                   ),
                 );
               },
@@ -447,13 +501,14 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           followStatus
             ..value.attribute = attribute
             ..refresh();
-          Future.delayed(const Duration(milliseconds: 500), queryFollowStatus);
+          Timer(const Duration(milliseconds: 500), queryFollowStatus);
         },
       );
     }
   }
 
   // 修改分P或番剧分集
+  @override
   Future<bool> onChangeEpisode(
     BaseEpisodeItem episode, {
     bool isStein = false,
@@ -488,13 +543,14 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
             cid: cid,
             cover: cover,
             dimension: dimension,
+            title: episode.title,
           );
           return false;
         }
       }
 
-      // AI总结和字幕都与cid绑定，切换分P时必须清空缓存。
-      aiConclusionResult = null;
+      final lastBvid = videoDetailCtr.bvid;
+
       videoDetailCtr
         ..plPlayerController.pause()
         ..makeHeartBeat()
@@ -502,11 +558,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         ..onReset(isStein: isStein)
         ..bvid = bvid
         ..aid = aid
-        ..cid.value = cid;
-      final queryVideo = videoDetailCtr.queryVideoUrl();
+        ..cid.value = cid
+        ..queryVideoUrl();
 
-      if (this.bvid != bvid) {
+      if (lastBvid != bvid) {
         reload = true;
+        aiConclusionResult = null;
 
         if (cover != null && cover.isNotEmpty) {
           videoDetailCtr.cover.value = cover;
@@ -524,8 +581,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         // 重新请求评论
         if (videoDetailCtr.showReply) {
           try {
-            final replyCtr = Get.find<VideoReplyController>(tag: heroTag)
-              ..aid = aid;
+            final replyCtr = Get.find<VideoReplyController>(tag: heroTag);
             if (replyCtr.loadingState.value is! Loading) {
               replyCtr.onReload();
             }
@@ -533,9 +589,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         }
 
         hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
-        this.bvid = bvid;
         queryVideoIntro();
       } else {
+        updateIndex();
         if (episode is Part) {
           final videoDetail = this.videoDetail.value;
           videoPlayerServiceHandler?.onVideoDetailChange(
@@ -548,11 +604,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         }
       }
 
-      this.cid.value = cid;
       queryOnlineTotal();
-      if (isStein) {
-        await queryVideo;
-      }
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('ugc onChangeEpisode: $e');
@@ -562,44 +614,31 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   /// 播放上一个
   @override
-  bool prevPlay([bool skipPart = false]) {
+  bool prevPlay({bool skipPart = false}) {
     final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
     bool isPart = false;
-
     final videoDetail = this.videoDetail.value;
-
-    if (!skipPart && (videoDetail.pages?.length ?? 0) > 1) {
+    if (!skipPart && videoDetail.hasParts) {
       isPart = true;
       episodes.addAll(videoDetail.pages!);
     } else if (videoDetailCtr.isPlayAll) {
       episodes.addAll(videoDetailCtr.mediaList);
-    } else if (videoDetail.ugcSeason != null) {
-      final UgcSeason ugcSeason = videoDetail.ugcSeason!;
-      final List<SectionItem> sections = ugcSeason.sections!;
-      for (int i = 0; i < sections.length; i++) {
-        final List<EpisodeItem> episodesList = sections[i].episodes!;
-        episodes.addAll(episodesList);
+    } else if (videoDetail.hasSeason) {
+      for (final section in videoDetail.ugcSeason!.sections!) {
+        episodes.addAll(section.episodes!);
       }
     }
 
-    final int currentIndex = episodes.indexWhere(
-      (e) =>
-          e.cid ==
-          (skipPart
-              ? videoDetail.isPageReversed
-                    ? videoDetail.pages!.last.cid
-                    : videoDetail.pages!.first.cid
-              : this.cid.value),
-    );
+    final targetCid = skipPart ? seasonCid : this.cid.rawValue;
+    final currIndex = episodes.indexWhere((e) => e.cid == targetCid);
 
-    int prevIndex = currentIndex - 1;
-    final PlayRepeat playRepeat = videoDetailCtr.plPlayerController.playRepeat;
+    int prevIndex = currIndex - 1;
+    final playRepeat = videoDetailCtr.plPlayerController.playRepeat;
 
     // 列表循环
     if (prevIndex < 0) {
-      if (isPart &&
-          (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-        return prevPlay(true);
+      if (isPart && (videoDetailCtr.isPlayAll || videoDetail.hasSeason)) {
+        return prevPlay(skipPart: true);
       }
       if (playRepeat == PlayRepeat.listCycle) {
         prevIndex = episodes.length - 1;
@@ -627,25 +666,22 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   /// 列表循环或者顺序播放时，自动播放下一个
   @override
-  bool nextPlay([bool skipPart = false]) {
+  bool nextPlay({bool skipPart = false}) {
     try {
       final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
       bool isPart = false;
       final videoDetail = this.videoDetail.value;
 
       // part -> playall -> season
-      if (!skipPart && (videoDetail.pages?.length ?? 0) > 1) {
+      if (!skipPart && videoDetail.hasParts) {
         isPart = true;
         final List<Part> pages = videoDetail.pages!;
         episodes.addAll(pages);
       } else if (videoDetailCtr.isPlayAll) {
         episodes.addAll(videoDetailCtr.mediaList);
       } else if (videoDetail.ugcSeason != null) {
-        final UgcSeason ugcSeason = videoDetail.ugcSeason!;
-        final List<SectionItem> sections = ugcSeason.sections!;
-        for (int i = 0; i < sections.length; i++) {
-          final List<EpisodeItem> episodesList = sections[i].episodes!;
-          episodes.addAll(episodesList);
+        for (final section in videoDetail.ugcSeason!.sections!) {
+          episodes.addAll(section.episodes!);
         }
       }
 
@@ -664,21 +700,14 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         return false;
       }
 
-      final int currentIndex = episodes.indexWhere(
-        (e) =>
-            e.cid ==
-            (skipPart
-                ? videoDetail.isPageReversed
-                      ? videoDetail.pages!.last.cid
-                      : videoDetail.pages!.first.cid
-                : this.cid.value),
-      );
+      final targetCid = skipPart ? seasonCid : this.cid.rawValue;
+      final currIndex = episodes.indexWhere((e) => e.cid == targetCid);
 
-      int nextIndex = currentIndex + 1;
+      int nextIndex = currIndex + 1;
 
       if (!isPart &&
           videoDetailCtr.isPlayAll &&
-          currentIndex == episodes.length - 2) {
+          currIndex == episodes.length - 2) {
         videoDetailCtr.getMediaList();
       }
 
@@ -686,7 +715,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       if (nextIndex >= episodes.length) {
         if (isPart &&
             (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-          return nextPlay(true);
+          return nextPlay(skipPart: true);
         }
 
         if (playRepeat == PlayRepeat.listCycle) {
@@ -749,151 +778,44 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     return false;
   }
 
-  // AI小助手字幕；接口字幕不可用时回退到播放器字幕。
+  // ai总结
   static Future<AiConclusionResult?> getAiConclusion(
     String bvid,
     int cid,
-    int? mid, {
-    List<Subtitle>? subtitles,
-  }) async {
-    String subtitleError = '当前视频无可用AI小助手字幕';
-    if (Accounts.heartbeat.isLogin) {
-      SmartDialog.showLoading(msg: '正在获取AI小助手字幕');
-      try {
-        final res = await VideoHttp.aiConclusion(
-          bvid: bvid,
-          cid: cid,
-          upMid: mid,
-        );
-        if (res case Success(:final response)) {
-          final result = response.modelResult;
-          if (result?.webSubtitleParts.isNotEmpty == true) {
-            return result;
-          }
-          if (result?.summary?.trim().isNotEmpty == true ||
-              result?.outline?.isNotEmpty == true) {
-            subtitleError = '网页版AI小助手仅返回总结，未返回字幕';
-          }
-        } else if (res case Error(code: 1)) {
-          subtitleError = 'AI小助手字幕仍在处理中';
-        } else if (res case Error(:final errMsg)
-            when errMsg?.isNotEmpty == true) {
-          subtitleError = 'AI小助手字幕获取失败：$errMsg';
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint('get ai conclusion: $e');
-        subtitleError = 'AI小助手字幕获取失败';
-      } finally {
-        SmartDialog.dismiss();
-      }
-    } else {
-      subtitleError = '账号未登录，无法获取AI小助手字幕';
-    }
-
-    SmartDialog.showLoading(msg: '正在获取播放器字幕');
-    try {
-      final subtitleResult = await _getPlayerSubtitle(
-        bvid,
-        cid,
-        subtitles,
-      );
-      if (subtitleResult != null) {
-        return subtitleResult;
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('get player subtitle: $e');
-    } finally {
-      SmartDialog.dismiss();
-    }
-
-    SmartDialog.showToast('$subtitleError，且未获取到播放器字幕');
-    return null;
-  }
-
-  static Future<AiConclusionResult?> _getPlayerSubtitle(
-    String bvid,
-    int cid,
-    List<Subtitle>? cachedSubtitles,
+    int? mid,
   ) async {
-    final subtitles = List<Subtitle>.of(cachedSubtitles ?? const []);
-
-    if (subtitles.isEmpty) {
-      try {
-        final playInfo = await VideoHttp.playInfo(bvid: bvid, cid: cid);
-        if (playInfo case Success(:final response)) {
-          subtitles.addAll(response.subtitle?.subtitles ?? const []);
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint('get web subtitles: $e');
-      }
+    if (!Accounts.heartbeat.isLogin) {
+      SmartDialog.showToast("账号未登录");
+      return null;
     }
-
-    if (subtitles.isEmpty) {
-      try {
-        final dmView = await DmGrpc.dmView(IdUtils.bv2av(bvid), cid);
-        if (dmView case Success(:final response)
-            when response.hasSubtitle() &&
-                response.subtitle.subtitles.isNotEmpty) {
-          subtitles.addAll(
-            response.subtitle.subtitles.map(
-              (item) => Subtitle(
-                lan: item.lan,
-                lanDoc: item.lanDoc,
-                subtitleUrl: item.subtitleUrl.replaceFirst(
-                  RegExp('^https?:'),
-                  '',
-                ),
-                isAi: item.type == .AI,
-              ),
-            ),
-          );
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint('get grpc subtitles: $e');
-      }
-    }
-
-    // 中文优先；同一语言范围内AI字幕优先于人工字幕。
-    subtitles.sort();
-    final candidates = [
-      ...subtitles.where((item) => item.lan.contains('zh') && item.isAi),
-      ...subtitles.where((item) => item.lan.contains('zh') && !item.isAi),
-      ...subtitles.where((item) => !item.lan.contains('zh') && item.isAi),
-      ...subtitles.where((item) => !item.lan.contains('zh') && !item.isAi),
-    ];
-    for (final subtitle in candidates) {
-      final url = subtitle.subtitleUrl;
-      if (url == null || url.isEmpty) continue;
-      try {
-        final content = await VideoHttp.vttSubtitles(
-          url.replaceFirst(RegExp('^https?:'), ''),
-          format: SubtitleFormat.srt,
-        );
-        if (content?.trim().isNotEmpty == true) {
-          return AiConclusionResult(
-            fallbackSubtitle: content,
-          );
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('get ${subtitle.lan} subtitle: $e');
-        }
-      }
+    SmartDialog.showLoading(msg: '正在获取AI总结');
+    final res = await VideoHttp.aiConclusion(
+      bvid: bvid,
+      cid: cid,
+      upMid: mid,
+    );
+    SmartDialog.dismiss();
+    if (res case Success(:final response)) {
+      return response.modelResult;
+    } else if (res is Error && res.code == 1) {
+      SmartDialog.showToast("AI处理中，请稍后再试");
+    } else {
+      SmartDialog.showToast("当前视频暂不支持AI视频总结");
     }
     return null;
   }
 
   Future<void> aiConclusion() async {
-    final requestedBvid = bvid;
-    final requestedCid = cid.value;
-    final result = await getAiConclusion(
-      requestedBvid,
-      requestedCid,
+    aiConclusionResult = await getAiConclusion(
+      bvid,
+      cid.value,
       videoDetail.value.owner?.mid,
-      subtitles: videoDetailCtr.subtitles.toList(growable: false),
     );
-    if (bvid == requestedBvid && cid.value == requestedCid) {
-      aiConclusionResult = result;
-    }
+  }
+
+  @override
+  void onClose() {
+    indexNotifier.dispose();
+    super.onClose();
   }
 }

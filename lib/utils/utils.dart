@@ -39,6 +39,10 @@ abstract final class Utils {
     ClipboardLinkSuppression.markAppGeneratedText(text);
   }
 
+  static Future<void> copyJson(Object? json, {String? toastText}) {
+    return copyText(jsonEncoder.convert(json), toastText: toastText);
+  }
+
   static String makeHeroTag(dynamic v) {
     return v.toString() + random.nextInt(9999).toString();
   }

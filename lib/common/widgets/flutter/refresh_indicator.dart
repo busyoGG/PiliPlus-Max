@@ -24,6 +24,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 /// edges. However, if [edgeOffset] is larger than zero then the [displacement]
 /// value is calculated from that offset instead of the parent's edge.
 double displacement = Pref.refreshDisplacement;
+const double kIndicatorSize = 40.0;
 
 // The over-scroll distance that moves the indicator to its maximum
 // displacement, as a percentage of the scrollable's container extent.

@@ -1,10 +1,9 @@
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
-import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models/common/stat_type.dart';
 import 'package:PiliPlus/models_new/space/space_opus/item.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SpaceOpusItem extends StatelessWidget {
   const SpaceOpusItem({
@@ -32,7 +31,7 @@ class SpaceOpusItem extends StatelessWidget {
                       width: constraints.maxWidth,
                       height: constraints.maxWidth * item.cover!.ratio,
                       src: item.cover!.url,
-                      type: ImageType.emote,
+                      borderRadius: const .vertical(top: .circular(6)),
                       quality: 60,
                     ),
                   ),

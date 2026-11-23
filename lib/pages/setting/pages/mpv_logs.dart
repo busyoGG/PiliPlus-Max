@@ -1,7 +1,7 @@
 import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/services/mpv_log_service.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 class MpvLogsPage extends StatefulWidget {
@@ -34,7 +34,7 @@ class _MpvLogsPageState extends State<MpvLogsPage> {
         SmartDialog.showToast('暂无日志');
         return;
       }
-      await exportToLocalFile(
+      exportToLocalFile(
         onExport: () => content,
         localFileName: () => 'mpv_log',
         fileExtension: 'log',

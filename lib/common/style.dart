@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart'
+import 'package:material_ui/material_ui.dart'
     show BorderRadius, Radius, BoxConstraints, ButtonStyle, VisualDensity;
 
 abstract final class Style {
+  static const BorderRadius borderRadius6 = BorderRadius.all(Radius.circular(6));
+
   static const cardSpace = 8.0;
   static const safeSpace = 12.0;
   static const mdRadius = BorderRadius.all(imgRadius);
@@ -13,6 +15,7 @@ abstract final class Style {
   }
   static const aspectRatio = 16 / 10;
   static const aspectRatio16x9 = 16 / 9;
+  static const aspectRatio3x4 = 3 / 4;
   static const imgMaxRatio = 2.6;
   static const bottomSheetRadius = BorderRadius.vertical(top: .circular(18));
   static const dialogFixedConstraints = BoxConstraints.tightFor(width: 420);
@@ -21,4 +24,5 @@ abstract final class Style {
     visualDensity: VisualDensity(horizontal: -2, vertical: -1.25),
     tapTargetSize: .shrinkWrap,
   );
+  static const placeHolder = '\uFFFC';
 }

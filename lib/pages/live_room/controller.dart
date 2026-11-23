@@ -8,7 +8,7 @@ import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
-import 'package:PiliPlus/models/common/video/live_quality.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliPlus/models_new/live/live_danmaku/live_emote.dart';
@@ -44,11 +44,12 @@ import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class LiveRoomController extends GetxController {
+  void updateBlockRules(Object keywords, Object uids) {}
   LiveRoomController(this.heroTag);
   final String heroTag;
 
@@ -368,15 +369,15 @@ class LiveRoomController extends GetxController {
       this.formatIndex = fi;
       this.codecIndex = ci;
       // 以服务端返回的码率为准
-      currentQn = item.currentQn;
+      currentQn = item.currentQn.code;
       acceptQnList = item.acceptQn.map((e) {
         return (
-          code: e,
-          desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
+          code: e.code,
+          desc: e.desc,
         );
       }).toList();
       currentQnDesc.value =
-          LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+          LiveQuality.fromCode(currentQn!).desc;
     }
 
     Future<void>? playPlainLive() {
@@ -877,7 +878,7 @@ class LiveRoomController extends GetxController {
     }
     currentQn = qn;
     currentQnDesc.value =
-        LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+        LiveQuality.fromCode(currentQn!).desc;
     return queryLiveUrl();
   }
 
@@ -975,7 +976,7 @@ class LiveRoomController extends GetxController {
           );
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
-          final item = SuperChatItem.fromJson(obj['data']);
+          final item = SuperChatItem.fromJson(obj['data'], roomId);
           superChatMsg.insert(0, item);
           if (plPlayerController.showDanmaku &&
               (isFullScreen || plPlayerController.isDesktopPip)) {
@@ -1077,7 +1078,6 @@ class LiveRoomController extends GetxController {
           return Theme(
             data: ThemeUtils.darkTheme,
             child: LiveSendDmPanel(
-              fromEmote: fromEmote,
               liveRoomController: this,
               items: savedDanmaku,
               autofocus: !fromEmote,
@@ -1106,7 +1106,6 @@ class LiveRoomController extends GetxController {
     }
     autoWrapReportDialog(
       Get.context!,
-      ban: false,
       ReportOptions.liveDanmakuReport,
       (reasonType, reasonDesc, banUid) {
         return LiveHttp.superChatReport(

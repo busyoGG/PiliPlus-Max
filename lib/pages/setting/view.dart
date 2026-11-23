@@ -1,26 +1,22 @@
-import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
+import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/http/login.dart';
 import 'package:PiliPlus/models/common/setting_type.dart';
 import 'package:PiliPlus/pages/about/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
-import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/setting/common_setting.dart';
 import 'package:PiliPlus/pages/setting/widgets/multi_select_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/settings_import_export.dart';
-import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
 import 'package:PiliPlus/pages/webdav/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:PiliPlus/utils/login_utils.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class _SettingsModel {
   final SettingType type;
@@ -42,49 +38,63 @@ class SettingPage extends StatefulWidget {
 }
 
 class _SettingPageState extends State<SettingPage> {
-  late SettingType _type = SettingType.privacySetting;
+  late SettingType _type = .privacySetting;
   final RxBool _noAccount = Accounts.account.isEmpty.obs;
-  bool _advancedSettingsEnabled = advancedSettingsEnabled;
   late bool _isPortrait;
   late ThemeData theme;
 
   static const List<_SettingsModel> _items = [
     _SettingsModel(
-      type: SettingType.privacySetting,
-      subtitle: '黑名单',
+      type: .privacySetting,
+      subtitle: '账号、黑名单',
       icon: Icon(Icons.privacy_tip_outlined),
     ),
     _SettingsModel(
-      type: SettingType.recommendSetting,
+      type: .recommendSetting,
       subtitle: '推荐来源（web/app）、刷新保留内容、过滤器',
       icon: Icon(Icons.explore_outlined),
     ),
     _SettingsModel(
-      type: SettingType.videoSetting,
+      type: .videoSetting,
       subtitle: '画质、音质、解码、缓冲、音频输出等',
       icon: Icon(Icons.video_settings_outlined),
     ),
     _SettingsModel(
-      type: SettingType.playSetting,
+      type: .playSetting,
       subtitle: '双击/长按、全屏、后台播放、弹幕、字幕、底部进度条等',
       icon: Icon(Icons.touch_app_outlined),
     ),
     _SettingsModel(
-      type: SettingType.styleSetting,
+      type: .dmSetting,
+      subtitle: '点击弹幕、弹幕行高、彩色弹幕、合并弹幕',
+      icon: Icon(CustomIcons.dm_settings),
+    ),
+    _SettingsModel(
+      type: .replySetting,
+      subtitle: '过滤、屏蔽、记录、默认展示等',
+      icon: Icon(Icons.comment_outlined),
+    ),
+    _SettingsModel(
+      type: .dynSetting,
+      subtitle: '过滤、屏蔽、默认展示等',
+      icon: Icon(CustomIcons.motion_photos_on_outlined),
+    ),
+    _SettingsModel(
+      type: .styleSetting,
       subtitle: '横屏适配（平板）、侧栏、列宽、首页、动态红点、主题、字号、图片、帧率等',
       icon: Icon(Icons.style_outlined),
     ),
     _SettingsModel(
-      type: SettingType.extraSetting,
+      type: .extraSetting,
       subtitle: '震动、搜索、收藏、ai、评论、动态、代理、更新检查等',
       icon: Icon(Icons.extension_outlined),
     ),
     _SettingsModel(
-      type: SettingType.webdavSetting,
+      type: .webdavSetting,
       icon: Icon(MdiIcons.databaseCogOutline),
     ),
     _SettingsModel(
-      type: SettingType.about,
+      type: .about,
       icon: Icon(Icons.info_outline),
     ),
   ];
@@ -99,8 +109,7 @@ class _SettingPageState extends State<SettingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(
         title: _isPortrait ? const Text('设置') : Text(_type.title),
       ),
@@ -121,20 +130,11 @@ class _SettingPageState extends State<SettingPage> {
                   Expanded(
                     flex: 6,
                     child: switch (_type) {
-                      .privacySetting ||
-                      .recommendSetting ||
-                      .videoSetting ||
-                      .playSetting ||
-                      .styleSetting ||
-                      .extraSetting => CommonSetting(
-                        key: ValueKey((_type, _advancedSettingsEnabled)),
-                        settingType: _type,
-                        showAppBar: false,
-                      ),
                       .webdavSetting => const WebDavSettingPage(
                         showAppBar: false,
                       ),
                       .about => const AboutPage(showAppBar: false),
+                      _ => CommonSetting(settingType: _type, showAppBar: false),
                     },
                   ),
                 ],
@@ -153,14 +153,9 @@ class _SettingPageState extends State<SettingPage> {
     if (_isPortrait) {
       Get.to(
         () => switch (type) {
-          .privacySetting ||
-          .recommendSetting ||
-          .videoSetting ||
-          .playSetting ||
-          .styleSetting ||
-          .extraSetting => CommonSetting(settingType: type),
           .webdavSetting => const WebDavSettingPage(),
           .about => const AboutPage(),
+          _ => CommonSetting(settingType: type),
         },
       );
     } else {
@@ -200,54 +195,10 @@ class _SettingPageState extends State<SettingPage> {
                     : Text(item.subtitle!, style: subTitleStyle),
               ),
             ),
-        SetSwitchItem(
-          title: '高级选项',
-          subtitle: '显示不常用的界面、手势、播放器与调试参数',
-          leading: const Icon(Icons.tune_outlined),
-          setKey: SettingBoxKey.showAdvancedSettings,
-          defaultVal: false,
-          titleStyle: titleStyle,
-          onChanged: (value) {
-            _advancedSettingsEnabled = value;
-            setState(() {});
-          },
-        ),
         ListTile(
           onTap: () => LoginPageController.switchAccountDialog(context),
           leading: const Icon(Icons.switch_account_outlined),
           title: Text('切换账号', style: titleStyle),
-        ),
-        ListTile(
-          leading: const Icon(Icons.import_export_outlined),
-          title: Text('导入/导出所有设置', style: titleStyle),
-          subtitle: Text(
-            '通过系统文件选择器导入或导出 JSON；导入后重启应用生效',
-            style: subTitleStyle,
-          ),
-          onTap: () => showSettingsImportExportDialog(context),
-        ),
-        ListTile(
-          leading: const Icon(Icons.manage_accounts_outlined),
-          title: Text('导入/导出登录信息', style: titleStyle),
-          onTap: () => showImportExportDialog<Map>(
-            context,
-            title: '登录信息',
-            localFileName: () => 'account',
-            onExport: () =>
-                Utils.jsonEncoder.convert(Accounts.account.toMap()),
-            onImport: (json) async {
-              final res = json.map(
-                (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
-              );
-              await Accounts.account.putAll(res);
-              await Accounts.refresh();
-              _noAccount.value = Accounts.account.isEmpty;
-              MineController.anonymity.value = !Accounts.heartbeat.isLogin;
-              if (Accounts.main.isLogin) {
-                await LoginUtils.onLoginMain();
-              }
-            },
-          ),
         ),
         Obx(
           () => _noAccount.value
@@ -268,6 +219,21 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
+  Future<void> _removeAccounts(Set<LoginAccount> accounts) async {
+    await Accounts.deleteAll(accounts);
+    if (mounted) _noAccount.value = Accounts.account.isEmpty;
+  }
+
+  static Future<LoginAccount?> _logoutWrapper(LoginAccount account) async {
+    try {
+      final res = await LoginHttp.logout(account);
+      return res.isSuccess ? account : null;
+    } catch (e, s) {
+      Utils.reportError(e, s);
+      return null;
+    }
+  }
+
   Future<void> _logoutDialog(BuildContext context) async {
     final result = await showDialog<Set<LoginAccount>>(
       context: context,
@@ -280,34 +246,27 @@ class _SettingPageState extends State<SettingPage> {
       ),
     );
     if (!context.mounted || result == null || result.isEmpty) return;
-    Future<void> logout() {
-      _noAccount.value = result.length == Accounts.account.length;
-      return Accounts.deleteAll(result);
-    }
 
     showDialog(
       context: context,
       builder: (context) {
-        final theme = Theme.of(context);
         return AlertDialog(
           title: const Text('提示'),
           content: Text(
-            "确认要退出以下账号登录吗\n\n${result.map((i) => i.mid.toString()).join('\n')}",
+            "确认要退出以下账号登录吗\n\n${result.map((i) => i.mid).join('\n')}",
           ),
           actions: [
             TextButton(
               onPressed: Get.back,
               child: Text(
                 '点错了',
-                style: TextStyle(
-                  color: theme.colorScheme.outline,
-                ),
+                style: TextStyle(color: theme.colorScheme.outline),
               ),
             ),
             TextButton(
               onPressed: () {
                 Get.back();
-                logout();
+                _removeAccounts(result);
               },
               child: Text(
                 '仅登出',
@@ -317,14 +276,20 @@ class _SettingPageState extends State<SettingPage> {
             TextButton(
               onPressed: () async {
                 SmartDialog.showLoading();
-                final res = await LoginHttp.logout(Accounts.main);
-                if (res['status']) {
-                  SmartDialog.dismiss();
-                  logout();
-                  Get.back();
+                final res = await Future.wait(result.map(_logoutWrapper));
+                SmartDialog.dismiss();
+                final logoutAccounts = res.nonNulls.toSet();
+                if (logoutAccounts.isEmpty) {
+                  SmartDialog.showToast('所选账号均退出登录失败');
                 } else {
-                  SmartDialog.dismiss();
-                  SmartDialog.showToast(res['msg'].toString());
+                  Get.back();
+                  _removeAccounts(logoutAccounts);
+                  if (logoutAccounts.length != result.length) {
+                    result.removeWhere(logoutAccounts.contains);
+                    SmartDialog.showToast(
+                      '账号 ${result.map((i) => i.mid).join(",")} 退出登录失败',
+                    );
+                  }
                 }
               },
               child: const Text('确认'),
@@ -342,17 +307,14 @@ class _SettingPageState extends State<SettingPage> {
       bottom: 8,
     ),
     child: Material(
-      type: MaterialType.transparency,
+      color: theme.colorScheme.onInverseSurface,
+      borderRadius: const BorderRadius.all(Radius.circular(50)),
       child: InkWell(
         onTap: () => Get.toNamed('/settingsSearch'),
         borderRadius: const BorderRadius.all(Radius.circular(50)),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(50)),
-            color: theme.colorScheme.onInverseSurface,
-          ),
-          child: const Center(
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

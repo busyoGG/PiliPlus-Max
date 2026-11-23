@@ -50,105 +50,14 @@ abstract final class FavHttp {
     }
   }
 
-  static Future<LoadingState<FavDetailData>> userFavFolderDetail({
+  static Future<LoadingState<FavDetailData>> userFavFolderDetail({ int? mediaCount,
     required int mediaId,
     required int pn,
     required int ps,
     String keyword = '',
     FavOrderType order = FavOrderType.mtime,
     int type = 0,
-    int? mediaCount,
-  }) async {
-    if (order == FavOrderType.mtimeAsc && keyword.isEmpty && type == 0) {
-      return _userFavFolderDetailAsc(
-        mediaId: mediaId,
-        pn: pn,
-        ps: ps,
-        mediaCount: mediaCount,
-      );
-    }
-    return _userFavFolderDetail(
-      mediaId: mediaId,
-      pn: pn,
-      ps: ps,
-      keyword: keyword,
-      order: order,
-      type: type,
-    );
-  }
-
-  static Future<LoadingState<FavDetailData>> _userFavFolderDetailAsc({
-    required int mediaId,
-    required int pn,
-    required int ps,
-    required int? mediaCount,
-  }) async {
-    Success<FavDetailData>? firstPage;
-    if (mediaCount == null) {
-      final res = await _userFavFolderDetail(
-        mediaId: mediaId,
-        pn: 1,
-        ps: ps,
-        keyword: '',
-        order: FavOrderType.mtime,
-        type: 0,
-      );
-      if (res is Success<FavDetailData>) {
-        firstPage = res;
-        mediaCount = res.response.info?.mediaCount;
-      } else {
-        return res;
-      }
-    }
-
-    if (mediaCount == null) {
-      return firstPage!;
-    }
-
-    final pageCount = (mediaCount + ps - 1) ~/ ps;
-    if (pageCount == 0) {
-      final response = firstPage?.response ?? FavDetailData(medias: []);
-      response.hasMore = false;
-      return Success(response);
-    }
-
-    final sourcePage = pageCount - pn + 1;
-    if (sourcePage < 1) {
-      return Success(
-        FavDetailData(
-          info: firstPage?.response.info,
-          medias: [],
-          hasMore: false,
-        ),
-      );
-    }
-
-    final res = sourcePage == 1 && firstPage != null
-        ? firstPage
-        : await _userFavFolderDetail(
-            mediaId: mediaId,
-            pn: sourcePage,
-            ps: ps,
-            keyword: '',
-            order: FavOrderType.mtime,
-            type: 0,
-          );
-    if (res is Success<FavDetailData>) {
-      final response = res.response;
-      response
-        ..medias = response.medias?.reversed.toList()
-        ..hasMore = pn < pageCount;
-    }
-    return res;
-  }
-
-  static Future<LoadingState<FavDetailData>> _userFavFolderDetail({
-    required int mediaId,
-    required int pn,
-    required int ps,
-    required String keyword,
-    required FavOrderType order,
-    required int type,
+    bool pageDesc = false,
   }) async {
     final res = await Request().get(
       Api.favResourceList,
@@ -164,7 +73,9 @@ abstract final class FavHttp {
       },
     );
     if (res.data['code'] == 0) {
-      return Success(FavDetailData.fromJson(res.data['data']));
+      return Success(
+        FavDetailData.fromJson(res.data['data'], pageDesc: pageDesc),
+      );
     } else {
       return Error(res.data['message']);
     }
@@ -204,6 +115,7 @@ abstract final class FavHttp {
     required int id,
     required int pn,
     required int ps,
+    bool pageDesc = false,
   }) async {
     final res = await Request().get(
       Api.favSeasonList,
@@ -214,7 +126,9 @@ abstract final class FavHttp {
       },
     );
     if (res.data['code'] == 0) {
-      return Success(SubDetailData.fromJson(res.data['data']));
+      return Success(
+        SubDetailData.fromJson(res.data['data'], pageDesc: pageDesc),
+      );
     } else {
       return Error(res.data['message']);
     }

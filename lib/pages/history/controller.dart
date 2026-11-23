@@ -8,13 +8,12 @@ import 'package:PiliPlus/pages/common/multi_select/multi_select_controller.dart'
 import 'package:PiliPlus/pages/history/base_controller.dart';
 import 'package:PiliPlus/services/history_archive_repository.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class HistoryController
     extends MultiSelectController<HistoryData, HistoryItemModel>
@@ -68,37 +67,22 @@ class HistoryController
 
   @override
   bool customHandleResponse(bool isRefresh, Success<HistoryData> response) {
-    HistoryData data = response.response;
-    if (_lastResponseWasLocal) {
+    final data = response.response;
+    final last = data.list?.lastOrNull;
+    if (last == null) {
       isEnd = true;
-      final localItems = data.list;
-      final currentItems = loadingState.value.dataOrNull;
-      if (!isRefresh &&
-          localItems?.isNotEmpty == true &&
-          currentItems != null) {
-        currentItems
-          ..addAll(localItems!)
-          ..sort(_compareByViewAt);
-        loadingState.refresh();
-        return true;
-      }
-      return false;
+      max = viewAt = null;
+    } else {
+      isEnd = false;
+      max = last.history.oid;
+      viewAt = last.viewAt;
     }
-    isEnd = data.list.isNullOrEmpty;
-    max = (data.cursorMax ?? 0) > 0
-        ? data.cursorMax
-        : data.list?.lastOrNull?.history.oid;
-    viewAt = (data.cursorViewAt ?? 0) > 0
-        ? data.cursorViewAt
-        : data.list?.lastOrNull?.viewAt;
 
     if (isRefresh && type == null) {
-      if (tabs.isEmpty && data.tab?.isNotEmpty == true) {
-        tabs.value = data.tab!;
-        tabController = TabController(
-          length: data.tab!.length + 1,
-          vsync: this,
-        );
+      final tab = data.tab;
+      if (tabs.isEmpty && tab != null && tab.isNotEmpty) {
+        tabs.value = tab;
+        tabController = TabController(length: tab.length + 1, vsync: this);
       }
     }
 

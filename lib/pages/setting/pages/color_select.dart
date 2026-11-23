@@ -21,7 +21,7 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -44,7 +44,7 @@ class Item {
   bool isExpanded;
 }
 
-class _ColorSelectPageState extends State<ColorSelectPage> {
+class _ColorSelectPageState extends State<ColorSelectPage> with TickerProviderStateMixin {
   final ctr = Get.put(_ColorSelectController());
   FlexSchemeVariant _schemeVariant = Pref.schemeVariant;
   Brightness _toneBrightness = Brightness.light;
@@ -555,7 +555,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
           Padding(
             padding: padding + const .all(12),
             child: Obx(
-              () => AnimatedHeight(
+              () => AnimatedHeight( vsync: this,
                 expand: ctr.colorMode.value == ThemeColorMode.preset,
                 duration: const Duration(milliseconds: 200),
                 child: Wrap(
@@ -601,7 +601,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
             ),
           ),
           Obx(
-            () => AnimatedHeight(
+            () => AnimatedHeight( vsync: this,
               expand: ctr.colorMode.value == ThemeColorMode.customMultiSeed,
               duration: const Duration(milliseconds: 200),
               child: Column(

@@ -1,13 +1,17 @@
 import 'package:PiliPlus/common/skeleton/video_reply.dart';
+import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/colored_box_transition.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliPlus/common/widgets/simple_colored_box.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/pages/common/reply/reply_footer_mixin.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/controller.dart';
@@ -17,9 +21,9 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 class VideoReplyReplyPanel extends CommonSlidePage {
@@ -46,17 +50,16 @@ class VideoReplyReplyPanel extends CommonSlidePage {
   final bool isNested;
   final Int64? upMid;
 
-  @override
-  State<VideoReplyReplyPanel> createState() => _VideoReplyReplyPanelState();
-
   static Future<void>? toReply({
+    String? rpIdStr,
     required int oid,
     required int rootId,
-    String? rpIdStr,
+    int? rpId,
+    int? rootRpId,
+    int? secondRpId,
     required int type,
     Uri? uri,
   }) {
-    final rpId = rpIdStr == null ? null : int.tryParse(rpIdStr);
     return Get.to(
       arguments: {
         'oid': oid,
@@ -65,8 +68,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
         'type': type,
         'enterUri': ?uri?.toString(), // save panel
       },
-      () => Scaffold(
-        resizeToAvoidBottomInset: false,
+      () => SimpleScaffold(
         appBar: AppBar(
           title: const Text('评论详情'),
           actions: [
@@ -93,32 +95,35 @@ class VideoReplyReplyPanel extends CommonSlidePage {
       ),
     );
   }
+
+  @override
+  State<VideoReplyReplyPanel> createState() => _VideoReplyReplyPanelState();
 }
 
 class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
-    with SingleTickerProviderStateMixin, CommonSlideMixin {
-  late VideoReplyReplyController _controller;
+    with SingleTickerProviderStateMixin, CommonSlideMixin, ReplyFooterMixin {
+  @override
+  late final VideoReplyReplyController controller;
   late final _tag = Utils.makeHeroTag('${widget.rpid}${widget.dialog}');
-  Animation<Color?>? _colorAnimation;
-
+  @override
+  ColorScheme get colorScheme => theme.colorScheme;
   late final bool isDialogue = widget.dialog != null;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _colorAnimation = null;
-    final controller = PrimaryScrollController.of(context);
-    _controller
+    final scrollSontroller = PrimaryScrollController.of(context);
+    controller
       ..didChangeDependencies(context)
-      ..nestedController = controller is ExtendedNestedScrollController
-          ? controller
+      ..nestedController = scrollSontroller is ExtendedNestedScrollController
+          ? scrollSontroller
           : null;
   }
 
   @override
   void initState() {
     super.initState();
-    _controller = Get.put(
+    controller = Get.put(
       VideoReplyReplyController(
         hasRoot: widget.firstFloor != null,
         id: widget.id,
@@ -138,53 +143,54 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   }
 
   @override
-  Widget buildPage(ThemeData theme) {
-    Widget child() => enableSlide ? slideList(theme) : buildList(theme);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: widget.isVideoDetail
-          ? Column(
-              children: [
-                Container(
-                  height: 45,
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        width: 1,
-                        color: theme.dividerColor.withValues(alpha: 0.1),
+  Widget buildPage() {
+    Widget child() => enableSlide ? slideList() : buildList();
+    return SimpleColoredBox(
+      color: theme.canvasColor,
+      child: MiniScaffold(
+        body: widget.isVideoDetail
+            ? Column(
+                children: [
+                  Container(
+                    height: 45,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          width: 1,
+                          color: theme.dividerColor.withValues(alpha: 0.1),
+                        ),
                       ),
                     ),
+                    padding: const EdgeInsets.only(left: 12, right: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Text(isDialogue ? '对话列表' : '评论详情'),
+                        IconButton(
+                          tooltip: '关闭',
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: Get.back,
+                        ),
+                      ],
+                    ),
                   ),
-                  padding: const EdgeInsets.only(left: 12, right: 2),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      Text(isDialogue ? '对话列表' : '评论详情'),
-                      IconButton(
-                        tooltip: '关闭',
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: Get.back,
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(child: child()),
-              ],
-            )
-          : child(),
+                  Expanded(child: child()),
+                ],
+              )
+            : child(),
+      ),
     );
   }
 
-  ReplyInfo? get firstFloor =>
-      widget.firstFloor ?? _controller.firstFloor.value;
+  ReplyInfo? get firstFloor => widget.firstFloor ?? controller.firstFloor.value;
 
   ScrollController get scrollController =>
-      _controller.nestedController ?? _controller.scrollController;
+      controller.nestedController ?? controller.scrollController;
 
   @override
-  Widget buildList(ThemeData theme) {
-    final child = refreshIndicator(
-      onRefresh: _controller.onRefresh,
+  Widget buildList() {
+    return refreshIndicator(
+      onRefresh: controller.onRefresh,
       isClampingScrollPhysics: widget.isNested,
       child: CustomScrollView(
         key: ValueKey(scrollController.hashCode),
@@ -192,32 +198,28 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           if (!isDialogue) ...[
-            if ((widget.firstFloor ?? _controller.firstFloor.value)
+            if ((widget.firstFloor ?? controller.firstFloor.value)
                 case final firstFloor?)
-              _header(theme, firstFloor)
+              _header(firstFloor)
             else
               Obx(() {
-                final firstFloor = _controller.firstFloor.value;
+                final firstFloor = controller.firstFloor.value;
                 if (firstFloor == null) {
                   return const SliverToBoxAdapter();
                 }
-                return _header(theme, firstFloor);
+                return _header(firstFloor);
               }),
             _sortWidget(theme.colorScheme),
           ],
           Obx(
-            () => _buildBody(theme.colorScheme, _controller.loadingState.value),
+            () => _buildBody(controller.loadingState.value),
           ),
         ],
       ),
     );
-    if (widget.isNested) {
-      return ExtendedVisibilityDetector(uniqueKey: Key(_tag), child: child);
-    }
-    return child;
   }
 
-  Widget _header(ThemeData theme, ReplyInfo firstFloor) {
+  Widget _header(ReplyInfo firstFloor) {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -225,10 +227,9 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             replyItem: firstFloor,
             replyLevel: 2,
             needDivider: false,
-            onReply: (replyItem) => _controller.onReply(replyItem, index: -1),
-            upMid: widget.upMid ?? _controller.upMid,
-            onCheckReply: (item) =>
-                _controller.onCheckReply(item, isManual: true),
+            onReply: (replyItem) => controller.onReply(replyItem, index: -1),
+            upMid: widget.upMid ?? controller.upMid,
+            onCheckReply: controller.onCheckReply,
           ),
         ),
         SliverToBoxAdapter(
@@ -252,7 +253,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
           children: [
             Obx(
               () {
-                final count = _controller.count.value;
+                final count = controller.count.value;
                 return count != -1
                     ? Text(
                         '相关回复共${NumUtils.numFormat(count)}条',
@@ -263,11 +264,11 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             ),
             TextButton.icon(
               style: Style.buttonStyle,
-              onPressed: _controller.queryBySort,
+              onPressed: controller.queryBySort,
               icon: Icon(Icons.sort, size: 16, color: colorScheme.secondary),
               label: Obx(
                 () => Text(
-                  _controller.sortType.value.text!,
+                  controller.sortType.value.label,
                   style: TextStyle(fontSize: 13, color: colorScheme.secondary),
                 ),
               ),
@@ -278,48 +279,26 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     );
   }
 
-  Widget _buildBody(
-    ColorScheme colorScheme,
-    LoadingState<List<ReplyInfo>?> loadingState,
-  ) {
-    final jumpIndex = _controller.index.value;
+  Widget _buildBody(LoadingState<List<ReplyInfo>?> loadingState) {
+    final jumpIndex = controller.index.value;
     return switch (loadingState) {
-      Loading() => SliverPrototypeExtentList.builder(
-        prototypeItem: const VideoReplySkeleton(),
-        itemBuilder: (_, _) => const VideoReplySkeleton(),
-        itemCount: 8,
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: VideoReplySkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 8,
+          child: VideoReplySkeleton(),
+        ),
       ),
       Success(:final response!) => SuperSliverList.builder(
-        listController: _controller.listController,
+        listController: controller.listController,
         itemBuilder: (context, index) {
           if (index == response.length) {
-            _controller.onLoadMore();
-            return Container(
-              height: 125,
-              alignment: Alignment.center,
-              margin: .only(bottom: MediaQuery.viewPaddingOf(context).bottom),
-              child: Text(
-                _controller.isEnd ? '没有更多了' : '加载中...',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.outline,
-                ),
-              ),
-            );
+            return buildFooter();
           }
+
           final child = _replyItem(context, response[index], index);
           if (jumpIndex == index) {
-            return ColoredBoxTransition(
-              color: _colorAnimation ??= _controller.animController.drive(
-                ColorTween(
-                  begin: colorScheme.onInverseSurface,
-                  end: colorScheme.surface,
-                  // 前0.8s不变, 后0.2s开始动画
-                ).chain(CurveTween(curve: const Interval(0.8, 1.0))),
-              ),
-              child: child,
-            );
+            return controller.colorAnimWrapper(theme.colorScheme, child);
           }
           return child;
         },
@@ -327,7 +306,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       ),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: controller.onReload,
       ),
     };
   }
@@ -336,11 +315,10 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     return ReplyItemGrpc(
       replyItem: replyItem,
       replyLevel: isDialogue ? 3 : 2,
-      onReply: (replyItem) => _controller.onReply(replyItem, index: index),
-      onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
-      upMid: _controller.upMid,
-      showDialogue: () => Scaffold.of(context).showBottomSheet(
-        backgroundColor: Colors.transparent,
+      onReply: (replyItem) => controller.onReply(replyItem, index: index),
+      onDelete: (item, subIndex) => controller.onRemove(index, item, null),
+      upMid: controller.upMid,
+      showDialogue: () => MiniScaffold.of(context).showBottomSheet(
         constraints: const BoxConstraints(),
         (context) => VideoReplyReplyPanel(
           oid: replyItem.oid.toInt(),
@@ -352,11 +330,11 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         ),
       ),
       jumpToDialogue: () {
-        if (!_controller.setIndexById(replyItem.parent)) {
+        if (!controller.setIndexById(replyItem.parent)) {
           SmartDialog.showToast('评论可能已被删除');
         }
       },
-      onCheckReply: (item) => _controller.onCheckReply(item, isManual: true),
+      onCheckReply: controller.onCheckReply,
     );
   }
 }

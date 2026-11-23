@@ -26,9 +26,10 @@ import 'package:PiliPlus/utils/url_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:PiliPlus/utils/desktop/window_controller.dart';
 
 abstract final class PiliScheme {
   static late AppLinks appLinks;
@@ -98,6 +99,8 @@ abstract final class PiliScheme {
     int? businessId,
     int? oid,
     bool external = false,
+    int? rootRpId,
+    int? secondRpId,
   }) async {
     // if (kDebugMode) debugPrint('onAppLink: $uri');
 
@@ -123,9 +126,9 @@ abstract final class PiliScheme {
             if (id != null) {
               bool isEp = path.contains('/ep/');
               PageUtils.viewPgc(
-                seasonId: isEp ? null : id,
-                epId: isEp ? id : null,
-                progress: _videoProgress(uri.queryParameters),
+                seasonId: isEp ? null : int.parse(id),
+                epId: isEp ? int.parse(id) : null,
+                progress: int.tryParse('\${_videoProgress(uri.queryParameters) ?? ''}'),
               );
               return true;
             }
@@ -922,6 +925,8 @@ abstract final class PiliScheme {
     int? progress, // milliseconds
     String? part,
     bool external = false,
+    int? rootRpId,
+    int? secondRpId,
   }) async {
     try {
       final openInDetail = await _prepareExternalVideoNavigation(external);

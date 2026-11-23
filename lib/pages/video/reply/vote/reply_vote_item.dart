@@ -3,7 +3,7 @@ import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
 import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_divider.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget buildVoteCard(
   BuildContext context,
