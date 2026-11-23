@@ -56,3 +56,35 @@
 - 上游 2.2.x 把 material 全面迁到 `material_ui`，我们 3.44.8 时代的 `lib/common/widgets/flutter/*` 拷贝
   不能直接复用——必须以上游新版为底，只贴我们的改动，否则会重演「两万条编译错误」。
 - `pl_player` 被上游大改，时移/比例修复需要按新结构重贴，不能整文件覆盖。
+
+## 结果（已完成）
+
+- 合并提交 `6451aa6f6 merge: 合并上游 PiliPlus 2.2.0`：树与 `sync/2.2.0` 完全一致，
+  上游 2.2.0 的改动全量进入，3.2 的自有功能全部保留。
+- `fvm flutter analyze --no-pub lib` → **0 error**（剩余 144 条为上游/自有代码的风格提示）。
+- `fvm flutter test --no-pub test` → **111 项全通过**。
+- `fvm flutter build apk --release --target-platform android-arm64` → 40.2MB，已装到设备
+  （versionName 3.3.0）。
+
+### 本机一次性环境（换机器/重装 Flutter 后需重做）
+
+1. Flutter 3.47.9 框架补丁：把 `lib/scripts/*.patch`（25 个 android 补丁）在
+   `/home/busyo/fvm/versions/3.47.9` 里逐个 `git apply`。
+2. material_ui 补丁：把 `lib/scripts/material/*.patch`（9 个）在
+   `~/.pub-cache/hosted/pub.dev/material_ui-1.9.0` 里 `patch -p1 --forward -N`。
+3. getx 预测性返回补丁：`lib/scripts/getx_predictive_back.patch` 打到 pub-cache 里实际使用的
+   getx 检出（当前是 `~/.pub-cache/git/getx-3e65da89…`），让 `Transition.native` 走
+   `Theme.of(context).pageTransitionsTheme`。
+4. 依赖全部来自本地缓存：`fvm flutter pub get --offline`；github 不可达时用
+   `git config --global url."file:///home/busyo/.pub-cache/git/cache/<pkg>-<hash>".insteadOf <url>`
+   逐个映射。
+5. `android/app/build.gradle.kts` 的 `compileSdk` 必须是 37（`permission_handler_android` 要求）；
+   设备上装的 SDK 平台目录是 `android-37.0`。
+6. Java/Kotlin 源码必须在 `com/max/piliplus`（namespace / applicationId 是
+   `com.max.piliplus`），否则 `R` 解析失败。
+
+### 注意
+
+`test/` 被 `.gitignore` 的 `test*` 忽略，合并时 `git read-tree` 会连同忽略文件一起清掉，
+必须 `git add -f test` 才留得住。
+
