@@ -85,45 +85,45 @@ class FloatingNavigationBar extends StatelessWidget {
     );
 
     final Widget pill = DecoratedBox(
-  decoration: ShapeDecoration(
-    color: AppBlur.enabled ? Colors.transparent : surfaceColor,
-    shape: RoundedSuperellipseBorder(
-      side: defaults.borderSide,
-      borderRadius: _kBorderRadius,
-    ),
-  ),
-  child: Padding(
-    padding: _kIndicatorPadding,
-    child: Row(
-      crossAxisAlignment: .stretch,
-      children: <Widget>[
-        for (int i = 0; i < destinations.length; i++)
-          Expanded(
-            child: _SelectableAnimatedBuilder(
-              duration: animationDuration,
-              isSelected: i == selectedIndex,
-              builder: (context, animation) {
-                return _NavigationDestinationInfo(
-                  index: i,
-                  selectedIndex: selectedIndex,
-                  totalNumberOfDestinations: destinations.length,
-                  selectedAnimation: animation,
-                  labelBehavior: effectiveLabelBehavior,
-                  indicatorColor: indicatorColor,
-                  indicatorShape: indicatorShape,
-                  overlayColor: overlayColor,
-                  onTap: _handleTap(i),
-                  labelTextStyle: labelTextStyle,
-                  labelPadding: labelPadding,
-                  child: destinations[i],
-                );
-              },
-            ),
-          ),
-      ],
-    ),
-  ),
-);
+      decoration: ShapeDecoration(
+        color: AppBlur.enabled ? Colors.transparent : surfaceColor,
+        shape: RoundedSuperellipseBorder(
+          side: defaults.borderSide,
+          borderRadius: _kBorderRadius,
+        ),
+      ),
+      child: Padding(
+        padding: _kIndicatorPadding,
+        child: Row(
+          crossAxisAlignment: .stretch,
+          children: <Widget>[
+            for (int i = 0; i < destinations.length; i++)
+              Expanded(
+                child: _SelectableAnimatedBuilder(
+                  duration: animationDuration,
+                  isSelected: i == selectedIndex,
+                  builder: (context, animation) {
+                    return _NavigationDestinationInfo(
+                      index: i,
+                      selectedIndex: selectedIndex,
+                      totalNumberOfDestinations: destinations.length,
+                      selectedAnimation: animation,
+                      labelBehavior: effectiveLabelBehavior,
+                      indicatorColor: indicatorColor,
+                      indicatorShape: indicatorShape,
+                      overlayColor: overlayColor,
+                      onTap: _handleTap(i),
+                      labelTextStyle: labelTextStyle,
+                      labelPadding: labelPadding,
+                      child: destinations[i],
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
 
     return Padding(
       padding: .fromLTRB(
@@ -135,54 +135,17 @@ class FloatingNavigationBar extends StatelessWidget {
       child: SizedBox(
         height: _kNavigationHeight,
         width: destinations.length * _kIndicatorWidth,
-        child: DecoratedBox(
-          decoration: ShapeDecoration(
-            color: ElevationOverlay.applySurfaceTint(
-              backgroundColor ??
-                  navigationBarTheme.backgroundColor ??
-                  defaults.backgroundColor!,
-              surfaceTintColor ??
-                  navigationBarTheme.surfaceTintColor ??
-                  defaults.surfaceTintColor,
-              elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
-            ),
-            shape: RoundedSuperellipseBorder(
-              side: defaults.borderSide,
-              borderRadius: _kBorderRadius,
-            ),
-          ),
-          child: Padding(
-            padding: _kIndicatorPadding,
-            child: Row(
-              crossAxisAlignment: .stretch,
-              children: <Widget>[
-                for (int i = 0; i < destinations.length; i++)
-                  Expanded(
-                    child: _SelectableAnimatedBuilder(
-                      duration: animationDuration,
-                      isSelected: i == selectedIndex,
-                      builder: (context, animation) {
-                        return _NavigationDestinationInfo(
-                          index: i,
-                          selectedIndex: selectedIndex,
-                          totalNumberOfDestinations: destinations.length,
-                          selectedAnimation: animation,
-                          labelBehavior: effectiveLabelBehavior,
-                          indicatorColor: indicatorColor,
-                          indicatorShape: indicatorShape,
-                          overlayColor: overlayColor,
-                          onTap: _handleTap(i),
-                          labelTextStyle: labelTextStyle,
-                          labelPadding: labelPadding,
-                          child: destinations[i],
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
+        child: AppBlur.enabled
+            // 悬浮胶囊只糊自己这一块，背后内容透出来。
+            ? BlurSurface(
+                sigma: AppBlur.barSigma,
+                tint: surfaceColor,
+                tintAlpha: 0.82,
+                borderRadius: _kBorderRadius,
+                boxShadow: AppBlur.navPillShadow,
+                child: pill,
+              )
+            : pill,
       ),
     );
   }

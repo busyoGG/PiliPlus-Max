@@ -20,7 +20,6 @@ import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:flutter/services.dart';
@@ -246,6 +245,34 @@ class _MainAppState extends PopScopeState<MainApp>
     return bottomNav;
   }
 
+  /// 给底部导航套上毛玻璃；关闭模糊时原样返回。
+  Widget? _blurWrapNav(Widget? nav, ThemeData theme) {
+    // 悬浮底栏自己负责模糊（只糊胶囊），这里只处理整条导航栏。
+    if (nav == null || !AppBlur.enabled || _mainController.floatingNavBar) {
+      return nav;
+    }
+    return BlurSurface(
+      plainChild: nav,
+      // 底栏向上落影。
+      boxShadow: AppBlur.barShadowUp,
+      child: Theme(
+        data: theme.copyWith(
+          navigationBarTheme: theme.navigationBarTheme.copyWith(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            elevation: 0,
+          ),
+          bottomNavigationBarTheme: theme.bottomNavigationBarTheme.copyWith(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+        ),
+        child: nav,
+      ),
+    );
+  }
+
   Widget _sideBar() {
     if (_mainController.navigationBars.length > 1) {
       if (context.isTablet && _mainController.optTabletNav) {
@@ -347,7 +374,7 @@ class _MainAppState extends PopScopeState<MainApp>
     Widget? bottomNav;
     final EdgeInsets padding;
     if (_mainController.useBottomNav) {
-      bottomNav = _bottomNav;
+      bottomNav = _blurWrapNav(_bottomNav, Theme.of(context));
       if (bottomNav != null) {
         bottomNav = MediaQuery.removePadding(
           context: context,

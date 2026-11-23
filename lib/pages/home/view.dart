@@ -1,5 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/common/common_page.dart';
@@ -86,17 +88,66 @@ class _HomePageState extends CommonPageState<HomePage>
     } else {
       tabBar = const SizedBox(height: 6);
     }
-    return Column(
+    final bool showHeader =
+        !_mainController.useSideBar && MediaQuery.sizeOf(context).isPortrait;
+    final Widget feed = onBuild(
+      tabBarView(
+        controller: _homeController.tabController,
+        children: _homeController.tabs.map((e) => e.page).toList(),
+      ),
+    );
+    // 状态栏高度：无论走不走毛玻璃，内容都要让出这一条，否则页头会压进状态栏。
+    final double statusBarHeight = MediaQuery.paddingOf(context).top;
+    if (!showHeader || !AppBlur.enabled) {
+      return Column(
+        children: [
+          if (showHeader) ...[
+            SizedBox(height: statusBarHeight),
+            customAppBar(),
+          ],
+          tabBar,
+          Expanded(child: feed),
+        ],
+      );
+    }
+    final double tabBarHeight = _homeController.tabs.length > 1
+        ? Pref.homeTabBarHeight + 4
+        : 6;
+    // 顶栏浮在内容之上：列表一直滚到顶栏背后，被毛玻璃糊住。
+    return Stack(
       children: [
-        if (!_mainController.useSideBar &&
-            MediaQuery.sizeOf(context).isPortrait)
-          customAppBar(),
-        tabBar,
-        Expanded(
-          child: onBuild(
-            tabBarView(
-              controller: _homeController.tabController,
-              children: _homeController.tabs.map((e) => e.page).toList(),
+        // 信息流铺到屏幕顶部，滚到顶栏背后被糊住。
+        //
+        // inset 不能跟着顶栏收起的高度变：那是每帧都在变的 InheritedWidget，
+        // 所有 tab 的列表都会重建，顶栏收起的那一段就会掉帧。
+        Positioned.fill(
+          child: HomeHeaderOverlay(
+            inset: statusBarHeight + Style.topBarHeight + tabBarHeight,
+            child: feed,
+          ),
+        ),
+        // 顶栏铺满到屏幕顶部，毛玻璃连状态栏一起盖住。
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: BlurSurface(
+            sigma: AppBlur.barSigma,
+            tint: _colorScheme.surface,
+            tintAlpha: 0.6,
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(14),
+            ),
+            boxShadow: AppBlur.barShadow,
+            child: Column(
+              children: [
+                // 状态栏占位矩形：只占高度、只露毛玻璃，不放任何内容。
+                SizedBox(height: statusBarHeight, width: double.infinity),
+                // 顶栏上移时超出上边界的绘制被裁掉，不会压到占位矩形上。
+                ClipRect(
+                  child: Column(children: [customAppBar(), tabBar]),
+                ),
+              ],
             ),
           ),
         ),
