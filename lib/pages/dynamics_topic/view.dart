@@ -11,6 +11,7 @@ import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_topic_feed/fold_card_item.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_topic_feed/item.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_topic_top/top_details.dart';
@@ -43,8 +44,12 @@ class DynTopicPage extends StatefulWidget {
 
 class _DynTopicPageState extends State<DynTopicPage>
     with DynMixin, SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
+  static const double _fabRevealDistance = 72.0;
+
   late EdgeInsets padding;
   late ColorScheme colorScheme;
+  double _fabUpwardDistance = 0.0;
+  bool _fabHiddenByScroll = false;
   final DynTopicController _controller = Get.put(
     DynTopicController(),
     tag: Utils.generateRandomString(8),
@@ -57,58 +62,83 @@ class _DynTopicPageState extends State<DynTopicPage>
     padding = MediaQuery.viewPaddingOf(context);
   }
 
+  bool _handleFabScroll(ScrollNotification notification) {
+    if (notification.depth != 0 ||
+        notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    if (notification is! ScrollUpdateNotification) {
+      return false;
+    }
+
+    final delta = notification.scrollDelta ?? 0.0;
+
+    if (delta > 0) {
+      _fabUpwardDistance = 0.0;
+
+      if (!_fabHiddenByScroll) {
+        _fabHiddenByScroll = true;
+        hideFab();
+      }
+    } else if (delta < 0 && _fabHiddenByScroll) {
+      _fabUpwardDistance += -delta;
+
+      final reachedTop =
+          notification.metrics.pixels <=
+          notification.metrics.minScrollExtent + 0.5;
+
+      if (_fabUpwardDistance >= _fabRevealDistance || reachedTop) {
+        _fabUpwardDistance = 0.0;
+        _fabHiddenByScroll = false;
+        showFab();
+      }
+    }
+
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SimpleScaffold(
-      body: refreshIndicator(
-        onRefresh: _controller.onRefresh,
-        child: fabAnimWrapper(
-          child: CustomScrollView(
-            controller: _controller.scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              Obx(
-                () => _buildAppBar(
-                  colorScheme,
-                  padding,
-                  _controller.topState.value,
-                ),
-              ),
-              Obx(() {
-                final allSortBy = _controller.topicSortByConf.value?.allSortBy;
-                if (allSortBy != null && allSortBy.isNotEmpty) {
-                  return SliverPinnedHeader(
-                    backgroundColor: colorScheme.surface,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: 12 + padding.left,
-                        top: 6,
-                        bottom: 6,
-                      ),
-                      child: Builder(
-                        builder: (context) {
-                          return ToggleButtons(
-                            fillColor: colorScheme.secondaryContainer,
-                            selectedColor: colorScheme.onSecondaryContainer,
-                            constraints: const BoxConstraints(
-                              minWidth: 54,
-                              minHeight: 24,
-                            ),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            borderRadius: const .all(.circular(25)),
-                            onPressed: (index) {
-                              _controller.onSort(allSortBy[index].sortBy!);
-                              (context as Element).markNeedsBuild();
-                            },
-                            isSelected: allSortBy
-                                .map((e) => e.sortBy == _controller.sortBy)
-                                .toList(),
-                            children: allSortBy.map((e) {
-                              return Text(
-                                e.sortName!,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  height: 1,
+    return Material(
+      child: Stack(
+        clipBehavior: .none,
+        children: [
+          refreshIndicator(
+            onRefresh: _controller.onRefresh,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleFabScroll,
+              child: CustomScrollView(
+                controller: _controller.scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  Obx(
+                    () => _buildAppBar(
+                      colorScheme,
+                      padding,
+                      _controller.topState.value,
+                    ),
+                  ),
+                  Obx(() {
+                    final allSortBy =
+                        _controller.topicSortByConf.value?.allSortBy;
+                    if (allSortBy != null && allSortBy.isNotEmpty) {
+                      return SliverPinnedHeader(
+                        backgroundColor: colorScheme.surface,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: 12 + padding.left,
+                            top: 6,
+                            bottom: 6,
+                          ),
+                          child: Builder(
+                            builder: (context) {
+                              return ToggleButtons(
+                                fillColor: colorScheme.secondaryContainer,
+                                selectedColor: colorScheme.onSecondaryContainer,
+                                constraints: const BoxConstraints(
+                                  minWidth: 54,
+                                  minHeight: 24,
                                 ),
                                 strutStyle: const StrutStyle(
                                   height: 1,
@@ -132,8 +162,28 @@ class _DynTopicPageState extends State<DynTopicPage>
                   right: padding.right,
                   bottom: padding.bottom + 100,
                 ),
-                sliver: buildPage(
-                  Obx(() => _buildBody(_controller.loadingState.value)),
+                child: FloatingActionButton.extended(
+                  backgroundColor: Theme.of(context).uiColor(
+                    ThemeUiElement.dynamicsTopicBackground,
+                  ),
+                  foregroundColor: Theme.of(context).uiColor(
+                    ThemeUiElement.dynamicsTopicContent,
+                  ),
+                  onPressed: () {
+                    if (_controller.isLogin) {
+                      CreateDynPanel.onCreateDyn(
+                        context,
+                        topic: Pair(
+                          first: int.parse(_controller.topicId),
+                          second: _controller.topicName,
+                        ),
+                      );
+                    } else {
+                      SmartDialog.showToast('账号未登录');
+                    }
+                  },
+                  icon: const Icon(CustomIcons.topic_tag, size: 20),
+                  label: const Text('参与话题'),
                 ),
               ),
             ],

@@ -288,11 +288,14 @@ class MainController extends GetxController
     }
   }
 
-  void setIndex(int value) {
-    feedBack();
+ void setIndex(int value) {
+  feedBack();
 
-    final currentNav = navigationBars[value];
-    if (value != selectedIndex.value) {
+  final currentNav = navigationBars[value];
+
+  if (value != selectedIndex.value) {
+      barOffset?.value = 0.0;
+    showBottomBar?.value = true;
       selectedIndex.value = value;
       if (mainTabBarView) {
         controller.animateTo(value);

@@ -7,12 +7,14 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart'
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/member/contribute_type.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/member/controller.dart';
 import 'package:PiliPlus/pages/member_video/controller.dart';
 import 'package:PiliPlus/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -52,6 +54,39 @@ class _MemberVideoState extends State<MemberVideo>
   bool get wantKeepAlive => true;
 
   late final MemberVideoCtr _controller;
+  static const double _fabRevealDistance = 72.0;
+
+  double _fabUpwardDistance = 0.0;
+  bool _fabHiddenByScroll = false;
+
+  bool _handleFabScroll(ScrollNotification notification) {
+    if (notification.depth != 0 ||
+        notification.metrics.axis != Axis.vertical ||
+        notification is! ScrollUpdateNotification) {
+      return false;
+    }
+
+    final delta = notification.scrollDelta ?? 0.0;
+    if (delta > 0) {
+      _fabUpwardDistance = 0.0;
+      if (!_fabHiddenByScroll) {
+        _fabHiddenByScroll = true;
+        hideFab();
+      }
+    } else if (delta < 0 && _fabHiddenByScroll) {
+      _fabUpwardDistance += -delta;
+      final reachedTop =
+          notification.metrics.pixels <=
+          notification.metrics.minScrollExtent + 0.5;
+      if (_fabUpwardDistance >= _fabRevealDistance || reachedTop) {
+        _fabUpwardDistance = 0.0;
+        _fabHiddenByScroll = false;
+        showFab();
+      }
+    }
+
+    return false;
+  }
 
   void _jumpToIndex(int index) {
     final scrollOffset = gridDelegate.layoutCache!
@@ -150,16 +185,54 @@ class _MemberVideoState extends State<MemberVideo>
       ],
     );
     if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
-      child = ScaffoldLayout(
-        body: fabAnimWrapper(child: child),
-        fab: Obx(
-          () => !_controller.isLocating
-              ? SlideTransition(
-                  position: fabAnimation,
-                  child: Padding(
-                    padding: .only(
-                      right: kFloatingActionButtonMargin,
-                      bottom: kFloatingActionButtonMargin + padding.bottom,
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          NotificationListener<ScrollNotification>(
+            onNotification: _handleFabScroll,
+            child: child,
+          ),
+          Obx(
+            () => !_controller.isLocating.value
+                ? Positioned(
+                    right: kFloatingActionButtonMargin,
+                    bottom: 0,
+                    child: SlideTransition(
+                      position: fabAnimation,
+                      child: Padding(
+                        padding: .only(
+                          bottom: padding.bottom + kFloatingActionButtonMargin,
+                        ),
+                        child: FloatingActionButton.extended(
+                          backgroundColor: theme.uiColor(
+                            ThemeUiElement.memberVideoLocateBackground,
+                          ),
+                          foregroundColor: theme.uiColor(
+                            ThemeUiElement.memberVideoLocateContent,
+                          ),
+                          onPressed: () {
+                            final fromViewAid = _controller.fromViewAid;
+                            _controller.isLocating.value = true;
+                            final locatedIndex =
+                                _controller.loadingState.value.dataOrNull
+                                    ?.indexWhere(
+                                      (i) => i.param == fromViewAid,
+                                    ) ??
+                                -1;
+                            if (locatedIndex == -1) {
+                              _controller
+                                ..lastAid = fromViewAid
+                                ..reload = true
+                                ..page = 0
+                                ..loadingState.value = LoadingState.loading()
+                                ..queryData();
+                            } else {
+                              _jumpToIndex(locatedIndex);
+                            }
+                          },
+                          label: const Text('定位至上次观看'),
+                        ),
+                      ),
                     ),
                     child: FloatingActionButton.extended(
                       onPressed: () {
@@ -229,6 +302,16 @@ class _MemberVideoState extends State<MemberVideo>
                       return VideoCardHMemberVideo(
                         videoItem: response[index],
                         fromViewAid: _controller.fromViewAid,
+                        onView: () {
+                          if (_controller.updateFromViewAid(
+                            response[index].param,
+                          )) {
+                            _fabUpwardDistance = 0.0;
+                            _fabHiddenByScroll = false;
+                            showFab();
+                            setState(() {});
+                          }
+                        },
                       );
                     },
                     itemCount: response.length,

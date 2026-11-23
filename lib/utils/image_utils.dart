@@ -264,7 +264,7 @@ abstract final class ImageUtils {
         SmartDialog.showToast("取消保存");
         return null;
       }
-      await File(savePath.toFilePath()).writeAsBytes(bytes);
+      await File.fromUri(savePath).writeAsBytes(bytes);
       SmartDialog.showToast(' 已保存 ');
       res = SaveResult(true, null);
     }
@@ -298,7 +298,7 @@ abstract final class ImageUtils {
         SmartDialog.showToast("取消保存");
         return;
       }
-      await file.moveOrCopy(savePath.toFilePath());
+      await file.copy(savePath.toFilePath());
       res = SaveResult(true, null);
     }
     if (needToast) {

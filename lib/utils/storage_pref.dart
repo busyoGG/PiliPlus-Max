@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'package:PiliPlus/models/common/danmaku_merge_mode.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop;
 import 'package:PiliPlus/common/widgets/pair.dart';
@@ -9,15 +9,18 @@ import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/follow_order_type.dart';
+import 'package:PiliPlus/models/common/home_card_aspect_ratio.dart';
 import 'package:PiliPlus/models/common/member/tab_type.dart';
 import 'package:PiliPlus/models/common/mine_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
+import 'package:PiliPlus/models/common/recommend_history_filter_settings.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
@@ -51,6 +54,18 @@ abstract final class Pref {
   static final Box _setting = GStorage.setting;
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;
+
+  static double _getClampedDouble(
+    String key,
+    double defaultValue,
+    double min,
+    double max,
+  ) {
+    final value = _setting.get(key, defaultValue: defaultValue);
+    return (value is num ? value.toDouble() : defaultValue)
+        .clamp(min, max)
+        .toDouble();
+  }
 
   static UserInfoData? get userInfoCache =>
       GStorage.userInfo.get('userInfoCache');
@@ -184,12 +199,86 @@ abstract final class Pref {
   static int get previewQ =>
       _setting.get(SettingBoxKey.previewQuality, defaultValue: 100);
 
+  static double get replyFontSize => _getClampedDouble(
+    SettingBoxKey.replyFontSize,
+    14.0,
+    10.0,
+    22.0,
+  );
+
+  static double get collapsedReplyFontScale => _getClampedDouble(
+    SettingBoxKey.collapsedReplyFontScale,
+    0.9,
+    0.7,
+    1.3,
+  );
+
+  static double get replyLineSpacingScale => _getClampedDouble(
+    SettingBoxKey.replyLineSpacingScale,
+    1.0,
+    0.7,
+    1.5,
+  );
+
   static double get smallCardWidth =>
       _setting.get(SettingBoxKey.smallCardWidth, defaultValue: 240.0);
 
   static double get recommendCardWidth =>
       _setting.get(SettingBoxKey.recommendCardWidth, defaultValue: 240.0);
 
+  static HomeCardAspectRatio get homeCardAspectRatio =>
+      HomeCardAspectRatio.fromStorage(
+        _setting.get(SettingBoxKey.homeCardAspectRatio),
+      );
+
+  static bool get recommendDurationInStatRow => _setting.get(
+    SettingBoxKey.recommendDurationInStatRow,
+    defaultValue: false,
+  );
+
+  static double get recommendStatSpacing => _getClampedDouble(
+    SettingBoxKey.recommendStatSpacing,
+    4.0,
+    0.0,
+    24.0,
+  );
+
+  static double get cardRadius {
+    final value = _setting.get(
+      SettingBoxKey.cardRadius,
+      defaultValue: 10.0,
+    );
+    return value is num
+        ? value.toDouble().clamp(0.0, 32.0).toDouble()
+        : 10.0;
+  }
+
+  static double get homeTabBarHeight => _getClampedDouble(
+    SettingBoxKey.homeTabBarHeight,
+    42.0,
+    28.0,
+    72.0,
+  );
+
+  static double? get legacyBottomBarBottomPadding {
+    final value = _setting.get(SettingBoxKey.legacyBottomBarBottomPadding);
+    return value is num ? value.toDouble().clamp(0.0, 48.0).toDouble() : null;
+  }
+
+static double get verticalScrollInertiaScale => _getClampedDouble(
+  SettingBoxKey.verticalScrollInertiaScale,
+  1.0,
+  0.5,
+  2.0,
+);
+
+static double get verticalScrollDecelerationScale => _getClampedDouble(
+  SettingBoxKey.verticalScrollDecelerationScale,
+  1.0,
+  0.05,
+  2.0,
+);
+    
   static UpPanelPosition get upPanelPosition =>
       UpPanelPosition.values[_setting.get(
         SettingBoxKey.upPanelPosition,
@@ -226,6 +315,13 @@ abstract final class Pref {
   static int get sliderDuration =>
       _setting.get(SettingBoxKey.sliderDuration, defaultValue: 90);
 
+  static double get horizontalSeekGestureThreshold => _getClampedDouble(
+    SettingBoxKey.horizontalSeekGestureThreshold,
+    1.0,
+    1.0,
+    100.0,
+  );
+
   static int get defaultVideoQa => _setting.get(
     SettingBoxKey.defaultVideoQa,
     defaultValue: VideoQuality.super8k.code,
@@ -236,6 +332,20 @@ abstract final class Pref {
     defaultValue: VideoQuality.high1080.code,
   );
 
+  static int get defaultVideoQaHalfScreen => _setting.get(
+    SettingBoxKey.defaultVideoQaHalfScreen,
+    defaultValue: defaultVideoQa,
+  );
+static int get videoPlayerSwitchForceTimeoutSeconds {
+  final value = _setting.get(
+    SettingBoxKey.videoPlayerSwitchForceTimeoutSeconds,
+    defaultValue: 5,
+  );
+
+  return (value is num ? value.toInt() : 5)
+      .clamp(0, 60)
+      .toInt();
+}
   static int get defaultAudioQa => _setting.get(
     SettingBoxKey.defaultAudioQa,
     defaultValue: AudioQuality.hiRes.code,
@@ -275,11 +385,66 @@ abstract final class Pref {
     defaultValue: Platform.isAndroid ? '30' : '0',
   );
 
-  static CDNService get defaultCDNService {
-    if (_setting.get(SettingBoxKey.CDNService) case final String cdnName) {
-      return CDNService.values.byName(cdnName);
+  static String get customMpvOptions =>
+      _setting.get(SettingBoxKey.customMpvOptions, defaultValue: '');
+
+  static bool get useMpvVideoScaling =>
+      _setting.get(SettingBoxKey.useMpvVideoScaling, defaultValue: false);
+
+  static bool get coverFullscreenTransitionWithBlack => _setting.get(
+    SettingBoxKey.coverFullscreenTransitionWithBlack,
+    defaultValue: false,
+  );
+
+  static String get mpvLogLevel {
+    final value = _setting.get(
+      SettingBoxKey.mpvLogLevel,
+      defaultValue: 'error',
+    );
+    return switch (value) {
+      'error' || 'warn' || 'info' || 'v' || 'debug' || 'trace' => value,
+      _ => 'error',
+    };
+  }
+
+  static List<CDNService> get cdnServices {
+    final saved = _setting.get(SettingBoxKey.CDNServices);
+    final names = saved is List
+        ? saved.whereType<String>()
+        : [
+            if (_setting.get(SettingBoxKey.CDNService)
+                case final String cdnName)
+              cdnName,
+          ];
+    final services = <CDNService>[];
+    for (final name in names) {
+      for (final service in CDNService.values) {
+        if (service.name == name && !services.contains(service)) {
+          services.add(service);
+          break;
+        }
+      }
+      if (services.length == 3) {
+        break;
+      }
     }
-    return CDNService.backupUrl;
+    return services.isEmpty
+        ? const [
+            CDNService.backupUrl,
+            CDNService.ali,
+            CDNService.alib,
+          ]
+        : services;
+  }
+
+  static CDNService get defaultCDNService => cdnServices.first;
+
+  static int get cdnRotationIndex {
+    final value = _setting.get(
+      SettingBoxKey.cdnRotationIndex,
+      defaultValue: 0,
+    );
+    return value is int && value >= 0 ? value : 0;
   }
 
   static String get banWordForRecommend =>
@@ -294,6 +459,24 @@ abstract final class Pref {
   static bool get appRcmd =>
       _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
 
+static int get rcmdRefreshCount {
+  final value = _setting.get(
+    SettingBoxKey.rcmdRefreshCount,
+    defaultValue: 20,
+  );
+  return (value is num ? value.toInt() : 20).clamp(4, 30).toInt();
+}
+
+  static bool get showRecommendRefreshStatsToast => _setting.get(
+    SettingBoxKey.showRecommendRefreshStatsToast,
+    defaultValue: false,
+  );
+
+  static RecommendHistoryFilterSettings get recommendHistoryFilterSettings =>
+      RecommendHistoryFilterSettings.fromStorage(
+        _setting.get(SettingBoxKey.recommendHistoryFilterSettings),
+      );
+    
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
 
@@ -355,11 +538,16 @@ abstract final class Pref {
 
   static double get danmakuFontScaleFS => _setting.get(
     SettingBoxKey.danmakuFontScaleFS,
-    defaultValue: PlatformUtils.isMobile ? 1.2 : 1.7,
+    defaultValue: 1.2,
   );
 
   static bool get danmakuMassiveMode =>
-      _setting.get(SettingBoxKey.danmakuMassiveMode, defaultValue: false);
+      _setting.get(SettingBoxKey.danmakuMassiveMode, defaultValue: true);
+
+  static bool get liveDanmakuMassiveMode => _setting.get(
+    SettingBoxKey.liveDanmakuMassiveMode,
+    defaultValue: false,
+  );
 
   static bool get danmakuFixedV =>
       _setting.get(SettingBoxKey.danmakuFixedV, defaultValue: false);
@@ -454,14 +642,89 @@ abstract final class Pref {
   static bool get openInBrowser =>
       _setting.get(SettingBoxKey.openInBrowser, defaultValue: false);
 
+  static bool get videoDetailUseAv =>
+      _setting.get(SettingBoxKey.videoDetailUseAv, defaultValue: false);
+
+  static bool get externalVideoLinkOpenInDetail => _setting.get(
+    SettingBoxKey.externalVideoLinkOpenInDetail,
+    defaultValue: false,
+  );
+
+  static bool get openClipboardLinkOnResume => _setting.get(
+    SettingBoxKey.openClipboardLinkOnResume,
+    defaultValue: false,
+  );
+
+  static bool get refreshHomeOnRestart => _setting.get(
+    SettingBoxKey.refreshHomeOnRestart,
+    defaultValue: false,
+  );
+
+  static bool get showMineQuote =>
+      _setting.get(SettingBoxKey.showMineQuote, defaultValue: true);
+
   static bool get savedRcmdTip =>
       _setting.get(SettingBoxKey.savedRcmdTip, defaultValue: true);
 
   static bool get showVipDanmaku =>
       _setting.get(SettingBoxKey.showVipDanmaku, defaultValue: true);
 
-  static bool get mergeDanmaku =>
-      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: false);
+  static DanmakuMergeMode get danmakuMergeMode {
+  final value = _setting.get(SettingBoxKey.danmakuMergeMode);
+
+  if (value is int &&
+      value >= 0 &&
+      value < DanmakuMergeMode.values.length) {
+    return DanmakuMergeMode.values[value];
+  }
+
+  // 新键不存在时迁移旧版布尔设置。
+  final legacyMerge = _setting.get(
+    SettingBoxKey.mergeDanmaku,
+    defaultValue: false,
+  );
+
+  return legacyMerge == true
+      ? DanmakuMergeMode.segment
+      : DanmakuMergeMode.off;
+}
+
+// 保留旧 getter，避免其它尚未调整的代码报错。
+// 它现在只代表旧式分段合并。
+static bool get mergeDanmaku =>
+    danmakuMergeMode == DanmakuMergeMode.segment;
+
+static int get burstDanmakuTriggerCount {
+  final value = _setting.get(
+    SettingBoxKey.burstDanmakuTriggerCount,
+    defaultValue: 100,
+  );
+
+  return (value is num ? value.toInt() : 100)
+      .clamp(2, 9999)
+      .toInt();
+}
+
+static double get burstDanmakuWindowSeconds => _getClampedDouble(
+  SettingBoxKey.burstDanmakuWindowSeconds,
+  5.0,
+  0.5,
+  60.0,
+);
+
+static double get burstDanmakuCooldownSeconds => _getClampedDouble(
+  SettingBoxKey.burstDanmakuCooldownSeconds,
+  2.0,
+  0.5,
+  60.0,
+);
+
+static double get burstDanmakuFontScale => _getClampedDouble(
+  SettingBoxKey.burstDanmakuFontScale,
+  1.2,
+  1.0,
+  2.0,
+);
 
   static bool get showHotRcmd =>
       _setting.get(SettingBoxKey.showHotRcmd, defaultValue: false);
@@ -484,6 +747,9 @@ abstract final class Pref {
   static bool get preInitPlayer =>
       _setting.get(SettingBoxKey.preInitPlayer, defaultValue: false);
 
+  static bool get preloadVideoShot =>
+      _setting.get(SettingBoxKey.preloadVideoShot, defaultValue: true);
+
   static bool get mainTabBarView =>
       _setting.get(SettingBoxKey.mainTabBarView, defaultValue: false);
 
@@ -501,6 +767,92 @@ abstract final class Pref {
 
   static bool get showSeekPreview =>
       _setting.get(SettingBoxKey.showSeekPreview, defaultValue: true);
+
+  // Use the former combined preference as the migration default so existing
+  // users keep their previous preview behavior until either new switch is set.
+  static bool get showSeekPreviewOnSlider => _setting.get(
+    SettingBoxKey.showSeekPreviewOnSlider,
+    defaultValue: showSeekPreview,
+  );
+
+  static bool get showSeekPreviewOnGesture => _setting.get(
+    SettingBoxKey.showSeekPreviewOnGesture,
+    defaultValue: showSeekPreview,
+  );
+
+  static bool get seekTimeInPreview => _setting.get(
+    SettingBoxKey.seekTimeInPreview,
+    defaultValue: false,
+  );
+
+  static bool get biliProgressTimeStyle => _setting.get(
+    SettingBoxKey.biliProgressTimeStyle,
+    defaultValue: false,
+  );
+
+  static double get playerProgressThumbScale => _getClampedDouble(
+    SettingBoxKey.playerProgressThumbScale,
+    1.0,
+    0.5,
+    2.0,
+  );
+
+  static double get playerProgressBarTouchPadding => _getClampedDouble(
+    SettingBoxKey.playerProgressBarTouchPadding,
+    0.0,
+    0.0,
+    32.0,
+  );
+
+  static double get playerControlHorizontalPadding => _getClampedDouble(
+    SettingBoxKey.playerControlHorizontalPadding,
+    12.0,
+    0.0,
+    32.0,
+  );
+
+  static double get playerControlBarThicknessScale => _getClampedDouble(
+    SettingBoxKey.playerControlBarThicknessScale,
+    1.0,
+    0.8,
+    1.5,
+  );
+
+  static double get playerControlBarGradientExtent => _getClampedDouble(
+    SettingBoxKey.playerControlBarGradientExtent,
+    0.0,
+    0.0,
+    96.0,
+  );
+
+  static bool get seekPreviewFollowSlider => _setting.get(
+  SettingBoxKey.seekPreviewFollowSlider,
+  defaultValue: false,
+);
+
+static bool get seekPreviewFollowGesture => _setting.get(
+  SettingBoxKey.seekPreviewFollowGesture,
+  defaultValue: false,
+);
+
+  static double get seekPreviewScale => _getClampedDouble(
+    SettingBoxKey.seekPreviewScale,
+    1.0,
+    0.5,
+    2.0,
+  );
+
+  static double get seekPreviewProgressBarGap => _getClampedDouble(
+    SettingBoxKey.seekPreviewProgressBarGap,
+    20.0,
+    0.0,
+    160.0,
+  );
+
+  static bool get showSeekPreviewInNonFullscreen => _setting.get(
+    SettingBoxKey.showSeekPreviewInNonFullscreen,
+    defaultValue: true,
+  );
 
   static bool get showDmChart =>
       _setting.get(SettingBoxKey.showDmChart, defaultValue: false);
@@ -541,6 +893,13 @@ abstract final class Pref {
   static bool get enableShrinkVideoSize =>
       _setting.get(SettingBoxKey.enableShrinkVideoSize, defaultValue: true);
 
+  static double get pinchGestureAngleThreshold => _getClampedDouble(
+    SettingBoxKey.pinchGestureAngleThreshold,
+    90.0,
+    15.0,
+    90.0,
+  );
+
   static bool get showDynActionBar =>
       _setting.get(SettingBoxKey.showDynActionBar, defaultValue: true);
 
@@ -552,8 +911,82 @@ abstract final class Pref {
     defaultValue: true,
   );
 
-  static bool get enableScrollVolume =>
-      _setting.get(SettingBoxKey.enableScrollVolume, defaultValue: true);
+  // 旧逻辑 dy > 3 * dx，相当于手势方向与竖直方向夹角小于 atan(1 / 3)。
+  static double get volumeGestureAngleThreshold => _getClampedDouble(
+    SettingBoxKey.volumeGestureAngleThreshold,
+    18.43494882292201,
+    5.0,
+    60.0,
+  );
+
+  static double get brightnessGestureAngleThreshold => _getClampedDouble(
+    SettingBoxKey.brightnessGestureAngleThreshold,
+    18.43494882292201,
+    5.0,
+    60.0,
+  );
+
+  static double get volumeGestureSpeed => _getClampedDouble(
+    SettingBoxKey.volumeGestureSpeed,
+    1.0,
+    0.25,
+    4.0,
+  );
+
+  static double get brightnessGestureSpeed => _getClampedDouble(
+    SettingBoxKey.brightnessGestureSpeed,
+    1.0,
+    0.25,
+    4.0,
+  );
+
+  static bool get volumeBrightnessGestureProgressBar => _setting.get(
+    SettingBoxKey.volumeBrightnessGestureProgressBar,
+    defaultValue: false,
+  );
+
+  // 旧共享设置保留为新设置的迁移默认值。
+  static double get playerGestureToastVerticalPercent => _getClampedDouble(
+    SettingBoxKey.playerGestureToastVerticalPercent,
+    10.0,
+    0.0,
+    100.0,
+  );
+
+  static double get seekTimeToastVerticalPercent => _getClampedDouble(
+    SettingBoxKey.seekTimeToastVerticalPercent,
+    playerGestureToastVerticalPercent,
+    0.0,
+    100.0,
+  );
+
+  static double get longPressSpeedToastVerticalPercent => _getClampedDouble(
+    SettingBoxKey.longPressSpeedToastVerticalPercent,
+    playerGestureToastVerticalPercent,
+    0.0,
+    100.0,
+  );
+
+  static double get playerGestureToastFontSize => _getClampedDouble(
+    SettingBoxKey.playerGestureToastFontSize,
+    13.0,
+    8.0,
+    32.0,
+  );
+
+  static double get seekTimeToastFontSize => _getClampedDouble(
+    SettingBoxKey.seekTimeToastFontSize,
+    playerGestureToastFontSize,
+    8.0,
+    32.0,
+  );
+
+  static double get longPressSpeedToastFontSize => _getClampedDouble(
+    SettingBoxKey.longPressSpeedToastFontSize,
+    playerGestureToastFontSize,
+    8.0,
+    32.0,
+  );
 
   static bool get enableSlideFS =>
       _setting.get(SettingBoxKey.enableSlideFS, defaultValue: true);
@@ -603,6 +1036,20 @@ abstract final class Pref {
 
   static bool get recordSearchHistory =>
       _setting.get(SettingBoxKey.recordSearchHistory, defaultValue: true);
+
+  static bool get autoHistoryArchive =>
+      _setting.get(SettingBoxKey.autoHistoryArchive, defaultValue: true);
+
+  static int get historyArchiveIntervalDays {
+    final value = _setting.get(
+      SettingBoxKey.historyArchiveIntervalDays,
+      defaultValue: 7,
+    );
+    return (value is num ? value.toInt() : 7).clamp(1, 30).toInt();
+  }
+
+  static bool get silentHistoryArchive =>
+      _setting.get(SettingBoxKey.silentHistoryArchive, defaultValue: true);
 
   static String get webdavUri =>
       _setting.get(SettingBoxKey.webdavUri, defaultValue: '');
@@ -726,6 +1173,16 @@ abstract final class Pref {
   static bool get enableShowDanmaku =>
       _setting.get(SettingBoxKey.enableShowDanmaku, defaultValue: true);
 
+  static bool get rememberDanmakuSwitchState => _setting.get(
+    SettingBoxKey.rememberDanmakuSwitchState,
+    defaultValue: false,
+  );
+
+  static bool get fullScreenDanmakuToggleOnLeft => _setting.get(
+    SettingBoxKey.fullScreenDanmakuToggleOnLeft,
+    defaultValue: true,
+  );
+
   static bool get enableShowLiveDanmaku =>
       _setting.get(SettingBoxKey.enableShowLiveDanmaku, defaultValue: true);
 
@@ -735,12 +1192,114 @@ abstract final class Pref {
   static bool get p1080 =>
       _setting.get(SettingBoxKey.p1080, defaultValue: true);
 
-  static int get customColor =>
-      _setting.get(SettingBoxKey.customColor, defaultValue: 0);
+  static int get customColor {
+    final value = _setting.get(SettingBoxKey.customColor, defaultValue: 0);
+    return value is int
+        ? value.clamp(0, colorThemeTypes.length - 1).toInt()
+        : 0;
+  }
 
-  static bool get dynamicColor =>
+  static bool get _legacyDynamicColor =>
       !Platform.isIOS &&
       _setting.get(SettingBoxKey.dynamicColor, defaultValue: true);
+
+  static ThemeColorMode get themeColorMode {
+    final value = _setting.get(SettingBoxKey.themeColorMode);
+    if (value is int &&
+        value >= 0 &&
+        value < ThemeColorMode.values.length) {
+      final mode = ThemeColorMode.values[value];
+      if (!Platform.isIOS || mode != ThemeColorMode.dynamic) {
+        return mode;
+      }
+    }
+    return _legacyDynamicColor
+        ? ThemeColorMode.dynamic
+        : ThemeColorMode.preset;
+  }
+
+  static bool get dynamicColor => themeColorMode == ThemeColorMode.dynamic;
+
+  static Color _getThemeSeed(String key, Color fallback) {
+    final value = _setting.get(key);
+    return value is int ? Color(value) : fallback;
+  }
+
+  static ThemeSeedColors get customThemeSeeds => (
+    primary: _getThemeSeed(
+      SettingBoxKey.customPrimarySeed,
+      defaultCustomThemeSeeds.primary,
+    ),
+    secondary: _getThemeSeed(
+      SettingBoxKey.customSecondarySeed,
+      defaultCustomThemeSeeds.secondary,
+    ),
+    tertiary: _getThemeSeed(
+      SettingBoxKey.customTertiarySeed,
+      defaultCustomThemeSeeds.tertiary,
+    ),
+  );
+
+  static String customThemeToneKey(
+    Brightness brightness,
+    ThemeToneRole role,
+  ) =>
+      '${SettingBoxKey.customThemeTonePrefix}.${brightness.name}.${role.name}';
+
+  static double customThemeToneOffset(
+    Brightness brightness,
+    ThemeToneRole role,
+  ) => _getClampedDouble(
+    customThemeToneKey(brightness, role),
+    0,
+    -30,
+    30,
+  );
+
+  static Map<ThemeToneRole, double> customThemeToneOffsets(
+    Brightness brightness,
+  ) => {
+    for (final role in ThemeToneRole.values)
+      role: customThemeToneOffset(brightness, role),
+  };
+
+  static Map<ThemeUiElement, ThemeSchemeColor?>
+  get customThemeUiColorAssignments {
+    final stored = _setting.get(SettingBoxKey.customThemeColorAssignments);
+    if (stored is! Map) {
+      return {
+        for (final element in ThemeUiElement.values)
+          element: element.defaultColor,
+      };
+    }
+
+    return {
+      for (final element in ThemeUiElement.values)
+        element: _decodeThemeUiColorAssignment(stored, element),
+    };
+  }
+
+  static ThemeSchemeColor? _decodeThemeUiColorAssignment(
+    Map<dynamic, dynamic> stored,
+    ThemeUiElement element,
+  ) {
+    // 兼容上一版以 Material 颜色槽名称为目标键的设置：同一默认颜色下
+    // 拆出的具体 UI 元素会继承原颜色槽的选择或未配置状态。
+    final key = stored.containsKey(element.name)
+        ? element.name
+        : stored.containsKey(element.defaultColor.name)
+        ? element.defaultColor.name
+        : null;
+    if (key == null) return element.defaultColor;
+    final sourceName = stored[key];
+    if (sourceName == '') return null;
+    if (sourceName is String) {
+      try {
+        return ThemeSchemeColor.values.byName(sourceName);
+      } catch (_) {}
+    }
+    return element.defaultColor;
+  }
 
   static bool get enableSystemProxy =>
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
@@ -796,7 +1355,16 @@ abstract final class Pref {
 
   static int get danmakuWeight =>
       _setting.get(SettingBoxKey.danmakuWeight, defaultValue: 0);
+static int get highLikeDanmakuThreshold {
+  final value = _setting.get(
+    SettingBoxKey.highLikeDanmakuThreshold,
+    defaultValue: 100,
+  );
 
+  return (value is num ? value.toInt() : 100)
+      .clamp(0, 999999)
+      .toInt();
+}
   static double get danmakuShowArea =>
       _setting.get(SettingBoxKey.danmakuShowArea, defaultValue: 0.5);
 
@@ -805,7 +1373,7 @@ abstract final class Pref {
 
   static double get danmakuFontScale => _setting.get(
     SettingBoxKey.danmakuFontScale,
-    defaultValue: PlatformUtils.isMobile ? 1.0 : 1.4,
+    defaultValue: 0.9,
   );
 
   static double get danmakuDuration =>
@@ -818,15 +1386,40 @@ abstract final class Pref {
     SettingBoxKey.danmakuStrokeWidth,
     defaultValue: PlatformUtils.isMobile ? 1.5 : 2.5,
   );
-
+static double get danmakuShadowRadius => _getClampedDouble(
+  SettingBoxKey.danmakuShadowRadius,
+  0.0,
+  0.0,
+  10.0,
+);
   static int get danmakuFontWeight => _setting.get(
     SettingBoxKey.danmakuFontWeight,
     defaultValue: PlatformUtils.isMobile ? 5 : 6,
   );
 
   static bool get enableLongShowControl =>
-      _setting.get(SettingBoxKey.enableLongShowControl, defaultValue: false);
+    _setting.get(
+      SettingBoxKey.enableLongShowControl,
+      defaultValue: false,
+    );
 
+/// 播放控件无操作后的自动隐藏时间，单位为秒。
+///
+/// 新键不存在时读取旧版布尔开关：
+/// - 旧开关开启：30 秒
+/// - 旧开关关闭或不存在：3 秒
+static int get playerControlDisplayDurationSeconds {
+  final value = _setting.get(
+    SettingBoxKey.playerControlDisplayDurationSeconds,
+  );
+
+  if (value is num) {
+    return value.toInt().clamp(1, 60).toInt();
+  }
+
+  return enableLongShowControl ? 30 : 3;
+}
+    
   static double get bufferSize =>
       _setting.get(SettingBoxKey.bufferSize, defaultValue: 4.0);
 
@@ -874,6 +1467,10 @@ abstract final class Pref {
     defaultValue: AudioOutput.defaultValue,
   );
 
+  static bool get audioTrackIsPrimaryOutput =>
+      audioOutput.split(',').first.trim().toLowerCase() ==
+      AudioOutput.audiotrack.name;
+
   static bool get enableAi =>
       _setting.get(SettingBoxKey.enableAi, defaultValue: false);
 
@@ -885,6 +1482,19 @@ abstract final class Pref {
 
   static bool get enableAutoLongPressSpeed =>
       _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: false);
+
+  static bool get showLongPressSpeedToast => _setting.get(
+    SettingBoxKey.showLongPressSpeedToast,
+    defaultValue: true,
+  );
+
+  static int get longPressSpeedTriggerDelay {
+    final defaultValue = PlatformUtils.isMobile && enableTapDm ? 300 : 500;
+    final value = _setting.get(SettingBoxKey.longPressSpeedTriggerDelay);
+    return (value is num ? value.toInt() : defaultValue)
+        .clamp(100, 1000)
+        .toInt();
+  }
 
   static double get playSpeedDefault =>
       _video.get(VideoBoxKey.playSpeedDefault, defaultValue: 1.0);
@@ -925,6 +1535,11 @@ abstract final class Pref {
   static bool get historyPause =>
       _localCache.get(LocalCacheKey.historyPause, defaultValue: false);
 
+  static int? get historyPauseAccountMid {
+    final value = _localCache.get(LocalCacheKey.historyPauseAccountMid);
+    return value is num ? value.toInt() : null;
+  }
+
   static int? get quickFavId => _setting.get(SettingBoxKey.quickFavId);
 
   static bool get tempPlayerConf =>
@@ -943,6 +1558,17 @@ abstract final class Pref {
 
   static bool get showFsLockBtn =>
       _setting.get(SettingBoxKey.showFsLockBtn, defaultValue: true);
+
+  static bool get showFsSkipOpBtn =>
+      _setting.get(SettingBoxKey.showFsSkipOpBtn, defaultValue: true);
+
+  static int get skipOpDurationSeconds {
+    final value = _setting.get(SettingBoxKey.skipOpDurationSeconds);
+    if (value is num && value.isFinite) {
+      return value.toInt().clamp(1, 300).toInt();
+    }
+    return 80;
+  }
 
   static bool get silentDownImg =>
       _setting.get(SettingBoxKey.silentDownImg, defaultValue: false);
@@ -1039,9 +1665,39 @@ abstract final class Pref {
 
   static String? get liveCdnUrl => _setting.get(SettingBoxKey.liveCdnUrl);
 
+  /// 直播时移（进度条）：赛事直播可回看约一小时。
+  static bool get liveTimeShift =>
+      _setting.get(SettingBoxKey.liveTimeShift, defaultValue: true);
+
+  /// 界面模糊强度：0 关闭 / 1 轻 / 2 重。
+  static int get uiBlur => _setting.get(SettingBoxKey.uiBlur, defaultValue: 1);
+
+  static bool get uiBlurEnabled =>
+      _setting.get(SettingBoxKey.uiBlurEnabled, defaultValue: true);
+
   static bool get showBatteryLevel => _setting.get(
     SettingBoxKey.showBatteryLevel,
     defaultValue: PlatformUtils.isMobile,
+  );
+
+  static bool get showBatteryPercentage => _setting.get(
+    SettingBoxKey.showBatteryPercentage,
+    defaultValue: true,
+  );
+
+  static bool get showMpvOutputFps => _setting.get(
+    SettingBoxKey.showMpvOutputFps,
+    defaultValue: false,
+  );
+
+  static bool get showBufferingInfo => _setting.get(
+    SettingBoxKey.showBufferingInfo,
+    defaultValue: true,
+  );
+
+  static bool get showPlayerInstanceStatus => _setting.get(
+    SettingBoxKey.showPlayerInstanceStatus,
+    defaultValue: false,
   );
 
   static FollowOrderType get followOrderType =>
@@ -1056,9 +1712,30 @@ abstract final class Pref {
   static bool get showDynDispute =>
       _setting.get(SettingBoxKey.showDynDispute, defaultValue: false);
 
-  static double get touchSlopH => _setting.get(
+   static double get touchSlopH => _setting.get(
     SettingBoxKey.touchSlopH,
     defaultValue: deviceTouchSlop + 6.0,
+  );
+
+  /// 横向标签页快滑速度阈值，单位为逻辑像素每秒。
+  ///
+  /// Flutter 默认触摸 fling 最低速度为 50.0，因此默认值保持 50，
+  /// 尽量维持当前未自定义时的行为。
+  static double get tabSwipeVelocityThreshold => _getClampedDouble(
+    SettingBoxKey.tabSwipeVelocityThreshold,
+    50.0,
+    10.0,
+    3000.0,
+  );
+
+  /// 慢滑切换标签页所需的页面宽度百分比。
+  ///
+  /// 默认 50%，对应 PageScrollPhysics 原有的四舍五入逻辑。
+  static double get tabSwipeDistanceThresholdPercent => _getClampedDouble(
+    SettingBoxKey.tabSwipeDistanceThresholdPercent,
+    50.0,
+    5.0,
+    95.0,
   );
 
   static bool get saveReply =>
@@ -1069,6 +1746,19 @@ abstract final class Pref {
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
+
+  static bool get verticalFullscreenBottomBarSafeArea => _setting.get(
+    SettingBoxKey.verticalFullscreenBottomBarSafeArea,
+    defaultValue: false,
+  );
+
+  static double get verticalFullscreenBottomBarSafeHeight =>
+      _getClampedDouble(
+        SettingBoxKey.verticalFullscreenBottomBarSafeHeight,
+        24.0,
+        0.0,
+        80.0,
+      );
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);

@@ -1,6 +1,8 @@
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/font_utils.dart';
+import 'package:PiliPlus/utils/local_font_manager.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoThemeData;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
@@ -32,104 +34,167 @@ abstract final class ThemeUtils {
     required bool isDynamic,
     bool isDark = false,
   }) {
-    final fontWeight = Pref.appFontWeight;
-    final fontFamily = FontUtils.fontFamily;
-
-    TextTheme? textTheme;
-    if (fontWeight != .normal) {
-      final textStyle = TextStyle(fontWeight: fontWeight);
-      textTheme = TextTheme(
-        displayLarge: textStyle,
-        displayMedium: textStyle,
-        displaySmall: textStyle,
-        headlineLarge: textStyle,
-        headlineMedium: textStyle,
-        headlineSmall: textStyle,
-        titleLarge: textStyle,
-        titleMedium: textStyle,
-        titleSmall: textStyle,
-        bodyLarge: textStyle,
-        bodyMedium: textStyle,
-        bodySmall: textStyle,
-        labelLarge: textStyle,
-        labelMedium: textStyle,
-        labelSmall: textStyle,
-      );
-    }
-
-    final theme = ThemeData(
-      useMaterial3: true,
+    Style.updateCardRadius(Pref.cardRadius);
+    final appFontWeight = Pref.appFontWeight.clamp(
+      -1,
+      FontWeight.values.length - 1,
+    );
+    final fontWeight = appFontWeight == -1
+        ? null
+        : FontWeight.values[appFontWeight];
+    final fontFamilies = LocalFontManager.appFontFamilies;
+    final fontFamilyFallback = fontFamilies.fallback.isEmpty
+        ? null
+        : fontFamilies.fallback;
+    final hasCustomTextStyle =
+        fontWeight != null || fontFamilies.primary != null;
+    final textStyle = TextStyle(
+      fontWeight: fontWeight,
+      fontFamily: fontFamilies.primary,
+      fontFamilyFallback: fontFamilyFallback,
+    );
+    final assignments = Pref.themeColorMode == ThemeColorMode.customMultiSeed
+        ? Pref.customThemeUiColorAssignments
+        : {
+            for (final element in ThemeUiElement.values)
+              element: element.defaultColor,
+          };
+    final uiColors = ThemeUiColors.fromScheme(colorScheme, assignments);
+    Color ui(ThemeUiElement element) => uiColors[element];
+    ThemeData themeData = ThemeData(
+      highlightColor: colorScheme.onSurface.withValues(alpha: 0.04),
       colorScheme: colorScheme,
-      fontFamily: fontFamily,
-      textTheme: textTheme,
+      extensions: [uiColors],
+      useMaterial3: true,
+      splashFactory: NoSplash.splashFactory,
+      fontFamily: fontFamilies.primary,
+      scaffoldBackgroundColor: ui(ThemeUiElement.pageBackground),
+      textTheme: !hasCustomTextStyle
+          ? null
+          : TextTheme(
+              displayLarge: textStyle,
+              displayMedium: textStyle,
+              displaySmall: textStyle,
+              headlineLarge: textStyle,
+              headlineMedium: textStyle,
+              headlineSmall: textStyle,
+              titleLarge: textStyle,
+              titleMedium: textStyle,
+              titleSmall: textStyle,
+              bodyLarge: textStyle,
+              bodyMedium: textStyle,
+              bodySmall: textStyle,
+              labelLarge: textStyle,
+              labelMedium: textStyle,
+              labelSmall: textStyle,
+            ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: ui(ThemeUiElement.tabSelectedContent),
+        unselectedLabelColor: ui(ThemeUiElement.tabUnselectedContent),
+        indicatorColor: ui(ThemeUiElement.tabIndicator),
+        dividerColor: ui(ThemeUiElement.tabDivider),
+        labelStyle: hasCustomTextStyle ? textStyle : null,
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
         titleSpacing: 0,
         centerTitle: false,
         scrolledUnderElevation: 0,
-        backgroundColor: colorScheme.surface,
+        backgroundColor: ui(ThemeUiElement.appBarBackground),
+        foregroundColor: ui(ThemeUiElement.appBarContent),
         titleTextStyle: TextStyle(
           fontSize: 16,
+          color: ui(ThemeUiElement.appBarContent),
           fontWeight: fontWeight,
-          fontFamily: fontFamily,
-          color: colorScheme.onSurface,
+          fontFamily: fontFamilies.primary,
+          fontFamilyFallback: fontFamilyFallback,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        surfaceTintColor: isDark ? colorScheme.surfaceContainerHighest : null,
+        backgroundColor: ui(ThemeUiElement.navigationBarBackground),
+        indicatorColor: ui(ThemeUiElement.navigationSelectedIndicator),
+        surfaceTintColor: isDynamic ? colorScheme.onSurfaceVariant : null,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final color = states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.navigationSelectedContent)
+              : ui(ThemeUiElement.navigationUnselectedContent);
+          return IconThemeData(color: color);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final color = states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.navigationSelectedContent)
+              : ui(ThemeUiElement.navigationUnselectedContent);
+          return textStyle.copyWith(color: color);
+        }),
       ),
       snackBarTheme: SnackBarThemeData(
-        elevation: 20,
-        actionTextColor: colorScheme.primary,
-        closeIconColor: colorScheme.secondary,
-        backgroundColor: colorScheme.secondaryContainer,
+        actionTextColor: ui(ThemeUiElement.snackbarAction),
+        backgroundColor: ui(ThemeUiElement.snackbarBackground),
+        closeIconColor: ui(ThemeUiElement.snackbarClose),
         contentTextStyle: TextStyle(
-          fontFamily: fontFamily,
-          fontWeight: fontWeight,
-          color: colorScheme.onSecondaryContainer,
+          color: ui(ThemeUiElement.snackbarContent),
+          fontFamily: fontFamilies.primary,
+          fontFamilyFallback: fontFamilyFallback,
         ),
+        elevation: 20,
       ),
       popupMenuTheme: PopupMenuThemeData(
-        surfaceTintColor: isDark ? colorScheme.surfaceContainerHighest : null,
+        color: ui(ThemeUiElement.popupMenuBackground),
+        surfaceTintColor: isDynamic ? colorScheme.onSurfaceVariant : null,
       ),
       cardTheme: CardThemeData(
         elevation: 1,
+        color: ui(ThemeUiElement.cardBackground),
         margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: Style.cardRadius),
+        surfaceTintColor: isDynamic
+            ? colorScheme.onSurfaceVariant
+            : isDark
+            ? colorScheme.onSurfaceVariant
+            : null,
         shadowColor: Colors.transparent,
-        surfaceTintColor: isDark ? colorScheme.onSurfaceVariant : null,
       ),
-      progressIndicatorTheme: isDark
-          ? ProgressIndicatorThemeData(
-              // ignore: deprecated_member_use
-              year2023: false,
-              refreshBackgroundColor: colorScheme.onInverseSurface,
-            )
-          // ignore: deprecated_member_use
-          : const ProgressIndicatorThemeData(year2023: false),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        // ignore: deprecated_member_use
+        year2023: false,
+        color: ui(ThemeUiElement.progressIndicator),
+        linearTrackColor: ui(ThemeUiElement.progressTrack),
+        circularTrackColor: ui(ThemeUiElement.progressTrack),
+        refreshBackgroundColor: ui(
+          ThemeUiElement.refreshIndicatorBackground,
+        ),
+      ),
       dialogTheme: DialogThemeData(
         titleTextStyle: TextStyle(
           fontSize: 18,
+          color: ui(ThemeUiElement.dialogTitle),
           fontWeight: fontWeight,
-          fontFamily: fontFamily,
-          color: colorScheme.onSurface,
+          fontFamily: fontFamilies.primary,
+          fontFamilyFallback: fontFamilyFallback,
         ),
-        backgroundColor: colorScheme.surface,
+        backgroundColor: ui(ThemeUiElement.dialogBackground),
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 420),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: ui(ThemeUiElement.bottomSheetBackground),
         shape: const RoundedRectangleBorder(
           borderRadius: Style.bottomSheetRadius,
         ),
       ),
       // ignore: deprecated_member_use
-      sliderTheme: const SliderThemeData(year2023: false),
+      sliderTheme: SliderThemeData(
+        // ignore: deprecated_member_use
+        year2023: false,
+        activeTrackColor: ui(ThemeUiElement.sliderActiveTrack),
+        inactiveTrackColor: ui(ThemeUiElement.sliderInactiveTrack),
+        thumbColor: ui(ThemeUiElement.sliderThumb),
+      ),
       tooltipTheme: TooltipThemeData(
         textStyle: TextStyle(
-          fontSize: 14,
           color: Colors.white,
-          fontFamily: fontFamily,
-          fontWeight: fontWeight,
+          fontSize: 14,
+          fontFamily: fontFamilies.primary,
+          fontFamilyFallback: fontFamilyFallback,
         ),
         decoration: const BoxDecoration(
           color: Color(0xE6616161), // Colors.grey[700]!.withValues(alpha: 0.9)
@@ -137,31 +202,113 @@ abstract final class ThemeUtils {
         ),
       ),
       cupertinoOverrideTheme: CupertinoThemeData(
-        selectionHandleColor: colorScheme.primary,
+        selectionHandleColor: ui(ThemeUiElement.textSelectionHandle),
       ),
-      switchTheme: const SwitchThemeData(
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: ui(ThemeUiElement.textCursor),
+        selectionColor: ui(ThemeUiElement.textSelection),
+        selectionHandleColor: ui(ThemeUiElement.textSelectionHandle),
+      ),
+      inputDecorationTheme: InputDecorationThemeData(
+        errorStyle: TextStyle(color: ui(ThemeUiElement.inputErrorText)),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.disabled)
+                ? null
+                : ui(ThemeUiElement.textButtonContent);
+          }),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.disabled)
+                ? null
+                : ui(ThemeUiElement.elevatedButtonBackground);
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.disabled)
+                ? null
+                : ui(ThemeUiElement.elevatedButtonContent);
+          }),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.disabled)
+                ? null
+                : ui(ThemeUiElement.outlinedButtonContent);
+          }),
+          side: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.disabled)
+                ? null
+                : BorderSide(
+                    color: ui(ThemeUiElement.outlinedButtonBorder),
+                  );
+          }),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: ui(ThemeUiElement.defaultFabBackground),
+        foregroundColor: ui(ThemeUiElement.defaultFabContent),
+      ),
+      switchTheme: SwitchThemeData(
         padding: .zero,
         materialTapTargetSize: .shrinkWrap,
-        thumbIcon: WidgetStateProperty<Icon?>.fromMap(
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          return !states.contains(WidgetState.disabled) &&
+                  states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.switchSelectedTrack)
+              : null;
+        }),
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          return !states.contains(WidgetState.disabled) &&
+                  states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.switchSelectedThumb)
+              : null;
+        }),
+        thumbIcon: const WidgetStateProperty<Icon?>.fromMap(
           <WidgetStatesConstraint, Icon?>{
             WidgetState.selected: Icon(Icons.done),
             WidgetState.any: null,
           },
         ),
       ),
-      expansionTileTheme: const ExpansionTileThemeData(
-        shape: Border(),
-        collapsedShape: Border(),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          return !states.contains(WidgetState.disabled) &&
+                  states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.checkboxSelectedFill)
+              : null;
+        }),
+        checkColor: WidgetStateProperty.resolveWith((states) {
+          return !states.contains(WidgetState.disabled) &&
+                  states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.checkboxCheck)
+              : null;
+        }),
       ),
-      listTileTheme: const ListTileThemeData(controlAffinity: .leading),
-      filledButtonTheme: const FilledButtonThemeData(
-        style: ButtonStyle(
-          shadowColor: WidgetStatePropertyAll(Colors.transparent),
-        ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          return !states.contains(WidgetState.disabled) &&
+                  states.contains(WidgetState.selected)
+              ? ui(ThemeUiElement.radioSelected)
+              : null;
+        }),
       ),
+      listTileTheme: ListTileThemeData(
+        selectedColor: ui(ThemeUiElement.listTileSelectedContent),
+        iconColor: ui(ThemeUiElement.listTileIcon),
+      ),
+      dividerTheme: DividerThemeData(color: ui(ThemeUiElement.divider)),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          // 预测性返回（Android 14+）由该 builder 提供；GetX 路由读取本主题
+          // 依赖 lib/scripts/getx_predictive_back.patch。
+          TargetPlatform.android: VideoCardPageTransitionsBuilder(),
         },
       ),
     );

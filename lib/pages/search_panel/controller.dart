@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show Completer, StreamSubscription;
 
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/search.dart';
@@ -43,6 +43,9 @@ class SearchPanelController<R extends SearchNumData<T>, T>
   Rx<ArticleZoneType>? articleZoneType; // int? categoryId;
 
   SearchResultController? searchResultController;
+  Future<void>? _queryFuture;
+  Future<void>? _reloadFuture;
+  bool _reloadRequested = false;
 
   void onSortSearch({
     bool getBack = true,
@@ -102,6 +105,22 @@ class SearchPanelController<R extends SearchNumData<T>, T>
   }
 
   @override
+  Future<void> queryData([bool isRefresh = true]) async {
+    if (_queryFuture != null) {
+      return;
+    }
+    final completer = Completer<void>();
+    _queryFuture = completer.future;
+    try {
+      await super.queryData(isRefresh);
+    } finally {
+      isLoading = false;
+      _queryFuture = null;
+      completer.complete();
+    }
+  }
+
+  @override
   Future<LoadingState<R>> customGetData() => SearchHttp.searchByType<R>(
     searchType: searchType_,
     keyword: keyword,
@@ -132,8 +151,27 @@ class SearchPanelController<R extends SearchNumData<T>, T>
 
   @override
   Future<void> onReload() {
-    scrollController.jumpToTop();
-    return super.onReload();
+    _reloadRequested = true;
+    return _reloadFuture ??= _reloadWithLatestFilters();
+  }
+
+  Future<void> _reloadWithLatestFilters() async {
+    try {
+      do {
+        // 等当前查询结束后再重置分页，避免筛选刷新被 isLoading 跳过。
+        while (_queryFuture != null) {
+          await _queryFuture!;
+        }
+        if (isClosed) {
+          return;
+        }
+        _reloadRequested = false;
+        scrollController.jumpToTop();
+        await super.onReload();
+      } while (_reloadRequested);
+    } finally {
+      _reloadFuture = null;
+    }
   }
 
   @override

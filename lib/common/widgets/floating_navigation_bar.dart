@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -73,64 +74,78 @@ class FloatingNavigationBar extends StatelessWidget {
         defaults.labelBehavior!;
 
     final padding = MediaQuery.viewPaddingOf(context);
+    final Color surfaceColor = ElevationOverlay.applySurfaceTint(
+      backgroundColor ??
+          navigationBarTheme.backgroundColor ??
+          defaults.backgroundColor!,
+      surfaceTintColor ??
+          navigationBarTheme.surfaceTintColor ??
+          defaults.surfaceTintColor,
+      elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
+    );
 
-    return Padding(
-      padding: .fromLTRB(
-        padding.left,
-        0,
-        padding.right,
-        bottomPadding + padding.bottom,
-      ),
-      child: SizedBox(
-        height: _kNavigationHeight,
-        width: destinations.length * _kIndicatorWidth,
-        child: DecoratedBox(
-          decoration: ShapeDecoration(
-            color: ElevationOverlay.applySurfaceTint(
-              backgroundColor ??
-                  navigationBarTheme.backgroundColor ??
-                  defaults.backgroundColor!,
-              surfaceTintColor ??
-                  navigationBarTheme.surfaceTintColor ??
-                  defaults.surfaceTintColor,
-              elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
-            ),
-            shape: RoundedSuperellipseBorder(
-              side: defaults.borderSide,
-              borderRadius: _kBorderRadius,
-            ),
-          ),
-          child: Padding(
-            padding: _kIndicatorPadding,
-            child: Row(
-              crossAxisAlignment: .stretch,
-              children: <Widget>[
-                for (int i = 0; i < destinations.length; i++)
-                  Expanded(
-                    child: _SelectableAnimatedBuilder(
-                      duration: animationDuration,
-                      isSelected: i == selectedIndex,
-                      builder: (context, animation) {
-                        return _NavigationDestinationInfo(
-                          index: i,
-                          selectedIndex: selectedIndex,
-                          totalNumberOfDestinations: destinations.length,
-                          selectedAnimation: animation,
-                          labelBehavior: effectiveLabelBehavior,
-                          indicatorColor: indicatorColor,
-                          indicatorShape: indicatorShape,
-                          overlayColor: overlayColor,
-                          onTap: _handleTap(i),
-                          labelTextStyle: labelTextStyle,
-                          labelPadding: labelPadding,
-                          child: destinations[i],
-                        );
-                      },
-                    ),
-                  ),
-              ],
+    final Widget pill = DecoratedBox(
+  decoration: ShapeDecoration(
+    color: AppBlur.enabled ? Colors.transparent : surfaceColor,
+    shape: RoundedSuperellipseBorder(
+      side: defaults.borderSide,
+      borderRadius: _kBorderRadius,
+    ),
+  ),
+  child: Padding(
+    padding: _kIndicatorPadding,
+    child: Row(
+      crossAxisAlignment: .stretch,
+      children: <Widget>[
+        for (int i = 0; i < destinations.length; i++)
+          Expanded(
+            child: _SelectableAnimatedBuilder(
+              duration: animationDuration,
+              isSelected: i == selectedIndex,
+              builder: (context, animation) {
+                return _NavigationDestinationInfo(
+                  index: i,
+                  selectedIndex: selectedIndex,
+                  totalNumberOfDestinations: destinations.length,
+                  selectedAnimation: animation,
+                  labelBehavior: effectiveLabelBehavior,
+                  indicatorColor: indicatorColor,
+                  indicatorShape: indicatorShape,
+                  overlayColor: overlayColor,
+                  onTap: _handleTap(i),
+                  labelTextStyle: labelTextStyle,
+                  labelPadding: labelPadding,
+                  child: destinations[i],
+                );
+              },
             ),
           ),
+      ],
+    ),
+  ),
+);
+
+    return UnconstrainedBox(
+      child: Padding(
+        padding: .fromLTRB(
+          padding.left,
+          0,
+          padding.right,
+          bottomPadding + padding.bottom,
+        ),
+        child: SizedBox(
+          height: _kNavigationHeight,
+          width: destinations.length * _kIndicatorWidth,
+          child: AppBlur.enabled
+              ? BlurSurface(
+                  sigma: AppBlur.barSigma,
+                  tint: surfaceColor,
+                  tintAlpha: 0.82,
+                  borderRadius: _kBorderRadius,
+                  boxShadow: AppBlur.navPillShadow,
+                  child: pill,
+                )
+              : pill,
         ),
       ),
     );

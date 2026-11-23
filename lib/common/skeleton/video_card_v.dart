@@ -3,7 +3,12 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:material_ui/material_ui.dart';
 
 class VideoCardVSkeleton extends StatelessWidget {
-  const VideoCardVSkeleton({super.key});
+  const VideoCardVSkeleton({
+    super.key,
+    this.aspectRatio = Style.aspectRatio,
+  });
+
+  final double aspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -13,11 +18,11 @@ class VideoCardVSkeleton extends StatelessWidget {
         crossAxisAlignment: .start,
         children: [
           AspectRatio(
-            aspectRatio: Style.aspectRatio,
+            aspectRatio: aspectRatio,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: const .vertical(top: Style.imgRadius),
+                borderRadius: Style.cardRadius,
               ),
             ),
           ),

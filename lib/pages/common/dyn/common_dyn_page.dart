@@ -11,7 +11,7 @@ import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, MainListReply;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/enum_with_label.dart';
-import 'package:PiliPlus/pages/article/widgets/sliver_list.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/pages/common/dyn/common_dyn_controller.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/common/reply/reply_footer_mixin.dart';
@@ -20,6 +20,7 @@ import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -106,13 +107,9 @@ abstract class CommonDynPageMultiState<T extends StatefulWidget>
 }
 
 mixin CommonDynPageMixin<T extends StatefulWidget>
-    on
-        State<T>,
-        TickerProvider,
-        BaseFabMixin<T>,
-        FabMixin<T>,
-        ReplyFooterMixin<T, MainListReply> {
-  @override
+    on State<T>, TickerProvider, BaseFabMixin<T>, FabMixin<T> {
+  static const double _fabRevealDistance = 72.0;
+
   CommonDynController get controller;
   bool get isArticle => false;
 
@@ -126,6 +123,8 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
   late bool isPortrait;
   late double maxWidth;
   late double maxHeight;
+  double _fabUpwardDistance = 0.0;
+  bool _fabHiddenByScroll = false;
 
   @override
   void didChangeDependencies() {
@@ -378,6 +377,8 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
 
   Widget get replyButton => FloatingActionButton(
     heroTag: null,
+    backgroundColor: theme.uiColor(ThemeUiElement.dynamicsReplyBackground),
+    foregroundColor: theme.uiColor(ThemeUiElement.dynamicsReplyContent),
     onPressed: () {
       try {
         feedBack();
@@ -392,4 +393,47 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
     tooltip: '评论',
     child: const Icon(Icons.reply),
   );
+
+  bool _handleFabScroll(ScrollNotification notification) {
+    if (notification.depth != 0 ||
+        notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    if (notification is! ScrollUpdateNotification) {
+      return false;
+    }
+
+    final delta = notification.scrollDelta ?? 0.0;
+
+    if (delta > 0) {
+      _fabUpwardDistance = 0.0;
+
+      if (!_fabHiddenByScroll) {
+        _fabHiddenByScroll = true;
+        hideFab();
+      }
+    } else if (delta < 0 && _fabHiddenByScroll) {
+      _fabUpwardDistance += -delta;
+
+      final reachedTop =
+          notification.metrics.pixels <=
+          notification.metrics.minScrollExtent + 0.5;
+
+      if (_fabUpwardDistance >= _fabRevealDistance || reachedTop) {
+        _fabUpwardDistance = 0.0;
+        _fabHiddenByScroll = false;
+        showFab();
+      }
+    }
+
+    return false;
+  }
+
+  Widget fabAnimWrapper(Widget child) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleFabScroll,
+      child: child,
+    );
+  }
 }

@@ -29,6 +29,7 @@ import 'package:PiliPlus/pages/video/introduction/ugc/widgets/triple_mixin.dart'
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/services/mpv_log_service.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -38,6 +39,7 @@ import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
+import 'package:PiliPlus/utils/mpv_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
@@ -361,14 +363,16 @@ class AudioController extends GetxController
     http_model.Volume? volume,
   }) async {
     await _initPlayerIfNeeded();
-    final extras = audioFilterExtras(volume);
-    player
-      ?..setMediaHeader(
-        userAgent: ua,
-        // mpv cannot clear referer option
-        headers: {'Referer': ?referer},
-      )
-      ..open(Media(url, start: _start, extras: extras));
+    final player = this.player;
+    if (player == null) return;
+    player.setMediaHeader(
+      userAgent: ua,
+      // mpv cannot clear referer option
+      headers: {'Referer': ?referer},
+    );
+    await MpvLogService.beginSession(player, source: 'audio');
+    MpvUtils.applyRuntimeOverrides(player);
+    await player.open(Media(url, start: _start));
     _start = null;
   }
 
@@ -390,13 +394,13 @@ class AudioController extends GetxController
     assert(player == null, _subscriptions = null);
     player = await Player.create(
       configuration: PlayerConfiguration(
-        options: {
-          if (Platform.isAndroid) 'ao': Pref.audioOutput,
+        logLevel: MpvUtils.logLevel,
+        options: MpvUtils.mergeOptions({
           'volume': PlatformUtils.isDesktop
               ? (desktopVolume.value * 100).toString()
               : Pref.playerVolume.toString(),
           ...Pref.initBuffer(),
-        },
+        }),
       ),
     );
     if (isClosed) {
@@ -405,7 +409,9 @@ class AudioController extends GetxController
       return;
     }
     final stream = player!.stream;
+    final currentPlayer = player!;
     _subscriptions = [
+      stream.log.listen((log) => MpvLogService.add(currentPlayer, log)),
       stream.position.listen((position) {
         if (isDragging) return;
         final seconds = position.inSeconds;

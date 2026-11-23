@@ -1,6 +1,6 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliPlus/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -55,6 +55,7 @@ class _PopularPreciousPageState extends State<PopularPreciousPage>
               videoItem: item,
               onTap: () {
                 PageUtils.toVideoPage(
+                  originRect: videoCardRectOf(context),
                   bvid: item.bvid,
                   cid: item.cid!,
                   dimension: item.dimension,

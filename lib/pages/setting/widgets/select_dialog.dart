@@ -7,11 +7,13 @@ import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
+import 'package:PiliPlus/pages/setting/widgets/checkbox_num_list_tile.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 class SelectDialog<T> extends StatelessWidget {
   final T? value;
@@ -87,9 +89,14 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   late final List<ValueNotifier<String?>> _cdnResList;
   late final List<CancelToken?> _tokens;
   late final bool _cdnSpeedTest;
+  late final Map<CDNService, int> _selected;
 
   @override
   void initState() {
+    _selected = {
+      for (final (index, service) in VideoUtils.cdnServices.indexed)
+        service: index + 1,
+    };
     _cdnSpeedTest = Pref.cdnSpeedTest;
     if (_cdnSpeedTest) {
       _dio =
@@ -245,26 +252,96 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return SelectDialog<CDNService>(
-      title: 'CDN 设置',
-      values: CDNService.values.map((i) => (i, i.desc)).toList(),
-      value: VideoUtils.cdnService,
-      subtitleBuilder: _cdnSpeedTest
-          ? (context, index) {
-              final item = _cdnResList[index];
-              return ValueListenableBuilder(
-                valueListenable: item,
-                builder: (context, value, _) {
-                  return Text(
-                    value ?? '---',
-                    style: const TextStyle(fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  );
+    final theme = Theme.of(context);
+    return AlertDialog(
+      clipBehavior: Clip.hardEdge,
+      title: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('CDN 设置'),
+          SizedBox(height: 4),
+          Text(
+            '新视频按勾选顺序轮换；无法播放时退出重开即可尝试下一个 CDN，最多选择 3 个',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
+          ),
+        ],
+      ),
+      constraints: _cdnSpeedTest
+          ? const BoxConstraints.tightFor(width: 320)
+          : null,
+      contentPadding: const EdgeInsets.only(top: 12),
+      content: Material(
+        type: MaterialType.transparency,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: CDNService.values.map((service) {
+              final order = _selected[service];
+              return OrderedCheckboxListTile(
+                dense: true,
+                value: order,
+                title: Text(
+                  service.desc,
+                  style: theme.textTheme.titleMedium,
+                ),
+                subtitle: _cdnSpeedTest
+                    ? ValueListenableBuilder(
+                        valueListenable: _cdnResList[service.index],
+                        builder: (context, value, _) => Text(
+                          value ?? '---',
+                          style: const TextStyle(fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    : null,
+                onChanged: (_) {
+                  if (order == null) {
+                    if (_selected.length == 3) {
+                      SmartDialog.showToast('最多选择 3 个 CDN');
+                      return;
+                    }
+                    setState(() {
+                      _selected[service] = _selected.length + 1;
+                    });
+                    return;
+                  }
+                  if (_selected.length == 1) {
+                    SmartDialog.showToast('至少保留 1 个 CDN');
+                    return;
+                  }
+                  setState(() {
+                    _selected.remove(service);
+                    _selected.updateAll(
+                      (key, value) => value > order ? value - 1 : value,
+                    );
+                  });
                 },
               );
-            }
-          : null,
+            }).toList(),
+          ),
+        ),
+      ),
+      actionsPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            '取消',
+            style: TextStyle(color: theme.colorScheme.outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            final ordered = _selected.entries.toList()
+              ..sort((a, b) => a.value.compareTo(b.value));
+            Navigator.of(context).pop(
+              ordered.map((item) => item.key).toList(growable: false),
+            );
+          },
+          child: const Text('确定'),
+        ),
+      ],
     );
   }
 }

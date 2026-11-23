@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
@@ -19,7 +20,8 @@ class VideoCardVMemberHome extends StatelessWidget {
 
   const VideoCardVMemberHome(this.videoItem, {super.key});
 
-  Future<void> onPushDetail() async {
+  Future<void> onPushDetail(BuildContext context) async {
+    final Rect? originRect = videoCardRectOf(context);
     String? goto = videoItem.goto;
     switch (goto) {
       case 'bangumi':
@@ -52,6 +54,7 @@ class VideoCardVMemberHome extends StatelessWidget {
         }
         if (cid != null) {
           PageUtils.toVideoPage(
+        originRect: originRect,
             bvid: bvid,
             cid: cid,
             cover: videoItem.cover,
@@ -78,7 +81,7 @@ class VideoCardVMemberHome extends StatelessWidget {
     );
     return Card(
       child: InkWell(
-        onTap: onPushDetail,
+        onTap: () => onPushDetail(context),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         borderRadius: const .all(.circular(12)),

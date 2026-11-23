@@ -12,6 +12,10 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
   final _mainController = Get.find<MainController>();
 
   bool get needsCorrection => false;
+  int get maxScrollNotificationDepth => 1;
+
+/// 当前页面中会随 barOffset 改变布局高度的区域实际高度。
+double get collapsibleExtent => Style.topBarHeight;
 
   @override
   void initState() {
@@ -40,19 +44,27 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
   }
 
   bool onNotificationType1(UserScrollNotification notification) {
-    if (!_mainController.useBottomNav) return false;
-    if (notification.metrics.axis == .horizontal) return false;
-    switch (notification.direction) {
-      case .forward:
-        _showTopBar?.value = true;
-        _showBottomBar?.value = true;
-      case .reverse:
-        _showTopBar?.value = false;
-        _showBottomBar?.value = false;
-      case _:
-    }
+  if (!_mainController.useBottomNav ||
+      notification.depth > maxScrollNotificationDepth ||
+      notification.metrics.axis == .horizontal) {
     return false;
   }
+
+  switch (notification.direction) {
+    case .forward:
+      _showTopBar?.value = true;
+      _showBottomBar?.value = true;
+
+    case .reverse:
+      _showTopBar?.value = false;
+      _showBottomBar?.value = false;
+
+    case _:
+      break;
+  }
+
+  return false;
+}
 
   void _updateOffset(double scrollDelta) {
     _barOffset!.value = clampDouble(
@@ -61,46 +73,74 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
       Style.topBarHeight,
     );
   }
+double _convertScrollDelta(double scrollDelta) {
+  if (!needsCorrection) {
+    return scrollDelta;
+  }
 
-  bool onNotificationType2(ScrollNotification notification) {
-    if (!_mainController.useBottomNav) return false;
+  return scrollDelta *
+      Style.topBarHeight /
+      collapsibleExtent;
+}
+bool onNotificationType2(ScrollNotification notification) {
+  if (!_mainController.useBottomNav ||
+      notification.depth > maxScrollNotificationDepth ||
+      notification.metrics.axis == .horizontal) {
+    return false;
+  }
 
-    final metrics = notification.metrics;
-    if (metrics.axis == .horizontal) return false;
+  final metrics = notification.metrics;
 
-    if (notification is ScrollUpdateNotification) {
-      if (notification.dragDetails == null) return false;
-      final pixel = metrics.pixels;
-      final scrollDelta = notification.scrollDelta ?? 0;
-      if (pixel < 0.0 && scrollDelta > 0) return false;
-      if (needsCorrection) {
-        final value = _barOffset!.value;
-        final newValue = clampDouble(
-          value + scrollDelta,
-          0.0,
-          Style.topBarHeight,
-        );
-        final offset = value - newValue;
-        if (offset != 0) {
-          _barOffset!.value = newValue;
-          if (pixel < 0.0 && scrollDelta < 0.0 && value > 0.0) {
-            return false;
-          }
-          Scrollable.of(notification.context!).position.correctBy(offset);
-        }
-      } else {
-        _updateOffset(scrollDelta);
-      }
+  if (notification is ScrollUpdateNotification) {
+    final pixel = metrics.pixels;
+    final scrollDelta = notification.scrollDelta ?? 0.0;
+    final isDirectDrag = notification.dragDetails != null;
+
+    // 顶部弹性区域向内容范围回弹时，不反向推动栏位移。
+    if (pixel < 0.0 && scrollDelta > 0.0) {
       return false;
     }
 
-    if (notification is OverscrollNotification) {
-      _updateOffset(notification.overscroll);
-      return false;
+    final barDelta = _convertScrollDelta(scrollDelta);
+
+    if (needsCorrection && isDirectDrag) {
+      final oldValue = _barOffset!.value;
+      final newValue = clampDouble(
+        oldValue + barDelta,
+        0.0,
+        Style.topBarHeight,
+      );
+
+      // 将 barOffset 的变化量换算回实际布局高度变化量。
+      final correction =
+          (oldValue - newValue) *
+          collapsibleExtent /
+          Style.topBarHeight;
+
+      if (correction != 0.0) {
+        _barOffset!.value = newValue;
+
+        Scrollable.of(
+          notification.context!,
+        ).position.correctBy(correction);
+      }
+    } else {
+      // 惯性滚动、程序化滚动也必须使用同一套比例换算。
+      _updateOffset(barDelta);
     }
 
     return false;
   }
+
+  if (notification is OverscrollNotification) {
+    _updateOffset(
+      _convertScrollDelta(notification.overscroll),
+    );
+    return false;
+  }
+
+  return false;
+}
 
   @override
   void dispose() {

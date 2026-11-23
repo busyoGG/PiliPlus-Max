@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
 import 'package:PiliPlus/common/sliver_single_child_delegate.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -57,14 +58,25 @@ class _LivePageState extends State<LivePage>
       margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
+        // 下拉刷新的指示器要落在顶栏下面，不然会被顶栏毛玻璃挡住。
+        edgeOffset: HomeHeaderOverlay.insetOf(context),
         onRefresh: controller.onRefresh,
         child: CustomScrollView(
           controller: controller.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            Obx(() => _buildTop(controller.topState.value)),
-            Obx(() => _buildBody(controller.loadingState.value)),
-            const SliverPadding(padding: .only(bottom: 100)),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                top: Style.cardSpace + HomeHeaderOverlay.insetOf(context),
+                bottom: 100,
+              ),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  Obx(() => _buildTop(theme, controller.topState.value)),
+                  Obx(() => _buildBody(theme, controller.loadingState.value)),
+                ],
+              ),
+            ),
           ],
         ),
       ),

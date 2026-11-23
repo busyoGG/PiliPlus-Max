@@ -1,17 +1,20 @@
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/gestures.dart' show GestureRecognizerFactoryConstructor;
+import 'package:flutter/material.dart' hide TabBarView;
 
 Widget tabBarView({
   required List<Widget> children,
   TabController? controller,
-  HitTestBehavior hitTestBehavior = .opaque,
-}) => TabBarView(
+  GestureRecognizerFactoryConstructor<CustomHorizontalDragGestureRecognizer>?
+      horizontalDragGestureRecognizer,
+}) => TabBarView<CustomHorizontalDragGestureRecognizer>(
   controller: controller,
-  physics: tabBarScrollPhysics,
-  hitTestBehavior: hitTestBehavior,
-  horizontalDragGestureRecognizer: CustomHorizontalDragGestureRecognizer.new,
+  physics: clampingScrollPhysics,
+  horizontalDragGestureRecognizer:
+      horizontalDragGestureRecognizer ??
+      CustomHorizontalDragGestureRecognizer.new,
   children: children,
 );
 

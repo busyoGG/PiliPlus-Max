@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -10,6 +11,7 @@ import 'package:PiliPlus/models/horizontal_video_model.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
+import 'package:PiliPlus/utils/interactive_video_progress.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
@@ -45,7 +47,50 @@ class VideoCardH extends StatelessWidget {
           InkWell(
             onLongPress: onLongPress,
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-            onTap: onTap ?? () => pushVideoH(videoItem),
+            onTap:
+                onTap ??
+                () async {
+                  final Rect? originRect = videoCardRectOf(context);
+                  if (videoItem.isPugv ?? false) {
+                    PageUtils.viewPugv(seasonId: videoItem.seasonId);
+                    return;
+                  }
+
+                  if (videoItem.isLive ?? false) {
+                    if (videoItem.roomId case final roomId?) {
+                      PageUtils.toLiveRoom(roomId);
+                    }
+                    return;
+                  }
+
+                  if (videoItem.redirectUrl?.isNotEmpty == true &&
+                      PageUtils.viewPgcFromUri(videoItem.redirectUrl!)) {
+                    return;
+                  }
+
+                  int? cid = videoItem.cid;
+                  Dimension? dimension = videoItem.dimension;
+                  if (cid == null) {
+                    if (await SearchHttp.ab2cWithDimension(
+                          aid: videoItem.aid,
+                          bvid: videoItem.bvid,
+                        )
+                        case final res?) {
+                      cid = res.cid;
+                      dimension = res.dimension;
+                    }
+                  }
+                  if (cid != null) {
+                    PageUtils.toVideoPage(
+                      bvid: videoItem.bvid,
+                      cid: cid,
+                      cover: videoItem.cover,
+                      title: videoItem.title,
+                      dimension: dimension,
+                      originRect: originRect,
+                    );
+                  }
+                },
             child: Padding(
               padding: const .symmetric(
                 horizontal: Style.safeSpace,
@@ -62,6 +107,10 @@ class VideoCardH extends StatelessWidget {
                         final double maxHeight = boxConstraints.maxHeight;
 
                         final progress = videoItem.progress;
+                        final interactiveProgressLabel =
+                            InteractiveVideoProgressRepository.get(
+                              videoItem.bvid ?? '',
+                            )?.cardLabel;
 
                         return Stack(
                           clipBehavior: .none,
@@ -70,6 +119,7 @@ class VideoCardH extends StatelessWidget {
                               src: videoItem.cover,
                               width: maxWidth,
                               height: maxHeight,
+                              borderRadius: Style.cardRadius,
                             ),
                             if (videoItem.badge case final badge?)
                               PBadge(
@@ -81,7 +131,15 @@ class VideoCardH extends StatelessWidget {
                                   _ => .primary,
                                 },
                               ),
-                            if (progress != null && progress != 0) ...[
+                            if (interactiveProgressLabel != null)
+                              PBadge(
+                                text: interactiveProgressLabel,
+                                right: 6,
+                                bottom: 8,
+                                maxWidth: maxWidth - 12,
+                                type: .gray,
+                              )
+                            else if (progress != null && progress != 0) ...[
                               PBadge(
                                 text: progress == -1
                                     ? '已看完'

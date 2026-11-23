@@ -6,12 +6,14 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/models/common/later_view_type.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/later/list.dart';
 import 'package:PiliPlus/pages/later/base_controller.dart';
 import 'package:PiliPlus/pages/later/controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -62,7 +64,7 @@ class _LaterPageState extends State<LaterPage>
 
   @override
   Widget build(BuildContext context) {
-    final padding = MediaQuery.viewPaddingOf(context);
+    final colorScheme = ColorScheme.of(context);
     return Obx(
       () {
         final enableMultiSelect = _baseCtr.enableMultiSelect.value;
@@ -95,6 +97,12 @@ class _LaterPageState extends State<LaterPage>
                                 details.localPosition.dx < _baseCtr.dx,
                               ),
                           child: FloatingActionButton.extended(
+                            backgroundColor: Theme.of(context).uiColor(
+                              ThemeUiElement.laterPlayAllBackground,
+                            ),
+                            foregroundColor: Theme.of(context).uiColor(
+                              ThemeUiElement.laterPlayAllContent,
+                            ),
                             onPressed: () {
                               if (_baseCtr.isPlayAll.value) {
                                 currCtr().toViewPlayAll();

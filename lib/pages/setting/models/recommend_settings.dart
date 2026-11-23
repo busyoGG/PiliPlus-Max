@@ -1,8 +1,13 @@
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models/common/home_card_aspect_ratio.dart';
+import 'package:PiliPlus/models/common/recommend_history_filter_settings.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
+import 'package:PiliPlus/pages/setting/widgets/recommend_history_filter_dialog.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
+import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
@@ -24,9 +29,7 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: true,
     onChanged: (value) {
       try {
-        Get.find<RcmdController>()
-          ..enableSaveLastData = value
-          ..lastRefreshAt = null;
+        Get.find<RcmdController>().updateSaveLastData(value);
       } catch (e) {
         if (kDebugMode) debugPrint('$e');
       }
@@ -40,13 +43,53 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: true,
     onChanged: (value) {
       try {
-        Get.find<RcmdController>()
-          ..savedRcmdTip = value
-          ..lastRefreshAt = null;
+        Get.find<RcmdController>().updateSavedRcmdTip(value);
       } catch (e) {
         if (kDebugMode) debugPrint('$e');
       }
     },
+  ),
+  getVideoFilterSelectModel(
+    title: '首页每次刷新卡片数',
+    key: SettingBoxKey.rcmdRefreshCount,
+    values: [4, 6, 8, 10, 12, 16, 20, 24, 30],
+    defaultValue: 20,
+    isFilter: false,
+    onChanged: (value) {
+      try {
+        Get.find<RcmdController>().refreshItemCount = value;
+      } catch (e) {
+        if (kDebugMode) debugPrint('$e');
+      }
+    },
+  ),
+  PopupModel<HomeCardAspectRatio>(
+    title: '首页卡片尺寸',
+    leading: const Icon(Icons.aspect_ratio_outlined),
+    value: () => Pref.homeCardAspectRatio,
+    items: HomeCardAspectRatio.values,
+    onSelected: (value, setState) {
+      GStorage.setting
+          .put(SettingBoxKey.homeCardAspectRatio, value.name)
+          .whenComplete(() {
+            setState();
+            Get.appUpdate();
+          });
+    },
+  ),
+  NormalModel(
+    title: '近期推荐历史过滤',
+    leading: const Icon(Icons.history_toggle_off_outlined),
+    getSubtitle: () =>
+        _historyFilterSummary(Pref.recommendHistoryFilterSettings),
+    onTap: _showHistoryFilterDialog,
+  ),
+  const SwitchModel(
+    title: '首页下拉刷新显示过滤统计',
+    subtitle: '刷新后提示本次请求的推荐总数和过滤数',
+    leading: Icon(Icons.query_stats_outlined),
+    setKey: SettingBoxKey.showRecommendRefreshStatsToast,
+    defaultVal: false,
   ),
   getVideoFilterSelectModel(
     title: '点赞率',
@@ -99,10 +142,52 @@ List<SettingsModel> get recommendSettings => [
   ),
   SwitchModel(
     title: '过滤器也应用于详情页相关视频',
-    subtitle: '其它（如热门视频、搜索等）均不受过滤器影响，无法豁免相关视频中的已关注UP',
+    subtitle: '推荐历史过滤除外；其它（如热门视频、搜索等）均不受过滤器影响，无法豁免相关视频中的已关注UP',
     leading: const Icon(Icons.explore_outlined),
     setKey: SettingBoxKey.applyFilterToRelatedVideos,
     defaultVal: true,
     onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
   ),
 ];
+
+Future<void> _showHistoryFilterDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final result = await showDialog<RecommendHistoryFilterSettings>(
+    context: context,
+    builder: (context) => RecommendHistoryFilterDialog(
+      initialValue: Pref.recommendHistoryFilterSettings,
+    ),
+  );
+  if (result == null) {
+    return;
+  }
+  await GStorage.setting.put(
+    SettingBoxKey.recommendHistoryFilterSettings,
+    result.toStorage(),
+  );
+  setState();
+}
+
+String _historyFilterSummary(RecommendHistoryFilterSettings value) {
+  if (!value.enabled) {
+    return '仅针对首页；未开启；仍保留最近 30 天记录';
+  }
+  final days = value.lookbackMinutes ~/ (24 * 60);
+  final hours = value.lookbackMinutes % (24 * 60) ~/ 60;
+  final minutes = value.lookbackMinutes % 60;
+  final parts = <String>[
+    if (days > 0) '$days 天',
+    if (hours > 0) '$hours 小时',
+    if (minutes > 0) '$minutes 分钟',
+  ];
+  final rules = <String>[
+    if (value.exposureThreshold > 0) '推荐 ${value.exposureThreshold} 次',
+    if (value.watchThreshold > 0)
+      '观看 ${value.watchThreshold} 次（至少 ${value.minWatchSeconds} 秒）',
+  ];
+  return rules.isEmpty
+      ? '仅针对首页；${parts.join(' ')}内；不按次数过滤'
+      : '仅针对首页；${parts.join(' ')}内；${rules.join(' 或 ')}';
+}

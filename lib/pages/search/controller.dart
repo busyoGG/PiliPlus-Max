@@ -12,8 +12,8 @@ import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:get/get.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 mixin DebounceStreamMixin<T> {
@@ -85,6 +85,7 @@ class SSearchController extends GetxController
   final String tag;
 
   final searchFocusNode = FocusNode();
+  final scrollController = ScrollController(keepScrollOffset: false);
   final controller = TextEditingController();
   final _baseCtr = Get.putOrFind(BaseSearchController.new);
 
@@ -119,6 +120,7 @@ class SSearchController extends GetxController
     super.onInit();
     final params = Get.parameters;
     hintText = params['hintText'];
+    initIndex = Get.arguments?['initIndex'] ?? 0;
     final text = params['text'];
     if (text != null) {
       controller.text = text;
@@ -127,7 +129,7 @@ class SSearchController extends GetxController
     if (searchSuggestion) {
       subInit();
       searchSuggestList = <SearchSuggestItem>[].obs;
-      if (text != null) onValueChanged(text);
+      refreshSuggestions();
     }
 
     if (enableSearchRcmd) {
@@ -151,6 +153,13 @@ class SSearchController extends GetxController
     }
   }
 
+  void refreshSuggestions() {
+    final value = controller.text;
+    if (searchSuggestion && value.isNotEmpty) {
+      unawaited(onValueChanged(value));
+    }
+  }
+
   void onClear() {
     if (controller.value.text != '') {
       controller.clear();
@@ -163,7 +172,7 @@ class SSearchController extends GetxController
   }
 
   // 搜索
-  Future<void> submit() async {
+  void submit() {
     if (controller.text.isEmpty) {
       if (hintText.isNullOrEmpty) return;
       controller.text = hintText!;
@@ -186,16 +195,16 @@ class SSearchController extends GetxController
     }
 
     searchFocusNode.unfocus();
-    Get.toNamed(
+    Get.offNamedUntil<void>(
       '/searchResult',
-      parameters: {'tag': tag, 'keyword': text},
-      arguments: {'initIndex': initIndex, 'fromSearch': true},
-    )?.then((val) {
-      searchFocusNode.requestFocus();
-      if (val is bool && val) {
-        onValueChanged(text);
-      }
-    });
+      ModalRoute.withName('/'),
+      parameters: {
+        'keyword': controller.text,
+      },
+      arguments: {
+        'initIndex': initIndex,
+      },
+    );
   }
 
   Future<void> queryRecommendList() async {
@@ -213,6 +222,7 @@ class SSearchController extends GetxController
   @override
   Future<void> onValueChanged(String value) async {
     final res = await SearchHttp.searchSuggest(term: value);
+    if (value != controller.text) return;
     if (res case Success(:final response)) {
       if (response.tag?.isNotEmpty == true) {
         searchSuggestList.value = response.tag!;
@@ -240,6 +250,7 @@ class SSearchController extends GetxController
   void onClose() {
     subDispose();
     searchFocusNode.dispose();
+    scrollController.dispose();
     controller.dispose();
     super.onClose();
   }

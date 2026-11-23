@@ -23,10 +23,54 @@ mixin SearchVideoMixin on SearchVideoController {
   }
 
   @override
+  Future<LoadingState<SearchVideoData>> customGetData() async {
+    final begin = pubBegin;
+    final end = pubEnd;
+    if (begin == null && end == null) {
+      return super.customGetData();
+    }
+    final requestOrder = order;
+    final requestDuration = videoDurationType;
+    final requestZone = videoZoneType;
+    while (true) {
+      final result = await super.customGetData();
+      if (result is! Success<SearchVideoData>) {
+        return result;
+      }
+      final data = result.response;
+      final rawList = data.list;
+      // 接口可能忽略发布时间参数，展示前必须按实际发布时间校验。
+      data.list = rawList?.where((item) {
+        final pubdate = item.pubdate;
+        return pubdate != null &&
+            (begin == null || pubdate >= begin) &&
+            (end == null || pubdate <= end);
+      }).toList();
+      if (isClosed ||
+          pubBegin != begin ||
+          pubEnd != end ||
+          order != requestOrder ||
+          videoDurationType != requestDuration ||
+          videoZoneType != requestZone ||
+          rawList == null ||
+          rawList.isEmpty ||
+          data.list!.isNotEmpty ||
+          !data.hasMore(page)) {
+        return result;
+      }
+      // 空的是筛选后的列表，原始结果仍有下一页时不能提前结束。
+      page++;
+    }
+  }
+
+  @override
   bool customHandleResponse(bool isRefresh, Success<SearchVideoData> response) {
-    if (isRefresh && !_hasJump2Video) {
-      _hasJump2Video = true;
-      _onPushDetail(response.response.list);
+    isEnd = !response.response.hasMore(page);
+    searchResultController?.count[searchType.index] =
+        response.response.numResults ?? 0;
+    if (searchType == SearchType.video && !hasJump2Video && isRefresh) {
+      hasJump2Video = true;
+      onPushDetail(response.response.list);
     }
     return super.customHandleResponse(isRefresh, response);
   }
@@ -84,6 +128,7 @@ class SearchVideoController
   late DateTime pubEndDate;
   bool customPubBeginDate = false;
   bool customPubEndDate = false;
+  static final _earliestPubDate = DateTime(2009, 6, 26);
 
   void onShowFilterDialog(BuildContext context) {
     showModalBottomSheet(
@@ -109,7 +154,7 @@ class SearchVideoController
                 showDatePicker(
                   context: context,
                   initialDate: isFirst ? pubBeginDate : pubEndDate,
-                  firstDate: isFirst ? DateTime(2009, 6, 26) : pubBeginDate,
+                  firstDate: _earliestPubDate,
                   lastDate: isFirst ? pubEndDate : DateTime.now(),
                 ).then((selectedDate) {
                   if (selectedDate != null) {
@@ -119,18 +164,19 @@ class SearchVideoController
                     } else {
                       customPubEndDate = true;
                       pubEndDate = selectedDate;
+                      if (pubEndDate.isBefore(pubBeginDate)) {
+                        // 自动对齐不算手动选择起始日期，继续使用完整历史范围。
+                        pubBeginDate = pubEndDate;
+                        customPubBeginDate = false;
+                      }
                     }
                     pubTimeType = null;
                     SmartDialog.dismiss();
+                    // 时间筛选需要有效的起止参数，未手动设置起始日期时
+                    // 使用最早可选日期作为实际下限，显示值仍可与终止日期对齐。
                     pubBegin =
-                        DateTime(
-                          pubBeginDate.year,
-                          pubBeginDate.month,
-                          pubBeginDate.day,
-                          0,
-                          0,
-                          0,
-                        ).millisecondsSinceEpoch ~/
+                        (customPubBeginDate ? pubBeginDate : _earliestPubDate)
+                            .millisecondsSinceEpoch ~/
                         1000;
                     pubEnd =
                         DateTime(
@@ -180,6 +226,8 @@ class SearchVideoController
                         text: e.label,
                         onTap: (text) {
                           pubTimeType = e;
+                          customPubBeginDate = false;
+                          customPubEndDate = false;
                           DateTime now = DateTime.now();
                           if (e == VideoPubTimeType.all) {
                             pubBegin = null;

@@ -54,8 +54,7 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
-    this.onHover,
-    this.onExit,
+    this.verticalTouchPadding = 0.0,
   });
 
   /// The elapsed playing time of the media.
@@ -186,9 +185,8 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
 
-  final PointerEventListener? onHover;
-
-  final VoidCallback? onExit;
+  /// Extra transparent hit area added equally above and below the visible bar.
+  final double verticalTouchPadding;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
@@ -209,8 +207,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
-      onHover: onHover,
-      onExit: onExit,
+      verticalTouchPadding: verticalTouchPadding,
     );
   }
 
@@ -236,8 +233,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
       ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
-      .._onHover = onHover
-      .._onExit = onExit;
+      ..verticalTouchPadding = verticalTouchPadding;
   }
 
   @override
@@ -283,6 +279,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..add(ColorProperty('thumbColor', thumbColor))
       ..add(ColorProperty('thumbGlowColor', thumbGlowColor))
       ..add(DoubleProperty('thumbGlowRadius', thumbGlowRadius))
+      ..add(DoubleProperty('verticalTouchPadding', verticalTouchPadding))
       ..add(
         FlagProperty(
           'thumbCanPaintOutsideBar',
@@ -362,21 +359,17 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required this._thumbGlowColor,
     double thumbGlowRadius = 30.0,
     this._thumbCanPaintOutsideBar = true,
-    PointerEventListener? onHover,
-    VoidCallback? onExit,
+    double verticalTouchPadding = 0.0,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
        _thumbRadius = thumbRadius,
        _thumbGlowRadius = thumbGlowRadius,
+       _verticalTouchPadding = verticalTouchPadding,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
        _hitTestSelf = onDragStart != null || onHover != null {
     if (onDragStart != null) {
-      _drag = _EagerHorizontalDragGestureRecognizer()
-        ..onStart = _onDragStart
-        ..onUpdate = _onDragUpdate
-        ..onEnd = _onDragEnd
-        ..onCancel = _finishDrag;
+      _drag = _createDragRecognizer();
     }
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
@@ -394,6 +387,26 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
 
   // This is the gesture recognizer used to move the thumb.
   _EagerHorizontalDragGestureRecognizer? _drag;
+
+  _EagerHorizontalDragGestureRecognizer _createDragRecognizer() =>
+      _EagerHorizontalDragGestureRecognizer()
+        ..onStart = _onDragStart
+        ..onUpdate = _onDragUpdate
+        ..onEnd = _onDragEnd
+        ..onCancel = _finishDrag;
+
+  /// onDragStart 由 null 变为非 null 时（例如直播时移就绪后播放器才允许
+  /// 拖动），必须补上拖动识别器并打开命中测试，否则进度条永远拖不动。
+  void _syncDragRecognizer() {
+    final bool needDrag = _onDragStartUserCallback != null;
+    if (needDrag && _drag == null) {
+      _drag = _createDragRecognizer();
+    } else if (!needDrag && _drag != null) {
+      _drag!.dispose();
+      _drag = null;
+    }
+    _hitTestSelf = needDrag;
+  }
 
   // This is a value between 0.0 and 1.0 used to indicate the position on
   // the bar.
@@ -535,6 +548,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       return;
     }
     _onDragStartUserCallback = value;
+    _syncDragRecognizer();
   }
 
   /// A callback when the thumb is being dragged.
@@ -640,6 +654,19 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     markNeedsPaint();
   }
 
+  /// Extra transparent hit area above and below the visible progress bar.
+  double get verticalTouchPadding => _verticalTouchPadding;
+double _verticalTouchPadding;
+
+set verticalTouchPadding(double value) {
+  if (_verticalTouchPadding == value) return;
+  _verticalTouchPadding = value;
+
+  // verticalTouchPadding 只影响命中测试，
+  // 不再触发布局和绘制尺寸变化。
+  markNeedsSemanticsUpdate();
+}
+
   // The smallest that this widget would ever want to be.
   static const _minDesiredWidth = 100.0;
 
@@ -655,9 +682,55 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   @override
   double computeMaxIntrinsicHeight(double width) => _heightWhenNoLabels();
 
-  final bool _hitTestSelf;
-  @override
-  bool hitTestSelf(Offset position) => _hitTestSelf;
+  bool _hitTestSelf;
+
+@override
+bool hitTestSelf(Offset position) => _hitTestSelf;
+
+/// 将位于组件正常布局范围之外、但位于扩展触摸区域内的指针
+/// 交给进度条的拖动识别器。
+///
+/// 该方法由播放器最外层 Listener 调用，因此不受中间父组件
+/// RenderBox 命中边界的限制。
+void addPointerFromExpandedHitRegion(
+  PointerDownEvent event, {
+  required double verticalPadding,
+}) {
+  if (!_hitTestSelf || _drag == null || verticalPadding <= 0) {
+    return;
+  }
+
+  final Offset localPosition = globalToLocal(event.position);
+  final Rect normalRect = Offset.zero & size;
+
+  // 正常布局范围内的事件已经会由 handleEvent 加入识别器。
+  // 这里必须返回，防止同一个 pointer 被重复 addPointer。
+  if (normalRect.contains(localPosition)) {
+    return;
+  }
+
+  final Rect expandedRect = Rect.fromLTRB(
+    0,
+    -verticalPadding,
+    size.width,
+    size.height + verticalPadding,
+  );
+
+  if (expandedRect.contains(localPosition)) {
+  // getTransformTo(null) 是“进度条局部坐标 → 全局坐标”；
+  // 识别器需要“全局坐标 → 进度条局部坐标”，因此取逆矩阵。
+  final transform = Matrix4.tryInvert(getTransformTo(null));
+  if (transform == null) {
+    return;
+  }
+
+  final transformedEvent = event.transformed(transform);
+
+  if (transformedEvent is PointerDownEvent) {
+    _drag!.addPointer(transformedEvent);
+  }
+  }
+}
 
   @override
   void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
@@ -685,7 +758,9 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   }
 
   double _heightWhenNoLabels() {
-    return max(2 * _thumbRadius, _barHeight);
+  // 只返回可见内容所需高度。
+  // 触摸扩展范围不得参与布局。
+  return max(2 * _thumbRadius, _barHeight);
   }
 
   @override
@@ -787,30 +862,28 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // }
     canvas.drawCircle(center, thumbRadius, thumbPaint);
   }
+/// 返回指定播放进度对应的手柄全局横坐标。
+///
+/// 横滑快进/快退时，进度条本身可能还没有完成下一帧重绘，
+/// 因此不能直接读取当前 _thumbValue，而要根据传入进度重新计算。
+double globalThumbXForProgress(int progress) {
+  final thumbValue = _proportionOfTotal(progress);
+  final barCapRadius = _barHeight / 2;
+  final availableWidth = size.width - _barHeight;
 
-  static const _kIndicatorX = 6.0;
-  static const _kIndicatorY = 4.0;
-  static const _kIndicatorPadding = 2.0;
-  // ignore: unused_element
-  void _drawHoverIndicator(
-    Canvas canvas,
-    Size localSize,
-    double dx,
-    Paint thumbPaint,
-  ) {
-    final bottomDy = localSize.height + _kIndicatorY;
-    final path = Path()
-      ..moveTo(dx, _kIndicatorPadding)
-      ..lineTo(dx - _kIndicatorX, -_kIndicatorY)
-      ..lineTo(dx + _kIndicatorX, -_kIndicatorY)
-      ..close()
-      ..moveTo(dx, localSize.height - _kIndicatorPadding)
-      ..lineTo(dx - _kIndicatorX, bottomDy)
-      ..lineTo(dx + _kIndicatorX, bottomDy)
-      ..close();
-    canvas.drawPath(path, thumbPaint);
+  var thumbDx = thumbValue * availableWidth + barCapRadius;
+
+  if (!_thumbCanPaintOutsideBar) {
+    thumbDx = thumbDx.clamp(
+      _thumbRadius,
+      size.width - _thumbRadius,
+    );
   }
 
+  return localToGlobal(
+    Offset(thumbDx, size.height / 2),
+  ).dx;
+}
   double _proportionOfTotal(int duration) {
     if (total == 0) {
       return 0.0;

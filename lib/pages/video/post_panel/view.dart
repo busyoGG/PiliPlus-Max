@@ -8,6 +8,7 @@ import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/sponsor_block.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/action_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
@@ -16,8 +17,8 @@ import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/post_panel/popup_menu_text.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -343,7 +344,9 @@ class _PostPanelState extends State<PostPanel>
     if (list.isEmpty) {
       return scrollableError;
     }
-    return ListView.builder(
+    final colorScheme = theme.colorScheme;
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    Widget child = ListView.builder(
       key: _key,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 88 + bottom),
@@ -351,6 +354,51 @@ class _PostPanelState extends State<PostPanel>
       itemBuilder: (context, index) {
         return _buildItem(index, list[index]);
       },
+    );
+    if (_isNested) {
+      child = ExtendedVisibilityDetector(
+        uniqueKey: const ValueKey(PostPanel),
+        child: child,
+      );
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: kFloatingActionButtonMargin,
+          bottom: kFloatingActionButtonMargin + bottom,
+          child: FloatingActionButton(
+            backgroundColor: Theme.of(
+              context,
+            ).uiColor(ThemeUiElement.videoPostSubmitBackground),
+            foregroundColor: Theme.of(
+              context,
+            ).uiColor(ThemeUiElement.videoPostSubmitContent),
+            tooltip: '提交',
+            onPressed: () => showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('确定无误再提交'),
+                actions: [
+                  TextButton(
+                    onPressed: Get.back,
+                    child: Text(
+                      '取消',
+                      style: TextStyle(color: theme.colorScheme.outline),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _onPost,
+                    child: const Text('确定提交'),
+                  ),
+                ],
+              ),
+            ),
+            child: const Icon(Icons.check),
+          ),
+        ),
+      ],
     );
   }
 

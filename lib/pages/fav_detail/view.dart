@@ -8,7 +8,7 @@ import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/fav_order_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/data.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/fav/fav_detail/media.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/pages/common/page_order/page_order_btn_mixin.dart';
@@ -16,6 +16,7 @@ import 'package:PiliPlus/pages/dynamics_repost/view.dart';
 import 'package:PiliPlus/pages/fav_detail/controller.dart';
 import 'package:PiliPlus/pages/fav_detail/widget/fav_video_card.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
@@ -54,6 +55,7 @@ class _FavDetailPageState extends State<FavDetailPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     padding = MediaQuery.viewPaddingOf(context);
     return Obx(
       () {
@@ -86,6 +88,12 @@ class _FavDetailPageState extends State<FavDetailPage>
                                 details.localPosition.dx < controller.dx,
                               ),
                           child: FloatingActionButton.extended(
+                            backgroundColor: Theme.of(context).uiColor(
+                              ThemeUiElement.favPlayAllBackground,
+                            ),
+                            foregroundColor: Theme.of(context).uiColor(
+                              ThemeUiElement.favPlayAllContent,
+                            ),
                             onPressed: () {
                               if (controller.isPlayAll.value) {
                                 controller.toViewPlayAll();

@@ -1,4 +1,4 @@
-import 'dart:async' show FutureOr, Timer;
+import 'dart:async' show FutureOr, Timer, unawaited;
 
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -59,7 +59,25 @@ abstract class CommonIntroController extends GetxController
 
   final Rx<VideoDetailData> videoDetail = VideoDetailData().obs;
 
-  void queryVideoIntro();
+  FutureOr<void> queryVideoIntro();
+
+  // Allow playback startup to reuse the initial detail request instead of
+  // issuing a second request solely to identify interactive videos.
+  Future<void>? _initialVideoIntroQuery;
+  Future<void> ensureInitialVideoIntroLoaded() {
+    final current = _initialVideoIntroQuery;
+    if (current != null) {
+      return current;
+    }
+
+    late final Future<void> query;
+    query = Future<void>.sync(queryVideoIntro).whenComplete(() {
+      if (identical(_initialVideoIntroQuery, query)) {
+        _initialVideoIntroQuery = null;
+      }
+    });
+    return _initialVideoIntroQuery = query;
+  }
 
   bool prevPlay();
   bool nextPlay();
@@ -82,7 +100,7 @@ abstract class CommonIntroController extends GetxController
       args['viewLater'] ?? args['sourceType'] == SourceType.watchLater,
     );
 
-    queryVideoIntro();
+    unawaited(ensureInitialVideoIntroLoaded());
     startTimer();
   }
 
@@ -253,11 +271,17 @@ mixin FavMixin on TripleMixin {
       return;
     }
 
+    final originalFavIds = favIds;
+    final folders = favFolderData.value.list;
+    if (originalFavIds == null || folders == null) {
+      return;
+    }
+
     List<int?> addMediaIdsNew = [];
     List<int?> delMediaIdsNew = [];
     try {
-      for (final i in favFolderData.value.list!) {
-        bool isFaved = favIds?.contains(i.id) == true;
+      for (final i in folders) {
+        bool isFaved = originalFavIds.contains(i.id);
         if (i.favState == 1) {
           if (!isFaved) {
             addMediaIdsNew.add(i.id);
@@ -270,6 +294,17 @@ mixin FavMixin on TripleMixin {
       }
     } catch (e) {
       if (kDebugMode) debugPrint(e.toString());
+      return;
+    }
+    if (addMediaIdsNew.isEmpty && delMediaIdsNew.isEmpty) {
+      Get.back();
+      final newVal = originalFavIds.isNotEmpty;
+      if (hasFav.value != newVal) {
+        updateFavCount(newVal ? 1 : -1);
+        hasFav.value = newVal;
+      }
+      SmartDialog.showToast(newVal ? '已在选定收藏夹中' : '未收藏');
+      return;
     }
     SmartDialog.showLoading(msg: '请求中');
     final result = await FavHttp.favVideo(

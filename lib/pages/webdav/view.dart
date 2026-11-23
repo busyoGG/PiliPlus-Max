@@ -1,7 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/pages/webdav/webdav.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -115,8 +115,44 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                     onPressed: WebDav().restore,
                     child: const Text('恢复设置'),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            right:
+                kFloatingActionButtonMargin + (showAppBar ? padding.right : 0),
+            bottom: kFloatingActionButtonMargin + padding.bottom,
+            child: FloatingActionButton(
+              backgroundColor: Theme.of(
+                context,
+              ).uiColor(ThemeUiElement.webdavSaveBackground),
+              foregroundColor: Theme.of(
+                context,
+              ).uiColor(ThemeUiElement.webdavSaveContent),
+              child: const Icon(Icons.save),
+              onPressed: () async {
+                await GStorage.setting.putAll({
+                  SettingBoxKey.webdavUri: _uriCtr.text,
+                  SettingBoxKey.webdavUsername: _usernameCtr.text,
+                  SettingBoxKey.webdavPassword: _passwordCtr.text,
+                  SettingBoxKey.webdavDirectory: _directoryCtr.text,
+                });
+                if (_uriCtr.text.isEmpty) {
+                  return;
+                }
+                try {
+                  final res = await WebDav().init();
+                  if (res.first) {
+                    SmartDialog.showToast('配置成功');
+                  } else {
+                    SmartDialog.showToast('配置失败: ${res.second}');
+                  }
+                } catch (e) {
+                  SmartDialog.showToast('配置失败: ${e.toString()}');
+                  return;
+                }
+              },
             ),
           ],
         ),

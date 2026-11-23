@@ -19,7 +19,7 @@ class MemberShopItem extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final belowLabels = item.belowLabels?.map((e) => e.title).join('|');
     return Card(
-      shape: const RoundedRectangleBorder(borderRadius: .all(.circular(6))),
+      clipBehavior: Clip.hardEdge,
       child: InkWell(
         borderRadius: const .all(.circular(6)),
         onTap: () {

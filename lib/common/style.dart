@@ -6,7 +6,11 @@ abstract final class Style {
   static const safeSpace = 12.0;
   static const mdRadius = BorderRadius.all(imgRadius);
   static const imgRadius = Radius.circular(10);
-  static const borderRadius6 = BorderRadius.all(.circular(6));
+  static BorderRadius _cardRadius = mdRadius;
+  static BorderRadius get cardRadius => _cardRadius;
+  static void updateCardRadius(double radius) {
+    _cardRadius = BorderRadius.circular(radius);
+  }
   static const aspectRatio = 16 / 10;
   static const aspectRatio16x9 = 16 / 9;
   static const aspectRatio3x4 = 3 / 4;

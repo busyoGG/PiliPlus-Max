@@ -1,5 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
+import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/http/user.dart';
@@ -8,6 +10,7 @@ import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
+import 'package:PiliPlus/utils/interactive_video_progress.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -18,7 +21,7 @@ import 'package:material_ui/material_ui.dart';
 class HistoryItem extends StatelessWidget {
   final HistoryItemModel item;
   final MultiSelectBase ctr;
-  final void Function(int kid, String business) onDelete;
+  final ValueChanged<HistoryItemModel> onDelete;
 
   const HistoryItem({
     super.key,
@@ -32,6 +35,9 @@ class HistoryItem extends StatelessWidget {
     final theme = Theme.of(context);
     final hasDuration = item.hasDuration;
     final business = item.history.business;
+    final interactiveProgressLabel = business == 'archive'
+        ? InteractiveVideoProgressRepository.get(bvid)?.cardLabel
+        : null;
     final enableMultiSelect = ctr.enableMultiSelect.value;
 
     final onLongPress = enableMultiSelect
@@ -45,7 +51,62 @@ class HistoryItem extends StatelessWidget {
       child: InkWell(
         onTap: enableMultiSelect
             ? () => ctr.onSelect(item)
-            : () => onPushHistory(item),
+            : () async {
+                final Rect? originRect = videoCardRectOf(context);
+                if (business?.contains('article') == true) {
+                  PageUtils.toDupNamed(
+                    '/articlePage',
+                    parameters: {
+                      'id': business == 'article-list'
+                          ? '${item.history.cid}'
+                          : '${item.history.oid}',
+                      'type': 'read',
+                    },
+                  );
+                } else if (business == 'live') {
+                  if (item.liveStatus == 1) {
+                    PageUtils.toLiveRoom(item.history.oid);
+                  } else {
+                    SmartDialog.showToast('直播未开播');
+                  }
+                } else if (business == 'pgc') {
+                  PageUtils.viewPgc(epId: item.history.epid);
+                } else if (business == 'cheese') {
+                  if (item.uri?.isNotEmpty == true) {
+                    PageUtils.viewPgcFromUri(
+                      item.uri!,
+                      isPgc: false,
+                      aid: item.history.oid,
+                    );
+                  }
+                } else {
+                  int? cid = item.history.cid;
+                  Dimension? dimension;
+                  if (cid == null) {
+                    if (await SearchHttp.ab2cWithDimension(
+                          aid: aid,
+                          bvid: bvid,
+                          part: item.history.page,
+                        )
+                        case final res?) {
+                      cid = res.cid;
+                      dimension = res.dimension;
+                    }
+                  }
+                  if (cid != null) {
+                    // TODO: dimension
+                    PageUtils.toVideoPage(
+                      originRect: originRect,
+                      aid: aid,
+                      bvid: bvid,
+                      cid: cid,
+                      cover: item.cover,
+                      title: item.title,
+                      dimension: dimension,
+                    );
+                  }
+                }
+              },
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Stack(
@@ -74,14 +135,63 @@ class HistoryItem extends StatelessWidget {
                                   : item.covers?.firstOrNull ?? '',
                               width: maxWidth,
                               height: maxHeight,
+                              borderRadius: Style.cardRadius,
                             ),
-                            ?item.label,
-                            if (hasDuration)
-                              ...item.progressIndicator(theme.colorScheme),
+                            if (interactiveProgressLabel != null)
+                              PBadge(
+                                text: interactiveProgressLabel,
+                                right: 6.0,
+                                bottom: 8.0,
+                                maxWidth: maxWidth - 12,
+                                type: PBadgeType.gray,
+                              )
+                            else if (hasDuration)
+                              PBadge(
+                                text: item.progress == -1
+                                    ? '已看完'
+                                    : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
+                                right: 6.0,
+                                bottom: 8.0,
+                                type: PBadgeType.gray,
+                              ),
+                            if (item.isFav == 1)
+                              const PBadge(
+                                text: '已收藏',
+                                top: 6.0,
+                                right: 6.0,
+                                type: PBadgeType.gray,
+                              )
+                            else if (item.badge?.isNotEmpty == true)
+                              PBadge(
+                                text: item.badge,
+                                top: 6.0,
+                                right: 6.0,
+                                type: business == 'live' && item.liveStatus != 1
+                                    ? PBadgeType.gray
+                                    : PBadgeType.primary,
+                              ),
+                            if (interactiveProgressLabel == null &&
+                                hasDuration &&
+                                item.progress != null &&
+                                item.progress != 0)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: VideoProgressIndicator(
+                                  color: theme.colorScheme.primary,
+                                  backgroundColor:
+                                      theme.colorScheme.secondaryContainer,
+                                  progress: item.progress == -1
+                                      ? 1
+                                      : item.progress! / item.duration!,
+                                ),
+                              ),
                             Positioned.fill(
                               child: selectMask(
                                 theme.colorScheme,
                                 item.checked,
+                                borderRadius: Style.cardRadius,
                               ),
                             ),
                           ],
@@ -146,7 +256,7 @@ class HistoryItem extends StatelessWidget {
                       ),
                     ),
                   PopupMenuItem(
-                    onTap: () => onDelete(item.kid!, business!),
+                    onTap: () => onDelete(item),
                     height: 38,
                     child: const Row(
                       children: [
@@ -159,6 +269,23 @@ class HistoryItem extends StatelessWidget {
                 ],
               ),
             ),
+            if (item.localOnly)
+              Positioned(
+                right: 12,
+                bottom: 28,
+                width: 29,
+                child: IgnorePointer(
+                  child: Text(
+                    '本地',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

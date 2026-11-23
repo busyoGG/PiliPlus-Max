@@ -60,26 +60,26 @@ class _SearchPageState extends State<SearchPage> {
       appBar: _buildAppBar,
       body: Padding(
         padding: .only(left: padding.left, right: padding.right),
-        child: ViewInsetsSafeArea(
-          child: CustomScrollView(
-            slivers: [
-              if (_searchController.searchSuggestion) _buildSearchSuggest(),
-              if (isPortrait) ...[
-                ?trending,
-                _buildHistory,
-                ?rcmd,
-              ] else if (trending != null || rcmd != null)
-                SliverCrossAxisGroup(
-                  slivers: [
-                    SliverMainAxisGroup(slivers: [?trending, ?rcmd]),
-                    _buildHistory,
-                  ],
-                )
-              else
-                _buildHistory,
-              SliverPadding(padding: .only(bottom: padding.bottom)),
-            ],
-          ),
+        child: CustomScrollView(
+          controller: _searchController.scrollController,
+          slivers: [
+            if (_searchController.searchSuggestion) _buildSearchSuggest(),
+            if (isPortrait) ...[
+              ?trending,
+              _buildHistory,
+              ?rcmd,
+            ] else if (_searchController.enableTrending ||
+                _searchController.enableSearchRcmd)
+              SliverCrossAxisGroup(
+                slivers: [
+                  SliverMainAxisGroup(slivers: [?trending, ?rcmd]),
+                  _buildHistory,
+                ],
+              )
+            else
+              _buildHistory,
+            SliverPadding(padding: .only(bottom: padding.bottom)),
+          ],
         ),
       ),
     );
@@ -121,6 +121,7 @@ class _SearchPageState extends State<SearchPage> {
       focusNode: _searchController.searchFocusNode,
       controller: _searchController.controller,
       textInputAction: TextInputAction.search,
+      onTap: _searchController.refreshSuggestions,
       onChanged: _searchController.onChange,
       decoration: InputDecoration(
         visualDensity: .standard,

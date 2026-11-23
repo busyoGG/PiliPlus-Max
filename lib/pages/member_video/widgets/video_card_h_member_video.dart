@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/common/widgets/video_popup_menu.dart';
@@ -11,6 +12,7 @@ import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/dimension_ext.dart';
+import 'package:PiliPlus/utils/interactive_video_progress.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
@@ -21,11 +23,13 @@ class VideoCardHMemberVideo extends StatelessWidget {
     super.key,
     required this.videoItem,
     this.onTap,
+    this.onView,
     this.bvid,
     this.fromViewAid,
   });
   final SpaceArchiveItem videoItem;
   final VoidCallback? onTap;
+  final VoidCallback? onView;
   final dynamic bvid;
   final String? fromViewAid;
 
@@ -55,6 +59,7 @@ class VideoCardHMemberVideo extends StatelessWidget {
                       videoItem.uri!,
                       isPgc: isPgc,
                     )) {
+                      onView?.call();
                       return;
                     }
                   }
@@ -65,7 +70,9 @@ class VideoCardHMemberVideo extends StatelessWidget {
                   if (videoItem.uri case final uri?) {
                     isVertical = uri.isVerticalFromUri;
                   }
+                  onView?.call();
                   PageUtils.toVideoPage(
+                    originRect: videoCardRectOf(context),
                     bvid: videoItem.bvid,
                     cid: videoItem.cid!,
                     cover: videoItem.cover,
@@ -87,6 +94,10 @@ class VideoCardHMemberVideo extends StatelessWidget {
                       builder: (context, boxConstraints) {
                         final double maxWidth = boxConstraints.maxWidth;
                         final double maxHeight = boxConstraints.maxHeight;
+                        final interactiveProgressLabel =
+                            InteractiveVideoProgressRepository.get(
+                              videoItem.bvid ?? '',
+                            )?.cardLabel;
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
@@ -94,21 +105,22 @@ class VideoCardHMemberVideo extends StatelessWidget {
                               src: videoItem.cover,
                               width: maxWidth,
                               height: maxHeight,
+                              borderRadius: Style.cardRadius,
                             ),
                             if (fromViewAid == videoItem.param)
-                              const Positioned.fill(
+                              Positioned.fill(
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
-                                    borderRadius: Style.mdRadius,
+                                    borderRadius: Style.cardRadius,
                                     color: Colors.black54,
                                   ),
-                                  child: Center(
+                                  child: const Center(
                                     child: Text(
                                       '上次观看',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 15,
-                                        letterSpacing: 5,
+                                        letterSpacing: 0,
                                       ),
                                     ),
                                   ),
@@ -125,7 +137,15 @@ class VideoCardHMemberVideo extends StatelessWidget {
                                     ? PBadgeType.error
                                     : PBadgeType.primary,
                               ),
-                            if (videoItem.history != null) ...[
+                            if (interactiveProgressLabel != null)
+                              PBadge(
+                                text: interactiveProgressLabel,
+                                right: 6.0,
+                                bottom: 6.0,
+                                maxWidth: maxWidth - 12,
+                                type: PBadgeType.gray,
+                              )
+                            else if (videoItem.history != null) ...[
                               Builder(
                                 builder: (context) {
                                   try {

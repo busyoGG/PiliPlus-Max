@@ -15,7 +15,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:get/get.dart';
 
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
@@ -172,14 +172,32 @@ class AccountManager extends Interceptor {
       'biliimg.com',
       'site/getCoin',
     ];
-    String url = err.requestOptions.uri.toString();
-    if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url\n$err');
+    final String url = err.requestOptions.uri.toString();
+    if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url');
     if (skipShow.any(url.contains) ||
         (url.contains('skipSegments') && err.requestOptions.method == 'GET')) {
-      // skip
-    } else {
-      dioError(err).then((res) => SmartDialog.showToast(res + url));
+      return;
     }
+    // 请求被主动取消（用户离开页面等）不提示。
+    if (err.type == DioExceptionType.cancel) {
+      return;
+    }
+    // 返回过程中失败不提示：提示会弹在退出转场上面，既抢帧又误导。
+    if (_isLeaving()) {
+      return;
+    }
+    dioError(err).then((res) => SmartDialog.showToast(res + url));
+  }
+
+  /// 当前路由是否正在返回（预测性返回拖动中或退出转场中）。
+  static bool _isLeaving() {
+    final Object? current = Get.routing.route;
+    final Animation<double>? animation = current is ModalRoute
+        ? current.animation
+        : null;
+    if (animation == null) return false;
+    return animation.status == AnimationStatus.reverse ||
+        animation.status == AnimationStatus.dismissed;
   }
 
   static Future<void> _saveCookies(Account account, Response response) async {

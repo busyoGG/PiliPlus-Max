@@ -9,7 +9,6 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/whisper_block/controller.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -116,7 +115,7 @@ class _WhisperBlockPageState extends State<WhisperBlockPage> {
                   spacing: 6,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SvgPicture.asset(Assets.error, height: 156),
+                    Image.asset(Assets.error, height: 140),
                     const Text(
                       '还未添加屏蔽词',
                       style: TextStyle(

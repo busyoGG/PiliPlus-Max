@@ -18,14 +18,14 @@ import 'package:PiliPlus/pages/live/view.dart';
 import 'package:PiliPlus/pages/rank/view.dart';
 import 'package:PiliPlus/pages/subscription_detail/view.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
-import 'package:PiliPlus/utils/bili_utils.dart';
-import 'package:PiliPlus/utils/desktop/window_controller.dart';
+import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/parse_string.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/reply_scheme_helper.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/url_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:app_links/app_links.dart';
@@ -37,6 +37,7 @@ import 'package:material_ui/material_ui.dart';
 abstract final class PiliScheme {
   static late AppLinks appLinks;
   static StreamSubscription? listener;
+  static DateTime? _lastExternalLinkAt;
   static final uriDigitRegExp = RegExp(r'/(\d+)');
   static final _prefixRegex = RegExp(r'^\S+://');
 
@@ -47,15 +48,8 @@ abstract final class PiliScheme {
 
     listener?.cancel();
     listener = appLinks.uriLinkStream.listen(
-      PlatformUtils.isDesktop ? _desktopRoutePush : routePush,
+      (uri) => routePush(uri, external: true),
     );
-  }
-
-  static Future<bool> _desktopRoutePush(Uri uri) {
-    WindowController.instance.window
-      ?..show()
-      ..focus();
-    return routePush(uri);
   }
 
   static int? _videoProgress(Map<String, String> queryParameters) {
@@ -77,6 +71,7 @@ abstract final class PiliScheme {
     Map? parameters,
     int? businessId,
     int? oid,
+    bool external = false,
   }) {
     try {
       if (url.startsWith('//')) {
@@ -91,6 +86,7 @@ abstract final class PiliScheme {
         parameters: parameters,
         businessId: businessId,
         oid: oid,
+        external: external,
       );
     } catch (_) {
       return Future.syncValue(false);
@@ -105,8 +101,13 @@ abstract final class PiliScheme {
     Map? parameters,
     int? businessId,
     int? oid,
+    bool external = false,
   }) async {
     // if (kDebugMode) debugPrint('onAppLink: $uri');
+
+    if (external) {
+      _lastExternalLinkAt = DateTime.now();
+    }
 
     final String scheme = uri.scheme;
     final String host = uri.host;
@@ -156,14 +157,16 @@ abstract final class PiliScheme {
             if (aid != null || bvid != null) {
               final cid = queryParameters['cid'];
               if (cid != null) {
+                final openInDetail =
+                    await _prepareExternalVideoNavigation(external);
+                bvid ??= IdUtils.av2bv(int.parse(aid!));
                 PageUtils.toVideoPage(
                   aid: aid != null ? int.parse(aid) : null,
                   bvid: bvid,
                   cid: int.parse(cid),
                   progress: _videoProgress(queryParameters),
                   off: off,
-                  rootRpId: rootRpId,
-                  secondRpId: secondRpId,
+                  autoplay: openInDetail ? false : null,
                 );
               } else {
                 videoPush(
@@ -171,8 +174,7 @@ abstract final class PiliScheme {
                   bvid,
                   off: off,
                   progress: _videoProgress(queryParameters),
-                  rootRpId: rootRpId,
-                  secondRpId: secondRpId,
+                  external: external,
                 );
               }
               return true;
@@ -437,6 +439,7 @@ abstract final class PiliScheme {
           selfHandle: selfHandle,
           off: off,
           parameters: parameters,
+          external: external,
         );
       default:
         final aid = IdUtils.avRegexExact.matchAsPrefix(path)?.group(1);
@@ -446,6 +449,7 @@ abstract final class PiliScheme {
             aid != null ? int.parse(aid) : null,
             bvid,
             off: off,
+            external: external,
           );
           return true;
         }
@@ -455,6 +459,12 @@ abstract final class PiliScheme {
         }
         return false;
     }
+  }
+
+  static bool get receivedExternalLinkRecently {
+    final at = _lastExternalLinkAt;
+    return at != null &&
+        DateTime.now().difference(at) <= const Duration(seconds: 2);
   }
 
   static const b23_tv = 'b23.tv';
@@ -471,6 +481,7 @@ abstract final class PiliScheme {
     bool selfHandle = false,
     bool off = false,
     Map? parameters,
+    bool external = false,
   }) async {
     // https://m.bilibili.com/bangumi/play/ss39708
     // https | m.bilibili.com | /bangumi/play/ss39708
@@ -670,7 +681,7 @@ abstract final class PiliScheme {
               );
             }
           } else {
-            videoPush(null, bvid, off: off);
+            videoPush(null, bvid, off: off, external: external);
           }
           return true;
         }
@@ -701,8 +712,7 @@ abstract final class PiliScheme {
             off: off,
             progress: _videoProgress(queryParameters),
             part: part,
-            rootRpId: rootRpId,
-            secondRpId: secondRpId,
+            external: external,
           );
           return true;
         }
@@ -869,6 +879,7 @@ abstract final class PiliScheme {
             res.av,
             res.bv,
             off: off,
+            external: external,
           );
           return true;
         }
@@ -910,6 +921,15 @@ abstract final class PiliScheme {
     );
   }
 
+  static Future<bool> _prepareExternalVideoNavigation(bool external) {
+    if (!external || !Pref.externalVideoLinkOpenInDetail) {
+      return Future.value(false);
+    }
+    return PlPlayerController.exitFullscreenAndPauseIfActive(
+      forcePortrait: true,
+    );
+  }
+
   // 投稿跳转
   static Future<void> videoPush(
     int? aid,
@@ -918,10 +938,10 @@ abstract final class PiliScheme {
     bool off = false,
     int? progress, // milliseconds
     String? part,
-    int? rootRpId,
-    int? secondRpId,
+    bool external = false,
   }) async {
     try {
+      final openInDetail = await _prepareExternalVideoNavigation(external);
       aid ??= IdUtils.bv2av(bvid!);
       bvid ??= IdUtils.av2bv(aid);
       if (showDialog) {
@@ -944,9 +964,7 @@ abstract final class PiliScheme {
           progress: progress,
           off: off,
           dimension: res!.dimension,
-          // title: res.title,
-          rootRpId: rootRpId,
-          secondRpId: secondRpId,
+          autoplay: openInDetail ? false : null,
         );
       }
     } catch (e) {

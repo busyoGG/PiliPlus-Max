@@ -1,4 +1,4 @@
-import 'package:PiliPlus/common/widgets/custom_icon.dart';
+import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
@@ -6,13 +6,19 @@ import 'package:PiliPlus/http/login.dart';
 import 'package:PiliPlus/models/common/setting_type.dart';
 import 'package:PiliPlus/pages/about/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
+import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/setting/common_setting.dart';
 import 'package:PiliPlus/pages/setting/widgets/multi_select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/settings_import_export.dart';
+import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
 import 'package:PiliPlus/pages/webdav/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
+import 'package:PiliPlus/utils/login_utils.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:flutter/material.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -40,6 +46,7 @@ class SettingPage extends StatefulWidget {
 class _SettingPageState extends State<SettingPage> {
   late SettingType _type = .privacySetting;
   final RxBool _noAccount = Accounts.account.isEmpty.obs;
+  bool _advancedSettingsEnabled = advancedSettingsEnabled;
   late bool _isPortrait;
   late ThemeData theme;
 
@@ -130,6 +137,16 @@ class _SettingPageState extends State<SettingPage> {
                   Expanded(
                     flex: 6,
                     child: switch (_type) {
+                      .privacySetting ||
+                      .recommendSetting ||
+                      .videoSetting ||
+                      .playSetting ||
+                      .styleSetting ||
+                      .extraSetting => CommonSetting(
+                        key: ValueKey((_type, _advancedSettingsEnabled)),
+                        settingType: _type,
+                        showAppBar: false,
+                      ),
                       .webdavSetting => const WebDavSettingPage(
                         showAppBar: false,
                       ),
@@ -195,10 +212,54 @@ class _SettingPageState extends State<SettingPage> {
                     : Text(item.subtitle!, style: subTitleStyle),
               ),
             ),
+        SetSwitchItem(
+          title: '高级选项',
+          subtitle: '显示不常用的界面、手势、播放器与调试参数',
+          leading: const Icon(Icons.tune_outlined),
+          setKey: SettingBoxKey.showAdvancedSettings,
+          defaultVal: false,
+          titleStyle: titleStyle,
+          onChanged: (value) {
+            _advancedSettingsEnabled = value;
+            setState(() {});
+          },
+        ),
         ListTile(
           onTap: () => LoginPageController.switchAccountDialog(context),
           leading: const Icon(Icons.switch_account_outlined),
           title: Text('切换账号', style: titleStyle),
+        ),
+        ListTile(
+          leading: const Icon(Icons.import_export_outlined),
+          title: Text('导入/导出所有设置', style: titleStyle),
+          subtitle: Text(
+            '通过系统文件选择器导入或导出 JSON；导入后重启应用生效',
+            style: subTitleStyle,
+          ),
+          onTap: () => showSettingsImportExportDialog(context),
+        ),
+        ListTile(
+          leading: const Icon(Icons.manage_accounts_outlined),
+          title: Text('导入/导出登录信息', style: titleStyle),
+          onTap: () => showImportExportDialog<Map>(
+            context,
+            title: '登录信息',
+            localFileName: () => 'account',
+            onExport: () =>
+                Utils.jsonEncoder.convert(Accounts.account.toMap()),
+            onImport: (json) async {
+              final res = json.map(
+                (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
+              );
+              await Accounts.account.putAll(res);
+              await Accounts.refresh();
+              _noAccount.value = Accounts.account.isEmpty;
+              MineController.anonymity.value = !Accounts.heartbeat.isLogin;
+              if (Accounts.main.isLogin) {
+                await LoginUtils.onLoginMain();
+              }
+            },
+          ),
         ),
         Obx(
           () => _noAccount.value

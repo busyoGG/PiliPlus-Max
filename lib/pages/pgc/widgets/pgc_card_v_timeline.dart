@@ -22,9 +22,9 @@ class PgcCardVTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
+      clipBehavior: Clip.hardEdge,
       child: InkWell(
-        borderRadius: Style.mdRadius,
+        borderRadius: Style.cardRadius,
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         onTap: () =>
@@ -45,6 +45,7 @@ class PgcCardVTimeline extends StatelessWidget {
                         src: item.cover,
                         width: maxWidth,
                         height: maxHeight,
+                        borderRadius: Style.cardRadius,
                       ),
                       if (item.follow == 1)
                         const PBadge(

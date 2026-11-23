@@ -7,6 +7,7 @@ import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_mention/group.dart';
 import 'package:PiliPlus/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliPlus/pages/dynamics_mention/controller.dart';
@@ -15,8 +16,9 @@ import 'package:PiliPlus/pages/search/controller.dart' show DebounceStreamState;
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
-import 'package:get/get.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:get/get.dart';
 
 class DynMentionPanel extends StatefulWidget {
   const DynMentionPanel({
@@ -90,6 +92,7 @@ class _DynMentionPanelState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final padding = MediaQuery.paddingOf(context).bottom;
     return Column(
       children: [
@@ -206,6 +209,12 @@ class _DynMentionPanelState
                         : const Offset(0, 3),
                     duration: const Duration(milliseconds: 120),
                     child: FloatingActionButton(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).uiColor(ThemeUiElement.dynamicsMentionBackground),
+                      foregroundColor: Theme.of(
+                        context,
+                      ).uiColor(ThemeUiElement.dynamicsMentionContent),
                       onPressed: () {
                         if (_controller.mentionList.isNullOrEmpty) {
                           _controller.showBtn.value = false;

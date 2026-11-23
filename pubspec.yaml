@@ -17,7 +17,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 # update when release
-version: 2.2.0+1
+version: 3.3.0+14
 
 environment:
   sdk: ">=3.13.0"
@@ -194,37 +194,37 @@ dependency_overrides:
     git:
       url: https://github.com/My-Responsitories/media-kit.git
       path: media_kit
-      ref: native
+      ref: version_1.2.5
   media_kit_libs_android_video:
     git:
       url: https://github.com/My-Responsitories/media-kit.git
       path: libs/android/media_kit_libs_android_video
-      ref: native
+      ref: version_1.2.5
   media_kit_libs_ios_video:
     git:
       url: https://github.com/My-Responsitories/media-kit.git
       path: libs/ios/media_kit_libs_ios_video
-      ref: native
+      ref: version_1.2.5
   media_kit_libs_video:
     git:
       url: https://github.com/My-Responsitories/media-kit.git
       path: libs/universal/media_kit_libs_video
-      ref: native
+      ref: version_1.2.5
   media_kit_libs_windows_video:
     git:
       url: https://github.com/My-Responsitories/media-kit.git
       path: libs/windows/media_kit_libs_windows_video
-      ref: native
+      ref: version_1.2.5
   media_kit_native_event_loop:
     git:
       url: https://github.com/My-Responsitories/media-kit.git
       path: media_kit_native_event_loop
-      ref: native
+      ref: version_1.2.5
   media_kit_video:
     git:
-      url: https://github.com/bggRGjQaUbCoE/media-kit.git
+      url: https://github.com/My-Responsitories/media-kit.git
       path: media_kit_video
-      ref: native
+      ref: version_1.2.5
 
 dev_dependencies:
   flutter_test:
@@ -270,6 +270,7 @@ flutter:
       platforms: [linux, macos]
     - path: assets/images/live/
     - path: assets/images/paycoins/
+    - path: assets/data/
     - path: assets/shaders/
 
   fonts:

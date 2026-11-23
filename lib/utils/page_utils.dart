@@ -545,8 +545,8 @@ abstract final class PageUtils {
     bool off = false,
     bool isVertical = false,
     Dimension? dimension,
-    int? rootRpId,
-    int? secondRpId,
+    bool? autoplay,
+    Rect? originRect,
   }) {
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
@@ -556,10 +556,12 @@ abstract final class PageUtils {
       'epId': ?epId,
       'pgcType': ?pgcType,
       'cover': ?cover,
+      'originRect': ?originRect,
       'title': ?title,
       'progress': ?progress,
       'videoType': videoType,
       'isVertical': dimension?.isVertical ?? isVertical,
+      'autoplay': ?autoplay,
       'heroTag': Utils.makeHeroTag(cid),
       rootRpIdKey: ?rootRpId,
       secondRpIdKey: ?secondRpId,

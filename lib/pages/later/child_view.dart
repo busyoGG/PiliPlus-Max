@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/later_view_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
@@ -78,26 +79,29 @@ class _LaterViewChildPageState extends State<LaterViewChildPage>
                     index: index,
                     videoItem: videoItem,
                     ctr: _laterController,
-                    onViewLater: (cid) => PageUtils.toVideoPage(
-                      bvid: videoItem.bvid,
-                      cid: cid,
-                      cover: videoItem.pic,
-                      title: videoItem.title,
-                      dimension: videoItem.dimension,
-                      extraArguments: _baseCtr.isPlayAll.value
-                          ? {
-                              'oid': videoItem.aid,
-                              'sourceType': SourceType.watchLater,
-                              'count': _laterController
-                                  .baseCtr
-                                  .counts[LaterViewType.all.index],
-                              'favTitle': '稍后再看',
-                              'mediaId': _laterController.mid,
-                              'desc': _laterController.asc.value,
-                              'isContinuePlaying': index != 0,
-                            }
-                          : const {'viewLater': true},
-                    ),
+                    onViewLater: (cid) {
+                      PageUtils.toVideoPage(
+                        originRect: videoCardRectOf(context),
+                        bvid: videoItem.bvid,
+                        cid: cid,
+                        cover: videoItem.pic,
+                        title: videoItem.title,
+                        dimension: videoItem.dimension,
+                        extraArguments: _baseCtr.isPlayAll.value
+                            ? {
+                                'oid': videoItem.aid,
+                                'sourceType': SourceType.watchLater,
+                                'count': _laterController
+                                    .baseCtr
+                                    .counts[LaterViewType.all.index],
+                                'favTitle': '稍后再看',
+                                'mediaId': _laterController.mid,
+                                'desc': _laterController.asc.value,
+                                'isContinuePlaying': index != 0,
+                              }
+                            : null,
+                      );
+                    },
                   );
                 },
                 itemCount: response.length,

@@ -25,6 +25,7 @@ import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
 import 'package:PiliPlus/pages/member/widget/medal_widget.dart';
 import 'package:PiliPlus/pages/save_panel/view.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
+import 'package:PiliPlus/pages/video/reply/widgets/reply_divider.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
@@ -100,6 +101,8 @@ class ReplyItemGrpc extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
+    final canOpenReplyDetails =
+        replyLevel != 1 || replyItem.count > Int64.ZERO;
 
     void showMore() => showModalBottomSheet(
       context: context,
@@ -127,19 +130,16 @@ class ReplyItemGrpc extends StatelessWidget {
         mainAxisSize: .min,
         children: [
           child,
-          Divider(
-            indent: 55,
-            endIndent: 15,
-            height: 0.3,
-            color: colorScheme.outline.withValues(alpha: 0.08),
-          ),
+          const ReplyDivider(),
         ],
       );
     }
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => replyReply?.call(replyItem, null),
+        onTap: canOpenReplyDetails
+            ? () => replyReply?.call(replyItem, null)
+            : null,
         onLongPress: showMore,
         onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
         child: child,
@@ -334,11 +334,16 @@ class ReplyItemGrpc extends StatelessWidget {
             padding: padding,
             child: _buildVoteOption(colorScheme, replyControl.voteOption),
           ),
+        if (replyControl.hasVoteOption()) const SizedBox(height: 4),
         Padding(
           padding: padding,
-          child: TextMore.rich(
+          child: _ExpandableReplyContent(
+            key: ValueKey(replyItem.id),
             primary: colorScheme.primary,
-            style: const TextStyle(height: 1.75, fontSize: 14),
+            style: TextStyle(
+              height: 1.75 * Pref.replyLineSpacingScale,
+              fontSize: Pref.replyFontSize,
+            ),
             maxLines: replyLevel == 1 ? replyLengthLimit : null,
             TextSpan(
               children: [
@@ -388,7 +393,10 @@ class ReplyItemGrpc extends StatelessWidget {
         ],
         if (replyLevel != 0) ...[
           const SizedBox(height: 4),
-          buttonAction(context, colorScheme, replyControl),
+          Padding(
+            padding: padding,
+            child: buttonAction(context, colorScheme, replyControl),
+          ),
         ],
         if (replyLevel == 1 && replyItem.count > Int64.ZERO) ...[
           Padding(
@@ -505,7 +513,8 @@ class ReplyItemGrpc extends StatelessWidget {
     }
     return Row(
       children: [
-        const SizedBox(width: 36),
+        ZanButtonGrpc(replyItem: replyItem),
+        const SizedBox(width: 8),
         SizedBox(
           height: 32,
           child: TextButton(
@@ -528,9 +537,9 @@ class ReplyItemGrpc extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 2),
-        if (replyControl.translationSwitch ==
+                        if (replyControl.translationSwitch ==
             .TRANSLATION_SWITCH_SHOW_TRANSLATION) ...[
+          const SizedBox(width: 10),
           _buildTranslateBtn(
             context,
             colorScheme,
@@ -538,21 +547,20 @@ class ReplyItemGrpc extends StatelessWidget {
             textStyle,
             buttonStyle,
           ),
-          const SizedBox(width: 2),
         ] else if (replyControl.cardLabels.isNotEmpty) ...[
+          const SizedBox(width: 10),
           Text(
             dialogBtn != null
                 ? replyControl.cardLabels.first.textContent
                 : replyControl.cardLabels.map((e) => e.textContent).join('  '),
             style: textStyle.copyWith(color: colorScheme.secondary),
           ),
-          const SizedBox(width: 2),
         ],
-        ?dialogBtn,
-        const Spacer(),
-        ZanButtonGrpc(replyItem: replyItem),
-        const SizedBox(width: 5),
-      ],
+        if (dialogBtn != null) ...[
+          const SizedBox(width: 10),
+          dialogBtn,
+        ],
+          ],
     );
   }
 
@@ -614,10 +622,13 @@ class ReplyItemGrpc extends StatelessWidget {
                   onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
                   child: Padding(
                     padding: padding,
-                    child: TextEllipsis.rich(
+                    child: custom_text.Text.rich(
+                      primary: colorScheme.primary,
+                      primaryLinkHitTestHeightFactor: 1.5,
                       style: TextStyle(
-                        height: 1.6,
-                        fontSize: 14,
+                        height: 1.6 * Pref.replyLineSpacingScale,
+                        fontSize:
+                            Pref.replyFontSize * Pref.collapsedReplyFontScale,
                         color: colorScheme.onSurface.withValues(alpha: 0.85),
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -1242,6 +1253,60 @@ class ReplyItemGrpc extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _ExpandableReplyContent extends StatefulWidget {
+  const _ExpandableReplyContent(
+    this.textSpan, {
+    super.key,
+    required this.primary,
+    required this.style,
+    this.maxLines,
+  });
+
+  final TextSpan textSpan;
+  final Color primary;
+  final TextStyle style;
+  final int? maxLines;
+
+  @override
+  State<_ExpandableReplyContent> createState() =>
+      _ExpandableReplyContentState();
+}
+
+class _ExpandableReplyContentState extends State<_ExpandableReplyContent> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        custom_text.Text.rich(
+          widget.textSpan,
+          primary: widget.primary,
+          primaryLinkHitTestHeightFactor: 1.5,
+          style: widget.style,
+          maxLines: _isExpanded ? null : widget.maxLines,
+          onShowMore: widget.maxLines == null || _isExpanded
+              ? null
+              : () => setState(() => _isExpanded = true),
+        ),
+        if (_isExpanded)
+          TextButton.icon(
+            onPressed: () => setState(() => _isExpanded = false),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 32),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: const Icon(Icons.expand_less, size: 18),
+            label: const Text('收起'),
+          ),
+      ],
     );
   }
 }

@@ -22,9 +22,9 @@ class PgcCardV extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
+      clipBehavior: Clip.hardEdge,
       child: InkWell(
-        borderRadius: Style.mdRadius,
+        borderRadius: Style.cardRadius,
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         onTap: () => PageUtils.viewPgc(seasonId: item.seasonId),
@@ -44,6 +44,7 @@ class PgcCardV extends StatelessWidget {
                         src: item.cover,
                         width: maxWidth,
                         height: maxHeight,
+                        borderRadius: Style.cardRadius,
                       ),
                       PBadge(
                         text: item.badge,

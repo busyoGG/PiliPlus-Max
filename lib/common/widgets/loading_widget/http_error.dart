@@ -1,6 +1,4 @@
 import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/widgets/selection_text.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 
 class HttpError extends StatelessWidget {
@@ -28,7 +26,7 @@ class HttpError extends StatelessWidget {
       crossAxisAlignment: .center,
       children: [
         const SizedBox(height: 40),
-        SvgPicture.asset(Assets.error, height: 200),
+        Image.asset(Assets.error, height: 180),
         const SizedBox(height: 30),
         Padding(
           padding: const .symmetric(horizontal: 16, vertical: 5),

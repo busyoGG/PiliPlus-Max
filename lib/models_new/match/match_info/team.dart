@@ -9,9 +9,10 @@ class MatchTeam {
     this.logoFull,
   });
 
+  /// 赛程接口返回的是 name/icon，赛事详情接口返回 title/logo。
   factory MatchTeam.fromJson(Map<String, dynamic> json) => MatchTeam(
-    title: json['title'] as String?,
-    logo: json['logo'] as String?,
+    title: (json['title'] ?? json['name']) as String?,
+    logo: (json['logo'] ?? json['icon']) as String?,
     logoFull: json['logoFull'] as String?,
   );
 }

@@ -3,6 +3,7 @@ import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/marquee.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/badge_type.dart';
@@ -33,6 +34,7 @@ class MusicVideoCardH extends StatelessWidget {
       type: MaterialType.transparency,
       child: InkWell(
         onTap: () async {
+          final Rect? originRect = videoCardRectOf(context);
           int? cid = videoItem.cid;
           Dimension? dimension;
           if (cid == null) {
@@ -44,6 +46,7 @@ class MusicVideoCardH extends StatelessWidget {
           }
           if (cid != null) {
             PageUtils.toVideoPage(
+              originRect: originRect,
               bvid: videoItem.bvid,
               cid: cid,
               cover: videoItem.cover,
@@ -75,6 +78,7 @@ class MusicVideoCardH extends StatelessWidget {
                           src: videoItem.cover,
                           width: maxWidth,
                           height: maxHeight,
+                          borderRadius: Style.cardRadius,
                         ),
                         PBadge(
                           text: DurationUtils.formatDuration(

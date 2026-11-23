@@ -38,6 +38,8 @@ import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/app_bar_ani.dart';
+import 'package:PiliPlus/plugin/pl_player/widgets/display_controls.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService, ShutdownPanel;
 import 'package:PiliPlus/utils/accounts.dart';
@@ -120,15 +122,30 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
 
   bool _showCurrTime = false;
   void showCurrTimeIfNeeded(bool isFullScreen) {
-    _showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
+    final showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
+    if (_showCurrTime == showCurrTime) return;
+    _showCurrTime = showCurrTime;
     if (!_showCurrTime) {
       stopClock();
+    } else if (plPlayerController.showControls.value &&
+        !plPlayerController.controlsLock.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !_showCurrTime ||
+            !plPlayerController.showControls.value ||
+            plPlayerController.controlsLock.value) {
+          return;
+        }
+        startClock();
+        getBatteryLevelIfNeeded();
+      });
     }
   }
 
   late final _battery = Battery();
   late final RxnInt _batteryLevel = RxnInt();
   late final _showBatteryLevel = Pref.showBatteryLevel;
+  late final _showBatteryPercentage = Pref.showBatteryPercentage;
   void getBatteryLevelIfNeeded() {
     if (!_showCurrTime || !_showBatteryLevel) return;
     EasyThrottle.throttle(
@@ -152,13 +169,19 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
               if (batteryLevel == null) {
                 return const SizedBox.shrink();
               }
-              return Text(
-                '$batteryLevel%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                ),
-              );
+              return _showBatteryPercentage
+                  ? Text(
+                      '$batteryLevel%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    )
+                  : Icon(
+                      _batteryIcon(batteryLevel),
+                      color: Colors.white,
+                      size: 16,
+                    );
             },
           ),
           const SizedBox(width: 10),
@@ -176,6 +199,17 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
     }
     return null;
   }
+
+  static IconData _batteryIcon(int level) => switch (level) {
+    <= 0 => Icons.battery_0_bar,
+    <= 15 => Icons.battery_1_bar,
+    <= 30 => Icons.battery_2_bar,
+    <= 45 => Icons.battery_3_bar,
+    <= 60 => Icons.battery_4_bar,
+    <= 75 => Icons.battery_5_bar,
+    <= 90 => Icons.battery_6_bar,
+    _ => Icons.battery_full,
+  };
 }
 
 class HeaderControl extends StatefulWidget {
@@ -323,6 +357,62 @@ class HeaderControl extends StatefulWidget {
       return SmartDialog.showToast('请先登录');
     }
   }
+}
+
+class PlayerNavigationButtons extends StatelessWidget {
+  const PlayerNavigationButtons({
+    required this.controller,
+    required this.isFullScreen,
+    required this.isPortrait,
+    required this.height,
+    super.key,
+  });
+
+  final PlPlayerController controller;
+  final bool isFullScreen;
+  final bool isPortrait;
+  final double height;
+
+  static const _width = 40.0;
+  static const _style = ButtonStyle(
+    padding: WidgetStatePropertyAll(.zero),
+  );
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(
+        width: _width,
+        height: height,
+        child: IconButton(
+          tooltip: '返回',
+          style: _style,
+          icon: const Icon(
+            FontAwesomeIcons.arrowLeft,
+            size: 15,
+            color: Colors.white,
+          ),
+          onPressed: () => controller.onPopInvokedWithResult(false, null),
+        ),
+      ),
+      if (!controller.isDesktopPip && (!isFullScreen || !isPortrait))
+        SizedBox(
+          width: _width,
+          height: height,
+          child: IconButton(
+            tooltip: '返回主页',
+            style: _style,
+            icon: const Icon(
+              FontAwesomeIcons.house,
+              size: 15,
+              color: Colors.white,
+            ),
+            onPressed: controller.onCloseAll,
+          ),
+        ),
+    ],
+  );
 }
 
 class HeaderControlState extends State<HeaderControl>
@@ -515,21 +605,29 @@ class HeaderControlState extends State<HeaderControl>
                     title: const Text('CDN 设置', style: titleStyle),
                     leading: const Icon(MdiIcons.cloudPlusOutline, size: 20),
                     subtitle: Text(
-                      '当前：${VideoUtils.cdnService.desc}，无法播放请切换',
+                      '当前顺序：${VideoUtils.cdnDescription}',
                       style: subTitleStyle,
                     ),
                     onTap: () async {
                       Get.back();
-                      final result = await showDialog<CDNService>(
+                      final result = await showDialog<List<CDNService>>(
                         context: context,
                         builder: (context) => CdnSelectDialog(
                           sample: videoInfo.dash?.video?.firstOrNull,
                         ),
                       );
-                      if (result != null) {
-                        VideoUtils.cdnService = result;
-                        setting.put(SettingBoxKey.CDNService, result.name);
-                        SmartDialog.showToast('已设置为 ${result.desc}，正在重载视频');
+                      if (result != null && result.isNotEmpty) {
+                        VideoUtils.setCdnServices(result);
+                        await setting.putAll({
+                          SettingBoxKey.CDNServices: result
+                              .map((item) => item.name)
+                              .toList(),
+                          SettingBoxKey.CDNService: result.first.name,
+                          SettingBoxKey.cdnRotationIndex:
+                              VideoUtils.cdnRotationIndex,
+                        });
+                        videoDetailCtr.selectNextCdn();
+                        SmartDialog.showToast('已更新 CDN 顺序，正在重载视频');
                         videoDetailCtr.queryVideoUrl(fromReset: true);
                       }
                     },
@@ -969,14 +1067,22 @@ class HeaderControlState extends State<HeaderControl>
 
                         SmartDialog.showToast("画质已变为：${newQa.desc}");
 
-                        // update
+                        // 保存画质设置
                         if (!plPlayerController.tempPlayerConf) {
-                          setting.put(
-                            await ConnectivityUtils.isWiFi
+                          final String settingKey;
+                        
+                          if (videoDetailCtr.usingInitialHalfScreenQuality) {
+                            // 首次半屏阶段：只更新半屏默认画质
+                            settingKey = SettingBoxKey.defaultVideoQaHalfScreen;
+                          } else {
+                            // 已直接全屏起播，或本次播放已经进入过全屏：
+                            // 继续沿用项目原来的默认画质设置
+                            settingKey = await ConnectivityUtils.isWiFi
                                 ? SettingBoxKey.defaultVideoQa
-                                : SettingBoxKey.defaultVideoQaCellular,
-                            quality,
-                          );
+                                : SettingBoxKey.defaultVideoQaCellular;
+                          }
+                        
+                          await setting.put(settingKey, quality);
                         }
                       },
                       // 可能包含会员解锁画质
@@ -1657,7 +1763,11 @@ class HeaderControlState extends State<HeaderControl>
   static const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PlayerControlBarBuilder(
+    builder: _buildControl,
+  );
+
+  Widget _buildControl(BuildContext context) {
     final isFullScreen = this.isFullScreen;
     final isFSOrPip = isFullScreen || plPlayerController.isDesktopPip;
     final showFSActionItem =
@@ -1720,33 +1830,53 @@ class HeaderControlState extends State<HeaderControl>
       }
     }
 
-    return Padding(
-      padding: const .symmetric(vertical: 12),
-      child: Column(
-        mainAxisSize: .min,
+    final thicknessScale = plPlayerController.playerControlBarThicknessScale;
+    const btnWidth = 40.0;
+    final btnHeight = 34.0 * thicknessScale;
+    const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
+
+    return AppBar(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.transparent,
+      foregroundColor: Colors.white,
+      primary: false,
+      automaticallyImplyLeading: false,
+      toolbarHeight:
+          (showFSActionItem ? 70.0 : 35.0) * thicknessScale,
+      flexibleSpace: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          PlayerBar(
-            left: Row(
-              mainAxisSize: .min,
+          SizedBox(height: 5 * thicknessScale),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: plPlayerController.playerControlHorizontalPadding,
+            ),
+            child: Row(
               children: [
-                SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: IconButton(
-                    tooltip: '返回',
-                    style: btnStyle,
-                    icon: const Icon(
-                      FontAwesomeIcons.arrowLeft,
-                      size: 15,
-                      color: Colors.white,
-                    ),
-                    onPressed: () =>
-                        plPlayerController.onPopInvokedWithResult(false, null),
+              PlayerNavigationButtons(
+                controller: plPlayerController,
+                isFullScreen: isFullScreen,
+                isPortrait: isPortrait,
+                height: btnHeight,
+              ),
+              title,
+              // show current datetime
+                ...?timeBatteryWidgets,
+                if (isFullScreen) ...[
+                  PlayerSpeedButton(
+                    controller: plPlayerController,
+                    height: btnHeight,
                   ),
-                ),
-                if (!plPlayerController.isDesktopPip &&
-                    (!isFullScreen || !isPortrait))
-                  SizedBox(
+                  PlayerFitButton(
+                    controller: plPlayerController,
+                    height: btnHeight,
+                  ),
+                ],
+              if (PlatformUtils.isDesktop && !plPlayerController.isDesktopPip)
+                Obx(() {
+                  final isAlwaysOnTop = plPlayerController.isAlwaysOnTop.value;
+                  return SizedBox(
                     width: btnWidth,
                     height: btnHeight,
                     child: IconButton(
@@ -1925,28 +2055,48 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-                if ((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
-                    (Platform.isIOS && IOSPipHelper.isAvailable) ||
-                    (PlatformUtils.isDesktop && !isFullScreen))
+                if (!isFullScreen)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
-                    child: IconButton(
-                      tooltip: '画中画',
-                      style: btnStyle,
-                      onPressed: () {
-                        if (PlatformUtils.isDesktop) {
-                          plPlayerController.toggleDesktopPip();
-                        } else {
-                          plPlayerController.enterPip();
-                        }
+                    child: Obx(
+                      () {
+                        final enableShowDanmaku =
+                            plPlayerController.enableShowDanmaku.value;
+                        return IconButton(
+                          tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
+                          style: btnStyle,
+                          onPressed: () {
+                            final newVal = !enableShowDanmaku;
+                            plPlayerController.setDanmakuEnabled(newVal);
+                          },
+                          icon: enableShowDanmaku
+                              ? const Icon(
+                                  size: 20,
+                                  CustomIcons.dm_on,
+                                  color: Colors.white,
+                                )
+                              : const Icon(
+                                  size: 20,
+                                  CustomIcons.dm_off,
+                                  color: Colors.white,
+                                ),
+                        );
                       },
-                      icon: const Icon(
-                        Icons.picture_in_picture_outlined,
-                        size: 19,
-                        color: Colors.white,
-                      ),
                     ),
+                  ),
+              ],
+              SizedBox(
+                width: btnWidth,
+                height: btnHeight,
+                child: IconButton(
+                  tooltip: '弹幕设置',
+                  style: btnStyle,
+                  onPressed: showSetDanmaku,
+                  icon: const Icon(
+                    size: 20,
+                    CustomIcons.dm_settings,
+                    color: Colors.white,
                   ),
                 SizedBox(
                   width: btnWidth,
@@ -1962,9 +2112,22 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
+              SizedBox(
+                width: btnWidth,
+                height: btnHeight,
+                child: IconButton(
+                  tooltip: "更多设置",
+                  style: btnStyle,
+                  onPressed: showSettingSheet,
+                  icon: const Icon(
+                    Icons.more_vert_outlined,
+                    size: 19,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
               ],
             ),
-            title: title,
           ),
           if (showFSActionItem)
             Row(

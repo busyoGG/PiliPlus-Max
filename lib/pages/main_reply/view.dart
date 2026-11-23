@@ -9,12 +9,14 @@ import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, MainListReply;
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/common/reply/reply_footer_mixin.dart';
 import 'package:PiliPlus/pages/main_reply/controller.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
 import 'package:PiliPlus/utils/extension/widget_ext.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -43,19 +45,17 @@ class MainReplyPage extends StatefulWidget {
 }
 
 class _MainReplyPageState extends State<MainReplyPage>
-    with
-        SingleTickerProviderStateMixin,
-        BaseFabMixin,
-        FabMixin,
-        ReplyFooterMixin<MainReplyPage, MainListReply> {
-  @override
-  final MainReplyController controller = Get.put(
+    with SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
+  static const double _fabRevealDistance = 72.0;
+
+  final _controller = Get.put(
     MainReplyController(),
     tag: Utils.generateRandomString(8),
   );
 
-  @override
-  late ColorScheme colorScheme;
+  late EdgeInsets padding;
+  double _fabUpwardDistance = 0.0;
+  bool _fabHiddenByScroll = false;
 
   @override
   void didChangeDependencies() {
@@ -63,11 +63,48 @@ class _MainReplyPageState extends State<MainReplyPage>
     colorScheme = ColorScheme.of(context);
   }
 
+  bool _handleFabScroll(ScrollNotification notification) {
+    if (notification.depth != 0 ||
+        notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    if (notification is! ScrollUpdateNotification) {
+      return false;
+    }
+
+    final delta = notification.scrollDelta ?? 0.0;
+
+    if (delta > 0) {
+      _fabUpwardDistance = 0.0;
+
+      if (!_fabHiddenByScroll) {
+        _fabHiddenByScroll = true;
+        hideFab();
+      }
+    } else if (delta < 0 && _fabHiddenByScroll) {
+      _fabUpwardDistance += -delta;
+
+      final reachedTop =
+          notification.metrics.pixels <=
+          notification.metrics.minScrollExtent + 0.5;
+
+      if (_fabUpwardDistance >= _fabRevealDistance || reachedTop) {
+        _fabUpwardDistance = 0.0;
+        _fabHiddenByScroll = false;
+        showFab();
+      }
+    }
+
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SimpleScaffold(
       appBar: AppBar(title: const Text('查看评论')),
-      body: fabAnimWrapper(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: _handleFabScroll,
         child: refreshIndicator(
           onRefresh: controller.onRefresh,
           child: Padding(
@@ -94,6 +131,12 @@ class _MainReplyPageState extends State<MainReplyPage>
           ),
           child: FloatingActionButton(
             heroTag: null,
+            backgroundColor: Theme.of(
+              context,
+            ).uiColor(ThemeUiElement.mainReplyBackground),
+            foregroundColor: Theme.of(
+              context,
+            ).uiColor(ThemeUiElement.mainReplyContent),
             onPressed: () {
               try {
                 feedBack();

@@ -22,6 +22,9 @@ class PagePanel extends StatefulWidget {
 
     this.showEpisodes,
     required this.ugcIntroController,
+    this.onDownload,
+    this.cidSet,
+    this.completedCidSet,
   });
 
   final String? bvid;
@@ -29,6 +32,7 @@ class PagePanel extends StatefulWidget {
   final List<Part>? parts;
 
   final Set<int>? cidSet;
+  final Set<int>? completedCidSet;
   final bool Function(Part part)? onDownload;
 
   final bool showList; // ugc side panel
@@ -272,16 +276,17 @@ class _PagePanelState extends State<PagePanel> {
                                 semanticLabel: "正在播放：",
                               ),
                             ),
-                          )
-                        else if (widget.cidSet?.contains(item.cid) ?? false)
-                          WidgetSpan(
-                            alignment: .middle,
-                            child: Icon(
-                              size: 13,
-                              color: colorScheme.secondary.withValues(
-                                alpha: .8,
+                          ),
+                          if (widget.cidSet?.contains(item.cid) ?? false)
+                            Icon(
+                              size: 18,
+                              color: theme.colorScheme.secondary.withValues(
+                                alpha: 0.8,
                               ),
-                              FontAwesomeIcons.circleDown,
+                              (widget.completedCidSet?.contains(item.cid) ??
+                                      false)
+                                  ? FontAwesomeIcons.circleCheck
+                                  : FontAwesomeIcons.circleDown,
                             ),
                           ),
                         TextSpan(text: item.part),

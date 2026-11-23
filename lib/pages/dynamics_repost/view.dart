@@ -173,9 +173,6 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
 
   Widget _buildRefWidget() => Card(
     margin: const EdgeInsets.symmetric(horizontal: 16),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-    ),
     child: Padding(
       padding: const EdgeInsets.all(10),
       child: Row(

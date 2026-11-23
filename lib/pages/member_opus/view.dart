@@ -7,11 +7,14 @@ import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/grpc/bilibili/app/dynamic/v2.pb.dart'
     show OpusFlowItem;
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
+import 'package:PiliPlus/models_new/space/space_opus/item.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/member_opus/controller.dart';
 import 'package:PiliPlus/pages/member_opus/widgets/collection_item.dart';
 import 'package:PiliPlus/pages/member_opus/widgets/space_opus_item_grpc.dart';
 import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/waterfall.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
@@ -39,8 +42,11 @@ class _MemberOpusState extends State<MemberOpus>
         SingleTickerProviderStateMixin,
         BaseFabMixin,
         LazyFabMixin {
+  static const double _fabRevealDistance = 72.0;
+
   late final MemberOpusController _controller;
-  late ColorScheme colorScheme;
+  double _fabUpwardDistance = 0.0;
+  bool _fabHiddenByScroll = false;
 
   @override
   void initState() {
@@ -54,6 +60,42 @@ class _MemberOpusState extends State<MemberOpus>
     );
   }
 
+  bool _handleFabScroll(ScrollNotification notification) {
+    if (notification.depth != 0 ||
+        notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    if (notification is! ScrollUpdateNotification) {
+      return false;
+    }
+
+    final delta = notification.scrollDelta ?? 0.0;
+
+    if (delta > 0) {
+      _fabUpwardDistance = 0.0;
+
+      if (!_fabHiddenByScroll) {
+        _fabHiddenByScroll = true;
+        hideFab();
+      }
+    } else if (delta < 0 && _fabHiddenByScroll) {
+      _fabUpwardDistance += -delta;
+
+      final reachedTop =
+          notification.metrics.pixels <=
+          notification.metrics.minScrollExtent + 0.5;
+
+      if (_fabUpwardDistance >= _fabRevealDistance || reachedTop) {
+        _fabUpwardDistance = 0.0;
+        _fabHiddenByScroll = false;
+        showFab();
+      }
+    }
+
+    return false;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -64,20 +106,24 @@ class _MemberOpusState extends State<MemberOpus>
   Widget build(BuildContext context) {
     super.build(context);
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
-    return ScaffoldLayout(
-      body: refreshIndicator(
-        isClampingScrollPhysics: true,
-        onRefresh: _controller.onRefresh,
-        child: fabAnimWrapper(
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  top: widget.isSingle ? 12 : 0,
-                  left: Style.safeSpace,
-                  right: Style.safeSpace,
-                  bottom: bottom + 100,
+    return Stack(
+      clipBehavior: .none,
+      children: [
+        refreshIndicator(
+          onRefresh: _controller.onRefresh,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleFabScroll,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    top: widget.isSingle ? 12 : 0,
+                    left: Style.safeSpace,
+                    right: Style.safeSpace,
+                    bottom: bottom + 100,
+                  ),
+                  sliver: Obx(() => _buildBody(_controller.loadingState.value)),
                 ),
                 sliver: Obx(() => _buildBody(_controller.loadingState.value)),
               ),
@@ -94,6 +140,12 @@ class _MemberOpusState extends State<MemberOpus>
                   bottom: kFloatingActionButtonMargin + bottom,
                 ),
                 child: FloatingActionButton.extended(
+                  backgroundColor: Theme.of(context).uiColor(
+                    ThemeUiElement.memberOpusSortBackground,
+                  ),
+                  foregroundColor: Theme.of(context).uiColor(
+                    ThemeUiElement.memberOpusSortContent,
+                  ),
                   onPressed: () => showDialog(
                     context: context,
                     builder: (context) => SimpleDialog(

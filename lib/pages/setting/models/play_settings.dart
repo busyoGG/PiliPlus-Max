@@ -7,9 +7,11 @@ import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
-import 'package:PiliPlus/pages/setting/pages/fullscreen_sc.dart';
+import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart';
+import 'package:PiliPlus/pages/setting/utils/local_font_setting.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/danmaku_merge_settings_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -17,7 +19,7 @@ import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/desktop/window_controller.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/ios/pip_helper.dart';
+import 'package:PiliPlus/utils/local_font_manager.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -29,13 +31,93 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get playSettings => [
+  const SwitchModel(
+    title: '弹幕开关',
+    subtitle: '是否展示弹幕',
+    leading: Icon(CustomIcons.dm_settings),
+    setKey: SettingBoxKey.enableShowDanmaku,
+    defaultVal: true,
+  ),
+  const SwitchModel(
+    title: '记忆弹幕开关状态',
+    subtitle: '关闭后，每次打开新视频都使用上方的默认弹幕开关状态',
+    leading: Icon(Icons.history_toggle_off_outlined),
+    setKey: SettingBoxKey.rememberDanmakuSwitchState,
+    defaultVal: false,
+  ),
+  NormalModel(
+    title: '全屏弹幕开关位置',
+    getSubtitle: () =>
+        '当前：${Pref.fullScreenDanmakuToggleOnLeft ? '左侧' : '右侧'}',
+    leading: const Icon(Icons.horizontal_distribute_outlined),
+    onTap: _showFullScreenDanmakuTogglePositionDialog,
+  ),
+  NormalModel(
+    title: '弹幕中文字体',
+    getSubtitle: () =>
+        '当前：${LocalFontManager.selectionLabel(.danmakuChinese)}',
+    leading: const Icon(Icons.translate),
+    onTap: (context, setState) => showLocalFontSetting(
+      context,
+      slot: .danmakuChinese,
+      onChanged: setState,
+    ),
+  ),
+  NormalModel(
+  title: '弹幕英文字体',
+  getSubtitle: () =>
+      '当前：${LocalFontManager.selectionLabel(.danmakuEnglish)}',
+  leading: const Icon(Icons.font_download_outlined),
+  onTap: (context, setState) => showLocalFontSetting(
+    context,
+    slot: .danmakuEnglish,
+    onChanged: setState,
+  ),
+),
+NormalModel(
+  title: '重复弹幕合并',
+  getSubtitle: () =>
+      '当前：${Pref.danmakuMergeMode.label}',
+  leading: const Icon(Icons.compress_outlined),
+  onTap: (context, setState) async {
+    final changed =
+        await showDanmakuMergeSettingsDialog(
+      context,
+    );
+
+    if (changed) {
+      setState();
+    }
+  },
+),
+if (PlatformUtils.isMobile)
+  const SwitchModel(
+      title: '启用点击弹幕',
+      subtitle: '点击弹幕悬停，支持点赞、复制、举报操作',
+      leading: Icon(Icons.touch_app_outlined),
+      setKey: SettingBoxKey.enableTapDm,
+      defaultVal: true,
+    ),
   NormalModel(
     onTap: (context, setState) => Get.toNamed('/playSpeedSet'),
     leading: const Icon(Icons.speed_outlined),
     title: '倍速设置',
     subtitle: '设置视频播放速度',
   ),
-  if (kDebugMode || Platform.isAndroid)
+  NormalModel(
+    title: '长按倍速触发延迟',
+    getSubtitle: () => '当前：${Pref.longPressSpeedTriggerDelay}ms',
+    leading: const Icon(Icons.timer_outlined),
+    onTap: _showLongPressSpeedTriggerDelayDialog,
+  ),
+  const SwitchModel(
+    title: '显示倍速浮窗',
+    subtitle: '长按倍速时显示当前倍速提示',
+    leading: Icon(Icons.speed),
+    setKey: SettingBoxKey.showLongPressSpeedToast,
+    defaultVal: true,
+  ),
+  if (Platform.isAndroid)
     NormalModel(
       onTap: _showAngleDegreesDialog,
       leading: const Icon(MdiIcons.angleAcute),
@@ -87,11 +169,48 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showFsScreenshotBtn,
     defaultVal: true,
   ),
+  SplitModel(
+    watchKey: SettingBoxKey.skipOpDurationSeconds,
+    normalModel: NormalModel.split(
+      title: '全屏显示跳过 OP 按钮',
+      getSubtitle: () =>
+          '当前：${Pref.skipOpDurationSeconds}秒；点击设置跳过时长',
+      leading: const Icon(Icons.fast_forward_rounded),
+    ),
+    switchModel: const SwitchModel.split(
+      setKey: SettingBoxKey.showFsSkipOpBtn,
+      defaultVal: true,
+      onTap: _showSkipOpDurationDialog,
+    ),
+  ),
   SwitchModel(
     title: '全屏显示电池电量',
     leading: const Icon(Icons.battery_3_bar),
     setKey: SettingBoxKey.showBatteryLevel,
     defaultVal: PlatformUtils.isMobile,
+  ),
+  const SwitchModel(
+    title: '电池电量显示百分比',
+    subtitle: '关闭后显示竖排电量图标',
+    leading: Icon(Icons.battery_full),
+    setKey: SettingBoxKey.showBatteryPercentage,
+    defaultVal: true,
+  ),
+  const SwitchModel(
+    title: '显示 mpv 帧率与丢帧',
+    subtitle:
+        '帧率：根据最近 10 帧估算的每秒输出画面数；'
+        '已丢帧：因来不及显示而累计跳过的画面数，不含解码阶段丢帧',
+    leading: Icon(Icons.speed_outlined),
+    setKey: SettingBoxKey.showMpvOutputFps,
+    defaultVal: false,
+  ),
+  const SwitchModel(
+    title: '显示缓冲速度',
+    subtitle: '缓冲速度每 500ms 刷新；无法获取有效速度时仅显示“加载中”',
+    leading: Icon(Icons.cloud_download_outlined),
+    setKey: SettingBoxKey.showBufferingInfo,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '双击快退/快进',
@@ -125,101 +244,14 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableSlideFS,
     defaultVal: true,
   ),
-  const SwitchModel(
-    title: '提前初始化播放器',
-    subtitle: '相对减少手动播放加载时间',
-    leading: Icon(Icons.play_circle_outlined),
-    setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: false,
+  NormalModel(
+    title: '双指缩放识别角度',
+    getSubtitle: () =>
+        '当前：${Pref.pinchGestureAngleThreshold.toStringAsFixed(0)}°；越大越容易触发',
+    leading: const Icon(Icons.pinch),
+    onTap: _showPinchGestureAngleThresholdDialog,
   ),
-  const SwitchModel(
-    title: '滑动跳转预览视频缩略图',
-    leading: Icon(Icons.preview_outlined),
-    setKey: SettingBoxKey.showSeekPreview,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示高能进度条',
-    subtitle: '高能进度条反应了在时域上，单位时间内弹幕发送量的变化趋势',
-    leading: Icon(Icons.show_chart),
-    setKey: SettingBoxKey.showDmChart,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '启用双指缩小视频',
-    leading: Icon(Icons.pinch),
-    setKey: SettingBoxKey.enableShrinkVideoSize,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '启用拖拽字幕调整底部边距',
-    leading: Icon(MdiIcons.dragVariant),
-    setKey: SettingBoxKey.enableDragSubtitle,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '视频页显示相关视频',
-    leading: Icon(MdiIcons.motionPlayOutline),
-    setKey: SettingBoxKey.showRelatedVideo,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '默认展开视频简介',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.alwaysExpandIntroPanel,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '横屏自动展开视频简介',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.expandIntroPanelH,
-    defaultVal: false,
-  ),
-  SwitchModel(
-    title: '横屏分P/合集列表显示在Tab栏',
-    leading: const Icon(Icons.format_list_numbered_rtl_sharp),
-    setKey: SettingBoxKey.horizontalSeasonPanel,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: '横屏播放页在侧栏打开UP主页',
-    leading: const Icon(Icons.account_circle_outlined),
-    setKey: SettingBoxKey.horizontalMemberPage,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: '横屏在侧栏打开图片预览',
-    leading: const Icon(Icons.photo_outlined),
-    setKey: SettingBoxKey.horizontalPreview,
-    defaultVal: false,
-    onChanged: (value) => ImageGridView.horizontalPreview = value,
-  ),
-  const SwitchModel(
-    title: '显示视频警告/争议信息',
-    leading: Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showArgueMsg,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示视频分段信息',
-    leading: Icon(CustomIcons.view_headline_rotate_90),
-    setKey: SettingBoxKey.showViewPoints,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示继续播放分P提示',
-    leading: Icon(Icons.local_parking),
-    setKey: SettingBoxKey.continuePlayingPart,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '分P/合集：倒序播放从首集开始播放',
-    subtitle: '开启则自动切换为倒序首集，否则保持当前集',
-    leading: Icon(MdiIcons.sort),
-    setKey: SettingBoxKey.reverseFromFirst,
-    defaultVal: true,
-  ),
-  if (kDebugMode || PlatformUtils.isMobile)
+  if (PlatformUtils.isMobile)
     NormalModel(
       title: '播放器音量',
       leading: const Icon(Icons.volume_up),
@@ -255,6 +287,117 @@ List<SettingsModel> get playSettings => [
     values: [25, 50, 90, 100],
     defaultValue: 90,
     isFilter: false,
+  ),
+  NormalModel(
+    title: '水平滑动快进/快退触发距离',
+    getSubtitle: () =>
+        '当前：${Pref.horizontalSeekGestureThreshold.toStringAsFixed(0)}dp；越小越容易触发',
+    leading: const Icon(Icons.swipe_outlined),
+    onTap: _showHorizontalSeekGestureThresholdDialog,
+  ),
+  const SwitchModel(
+    title: '使用B站官方进度时间样式',
+    subtitle: '当前时间和总时长显示在进度条两侧，并压缩底栏与渐变阴影高度',
+    leading: Icon(Icons.video_label_outlined),
+    setKey: SettingBoxKey.biliProgressTimeStyle,
+    defaultVal: false,
+  ),
+  NormalModel(
+    title: '进度条手柄圆形大小',
+    getSubtitle: () =>
+        '当前：${Pref.playerProgressThumbScale.toStringAsFixed(1)}×；放大后更容易拖动',
+    leading: const Icon(Icons.radio_button_checked),
+    onTap: _showPlayerProgressThumbScaleDialog,
+  ),
+  NormalModel(
+    title: '点击进度条垂直触摸范围',
+    getSubtitle: () =>
+        '当前：上下各扩展${Pref.playerProgressBarTouchPadding.toStringAsFixed(0)}dp；不改变可视尺寸',
+    leading: const Icon(Icons.unfold_more),
+    onTap: _showPlayerProgressBarTouchPaddingDialog,
+  ),
+  NormalModel(
+    title: '播放器上下按钮横向边距',
+    getSubtitle: () =>
+        '当前：${Pref.playerControlHorizontalPadding.toStringAsFixed(0)}dp',
+    leading: const Icon(Icons.horizontal_distribute_outlined),
+    onTap: _showPlayerControlHorizontalPaddingDialog,
+  ),
+  NormalModel(
+    title: '播放器上下边栏整体厚度',
+    getSubtitle: () =>
+        '当前：${Pref.playerControlBarThicknessScale.toStringAsFixed(1)}×；同步调整内容纵向密度',
+    leading: const Icon(Icons.height),
+    onTap: _showPlayerControlBarThicknessScaleDialog,
+  ),
+  NormalModel(
+    title: '播放器上下边栏渐变弥散宽度',
+    getSubtitle: () =>
+        '当前：${Pref.playerControlBarGradientExtent.toStringAsFixed(0)}dp',
+    leading: const Icon(Icons.gradient),
+    onTap: _showPlayerControlBarGradientExtentDialog,
+  ),
+  SwitchModel(
+    title: '拖动进度条显示预览浮窗',
+    subtitle: '控制拖动底部进度条滑块时的预览浮窗',
+    leading: const Icon(Icons.preview_outlined),
+    setKey: SettingBoxKey.showSeekPreviewOnSlider,
+    defaultVal: Pref.showSeekPreview,
+  ),
+  SwitchModel(
+    title: '左右滑动手势显示预览浮窗',
+    subtitle: '控制在画面上横向滑动快进或快退时的预览浮窗',
+    leading: const Icon(Icons.swipe_outlined),
+    setKey: SettingBoxKey.showSeekPreviewOnGesture,
+    defaultVal: Pref.showSeekPreview,
+  ),
+  const SwitchModel(
+    title: '提前下载进度预览资源',
+    subtitle: '起播或预载播放器时下载全部雪碧图和对应索引',
+    leading: Icon(Icons.downloading_outlined),
+    setKey: SettingBoxKey.preloadVideoShot,
+    defaultVal: true,
+  ),
+  const SwitchModel(
+    title: '当前时间浮窗集成到预览窗',
+    subtitle: '开启后，时间浮窗在预览窗内部显示并随预览窗移动；没有预览窗时仍单独显示',
+    leading: Icon(Icons.layers_outlined),
+    setKey: SettingBoxKey.seekTimeInPreview,
+    defaultVal: false,
+  ),
+  const SwitchModel(
+  title: '拖动进度条时预览窗跟随滑块',
+  subtitle: '拖动底部进度条时，预览窗随滑块水平移动',
+  leading: Icon(Icons.swipe),
+  setKey: SettingBoxKey.seekPreviewFollowSlider,
+  defaultVal: false,
+),
+  const SwitchModel(
+  title: '横滑快进/快退时预览窗跟随手柄',
+  subtitle: '在画面上横向滑动时，预览窗随目标进度的进度条手柄移动',
+  leading: Icon(Icons.swap_horiz),
+  setKey: SettingBoxKey.seekPreviewFollowGesture,
+  defaultVal: false,
+),
+  NormalModel(
+    title: '进度预览窗大小',
+    getSubtitle: () => '当前：${Pref.seekPreviewScale.toStringAsFixed(1)}×',
+    leading: const Icon(Icons.photo_size_select_large),
+    onTap: _showSeekPreviewScaleDialog,
+  ),
+  NormalModel(
+    title: '进度预览窗与进度条间距',
+    getSubtitle: () =>
+        '当前：${Pref.seekPreviewProgressBarGap.toStringAsFixed(0)}dp',
+    leading: const Icon(Icons.vertical_align_center_outlined),
+    onTap: _showSeekPreviewProgressBarGapDialog,
+  ),
+  const SwitchModel(
+    title: '非全屏拖动进度条显示预览窗',
+    subtitle: '关闭后，全屏拖动进度条仍显示预览窗',
+    leading: Icon(Icons.fullscreen_exit_outlined),
+    setKey: SettingBoxKey.showSeekPreviewInNonFullscreen,
+    defaultVal: true,
   ),
   NormalModel(
     title: '自动启用字幕',
@@ -305,6 +448,19 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableAutoEnter,
     defaultVal: false,
   ),
+  NormalModel(
+  title: '全屏画质切换强制接管',
+  getSubtitle: () {
+    final seconds =
+        Pref.videoPlayerSwitchForceTimeoutSeconds;
+
+    return seconds == 0
+        ? '当前：关闭；仅在完全同步后切换'
+        : '当前：${seconds}秒；超时后切换并进入缓冲';
+  },
+  leading: const Icon(Icons.sync_problem_outlined),
+  onTap: _showVideoPlayerSwitchForceTimeoutDialog,
+),
   const SwitchModel(
     title: '自动退出全屏',
     subtitle: '视频结束播放时退出全屏',
@@ -312,13 +468,14 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableAutoExit,
     defaultVal: true,
   ),
-  const SwitchModel(
-    title: '延长播放控件显示时间',
-    subtitle: '开启后延长至30秒，便于屏幕阅读器滑动切换控件焦点',
-    leading: Icon(Icons.timer_outlined),
-    setKey: SettingBoxKey.enableLongShowControl,
-    defaultVal: false,
-  ),
+  NormalModel(
+  title: '播放控件显示时间',
+  getSubtitle: () =>
+      '当前：${Pref.playerControlDisplayDurationSeconds}秒；'
+      '无操作后自动隐藏',
+  leading: const Icon(Icons.timer_outlined),
+  onTap: _showPlayerControlDisplayDurationDialog,
+),
   if (PlatformUtils.isMobile)
     const SwitchModel(
       title: '后台播放',
@@ -414,6 +571,360 @@ List<SettingsModel> get playSettings => [
     defaultVal: false,
   ),
 ];
+
+Future<void> _showLongPressSpeedTriggerDelayDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('长按倍速触发延迟'),
+      value: Pref.longPressSpeedTriggerDelay.toDouble(),
+      min: 100,
+      max: 1000,
+      divisions: 18,
+      precise: 0,
+      suffix: 'ms',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.longPressSpeedTriggerDelay,
+      res.toInt(),
+    );
+    setState();
+  }
+}
+
+Future<void> _showFullScreenDanmakuTogglePositionDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => SelectDialog<bool>(
+      title: '全屏弹幕开关位置',
+      value: Pref.fullScreenDanmakuToggleOnLeft,
+      values: const [
+        (true, '左侧（左侧按钮组最右端）'),
+        (false, '右侧'),
+      ],
+    ),
+  );
+  if (result != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.fullScreenDanmakuToggleOnLeft,
+      result,
+    );
+    setState();
+  }
+}
+
+Future<void> _showSkipOpDurationDialog(BuildContext context) async {
+  final result = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('跳过 OP 时长'),
+      value: Pref.skipOpDurationSeconds.toDouble(),
+      min: 1,
+      max: 300,
+      divisions: 299,
+      precise: 0,
+      suffix: '秒',
+    ),
+  );
+  if (result != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.skipOpDurationSeconds,
+      result.round(),
+    );
+  }
+}
+
+Future<void> _showPlayerControlDisplayDurationDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final result = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('播放控件显示时间'),
+      value: Pref.playerControlDisplayDurationSeconds.toDouble(),
+      min: 1,
+      max: 60,
+      divisions: 59,
+      precise: 0,
+      suffix: '秒',
+    ),
+  );
+
+  if (result == null) {
+    return;
+  }
+
+  await GStorage.setting.put(
+    SettingBoxKey.playerControlDisplayDurationSeconds,
+    result.round(),
+  );
+
+  // 新数值已经保存，删除旧布尔键，完成惰性迁移。
+  await GStorage.setting.delete(
+    SettingBoxKey.enableLongShowControl,
+  );
+
+  setState();
+}
+Future<void> _showVideoPlayerSwitchForceTimeoutDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final result = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('全屏画质切换强制接管'),
+      value:
+          Pref.videoPlayerSwitchForceTimeoutSeconds.toDouble(),
+      min: 0,
+      max: 60,
+      divisions: 60,
+      precise: 0,
+      suffix: '秒',
+    ),
+  );
+
+  if (result == null) {
+    return;
+  }
+
+  await GStorage.setting.put(
+    SettingBoxKey.videoPlayerSwitchForceTimeoutSeconds,
+    result.round(),
+  );
+
+  setState();
+}
+Future<void> _showPinchGestureAngleThresholdDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('双指缩放识别角度'),
+      value: Pref.pinchGestureAngleThreshold,
+      min: 15,
+      max: 90,
+      divisions: 15,
+      precise: 0,
+      suffix: '°',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.pinchGestureAngleThreshold,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showHorizontalSeekGestureThresholdDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('水平滑动快进/快退触发距离'),
+      value: Pref.horizontalSeekGestureThreshold,
+      min: 1,
+      max: 100,
+      divisions: 99,
+      precise: 0,
+      suffix: 'dp',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.horizontalSeekGestureThreshold,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showPlayerProgressThumbScaleDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('进度条手柄圆形大小'),
+      value: Pref.playerProgressThumbScale,
+      min: 0.5,
+      max: 2.0,
+      divisions: 15,
+      precise: 1,
+      suffix: '×',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.playerProgressThumbScale,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showPlayerProgressBarTouchPaddingDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('点击进度条垂直触摸范围'),
+      value: Pref.playerProgressBarTouchPadding,
+      min: 0,
+      max: 32,
+      divisions: 32,
+      precise: 0,
+      suffix: 'dp',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.playerProgressBarTouchPadding,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showSeekPreviewScaleDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('进度预览窗大小'),
+      value: Pref.seekPreviewScale,
+      min: 0.5,
+      max: 2.0,
+      divisions: 15,
+      precise: 1,
+      suffix: '×',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.seekPreviewScale, res);
+    setState();
+  }
+}
+
+Future<void> _showSeekPreviewProgressBarGapDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('进度预览窗与进度条间距'),
+      value: Pref.seekPreviewProgressBarGap,
+      min: 0,
+      max: 160,
+      divisions: 32,
+      precise: 0,
+      suffix: 'dp',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.seekPreviewProgressBarGap,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showPlayerControlHorizontalPaddingDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('播放器上下按钮横向边距'),
+      value: Pref.playerControlHorizontalPadding,
+      min: 0,
+      max: 32,
+      divisions: 32,
+      precise: 0,
+      suffix: 'dp',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.playerControlHorizontalPadding,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showPlayerControlBarThicknessScaleDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('播放器上下边栏整体厚度'),
+      value: Pref.playerControlBarThicknessScale,
+      min: 0.8,
+      max: 1.5,
+      divisions: 7,
+      precise: 1,
+      suffix: '×',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.playerControlBarThicknessScale,
+      res,
+    );
+    setState();
+  }
+}
+
+Future<void> _showPlayerControlBarGradientExtentDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('播放器上下边栏渐变弥散宽度'),
+      value: Pref.playerControlBarGradientExtent,
+      min: 0,
+      max: 96,
+      divisions: 24,
+      precise: 0,
+      suffix: 'dp',
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.playerControlBarGradientExtent,
+      res,
+    );
+    setState();
+  }
+}
 
 Future<void> _showSubtitleDialog(
   BuildContext context,

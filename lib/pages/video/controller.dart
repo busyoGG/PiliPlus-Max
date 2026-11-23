@@ -21,7 +21,8 @@ import 'package:PiliPlus/models/common/sponsor_block/action_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
-import 'package:PiliPlus/models/common/video/base_quality.dart';
+import 'package:PiliPlus/models/common/video/audio_quality.dart';
+import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
@@ -33,7 +34,9 @@ import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliPlus/models_new/video/video_pbp/data.dart';
 import 'package:PiliPlus/models_new/video/video_play_info/subtitle.dart';
+import 'package:PiliPlus/models_new/video/video_stein_edgeinfo/choice.dart';
 import 'package:PiliPlus/models_new/video/video_stein_edgeinfo/data.dart';
+import 'package:PiliPlus/models_new/video/video_stein_edgeinfo/story_list.dart';
 import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
@@ -46,6 +49,7 @@ import 'package:PiliPlus/pages/video/note/view.dart';
 import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
@@ -57,9 +61,10 @@ import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/nested_scroll_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
+import 'package:PiliPlus/utils/interactive_video_progress.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/reply_scheme_helper.dart';
+import 'package:PiliPlus/utils/startup_log.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
@@ -114,14 +119,94 @@ class VideoDetailController extends GetxController
   // 请求返回的视频信息
   late PlayUrlModel data;
   final RxBool videoState = false.obs;
+  final RxBool showVideoCover = true.obs;
+  final RxBool blackVideoCover = false.obs;
+  final RxBool keepInitialVideoViewport = false.obs;
 
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
 
+  bool _initialVideoQualitySelected = false;
+  bool _usingInitialHalfScreenQuality = false;
+  bool? _videoQualityOnWiFi;
+  Worker? _fullScreenQualityWorker;
+  bool get usingInitialHalfScreenQuality =>
+    _usingInitialHalfScreenQuality;
+
+  bool _isPageActive = false;
+  bool get isPageActive => _isPageActive && !isClosed;
+
+  int _startupPlayAttempt = 0;
+  int _startupQuerySequence = 0;
+  int? _startupActiveQuery;
+
+  int recordStartupPlayIntent(String origin) {
+    final attempt = ++_startupPlayAttempt;
+    logStartup('intent.received', {'origin': origin});
+    return attempt;
+  }
+
+  void logStartup(String event, [Map<String, Object?> details = const {}]) {
+    if (!StartupLog.enabled) return;
+    try {
+      plPlayerController.logPageStartup(event, {
+        'pageControllerId': identityHashCode(this),
+        'pageId': heroTag.hashCode,
+        'pageActive': isPageActive,
+        'pageClosed': isClosed,
+        'pageAutoplay': _autoPlay.value,
+        'attemptId': _startupPlayAttempt,
+        'queryId': _startupActiveQuery,
+        'lastQueryId': _startupQuerySequence,
+        'querying': isQuerying,
+        'videoUrlPresent': videoUrl != null,
+        'audioUrlPresent': audioUrl != null,
+        'fileSource': isFileSource,
+        'preInitPlayer': plPlayerController.preInitPlayer,
+        'videoState': videoState.value,
+        'showCover': showVideoCover.value,
+        'blackCover': blackVideoCover.value,
+        'coverTapEnabled': showVideoCover.value && !_autoPlay.value,
+        'startWaitOverlay': _autoPlay.value &&
+            (blackVideoCover.value ||
+                (!showVideoCover.value &&
+                    !(videoState.value &&
+                        plPlayerController.videoController != null))),
+        'keepViewport': keepInitialVideoViewport.value,
+        'widgetMounted': videoPlayerKey.currentState?.mounted == true,
+        'outputPresent': plPlayerController.videoController != null,
+        'sourceLoadedForPage':
+            plPlayerController.isVideoPageDataSourceLoaded(heroTag),
+        'sourceLoadingForPage':
+            plPlayerController.isVideoPageDataSourceLoading(heroTag),
+        'savedPlayerStatus': playerStatus?.name,
+        ...details,
+      });
+    } catch (error) {
+      StartupLog.write('page', 'snapshot.error', {
+        'requestedEvent': event,
+        'pageControllerId': identityHashCode(this),
+        'errorType': error.runtimeType.toString(),
+      });
+    }
+  }
+
+  void setPageActive(bool isActive) {
+    final wasActive = plPlayerController.isVideoPageActive(heroTag);
+    _isPageActive = isActive;
+    plPlayerController.setVideoPageActive(heroTag, isActive);
+    logStartup('active.changed', {'wasActive': wasActive, 'active': isActive});
+    if (!isActive && wasActive) {
+      plPlayerController.cancelVideoPlayerSwitch();
+    }
+  }
+
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
+  // Observed by release-build diagnostics, including internal flag writes.
+  RxBool get startupAutoplay => _autoPlay;
 
   final videoPlayerKey = GlobalKey();
   final childKey = GlobalKey<MiniScaffoldState>();
@@ -135,6 +220,7 @@ class VideoDetailController extends GetxController
   late VideoItem firstVideo;
   String? videoUrl;
   String? audioUrl;
+  CDNService? _cdnService;
   Duration? defaultST;
   Duration? playedTime;
   String playedTimePos(bool hasParams) {
@@ -144,6 +230,38 @@ class VideoDetailController extends GetxController
     }
     return '';
   }
+
+  void _setVideoPlayUrls(Iterable<String> playUrls) {
+    videoUrl = VideoUtils.getCdnUrl(
+      playUrls,
+      defaultCDNService: _currentCdnService,
+    );
+  }
+
+  void _setAudioPlayUrls(Iterable<String> playUrls) {
+    audioUrl = VideoUtils.getCdnUrl(
+      playUrls,
+      defaultCDNService: _currentCdnService,
+      isAudio: true,
+    );
+  }
+
+  void _clearAudioPlayUrls() {
+    audioUrl = '';
+  }
+
+  CDNService get _currentCdnService =>
+      _cdnService ??= VideoUtils.takeNextCdnService();
+
+  void selectNextCdn() {
+    _cdnService = VideoUtils.takeNextCdnService();
+  }
+
+  NetworkSource _networkSource() => NetworkSource(
+    videoSource: videoUrl!,
+    audioSource: audioUrl,
+    cdnService: _currentCdnService,
+  );
 
   // 亮度
   double? brightness;
@@ -373,8 +491,14 @@ class VideoDetailController extends GetxController
 
   @override
   void onInit() {
+    videoCardExitRequests.addListener(_onTransitionExit);
     super.onInit();
     args = Get.arguments;
+    if (args['autoplay'] case final bool autoplay) {
+      _autoPlay.value = autoplay;
+    }
+    showVideoCover.value = !_autoPlay.value;
+    keepInitialVideoViewport.value = showVideoCover.value;
     videoType = args['videoType'];
     if (videoType == VideoType.pgc) {
       if (!isLoginVideo) {
@@ -402,6 +526,20 @@ class VideoDetailController extends GetxController
       _mediaDesc = args['desc'];
       getMediaList();
     }
+
+    _fullScreenQualityWorker = ever<bool>(
+      plPlayerController.isFullScreen,
+      (isFullScreen) {
+        if (!isFullScreen) {
+          plPlayerController.cancelVideoPlayerSwitch();
+          return;
+        }
+        if (isPageActive &&
+            _usingInitialHalfScreenQuality) {
+          unawaited(_switchFromInitialHalfScreenQuality());
+        }
+      },
+    );
 
     tabCtr = TabController(
       length: 2,
@@ -657,6 +795,88 @@ class VideoDetailController extends GetxController
     }
   }
 
+  int _resolveAvailableVideoQuality(int preferredQuality) {
+    final videoList = data.dash!.video!;
+    final curHighestVideoQa = videoList.first.quality.code;
+  
+    int targetVideoQa = curHighestVideoQa;
+  
+    if (data.acceptQuality?.isNotEmpty == true &&
+        preferredQuality <= curHighestVideoQa) {
+      targetVideoQa = data.acceptQuality!.findClosestTarget(
+        (quality) => quality <= preferredQuality,
+        (a, b) => a > b ? a : b,
+      );
+    }
+  
+    return targetVideoQa;
+  }
+  
+  Future<void> _switchFromInitialHalfScreenQuality() async {
+    if (!isPageActive ||
+        !plPlayerController.isFullScreen.value ||
+        !_usingInitialHalfScreenQuality) {
+      return;
+    }
+  
+    final isWiFi =
+        _videoQualityOnWiFi ?? await ConnectivityUtils.isWiFi;
+    if (!isPageActive) {
+      return;
+    }
+    _videoQualityOnWiFi = isWiFi;
+  
+    final preferredQuality = isWiFi
+        ? Pref.defaultVideoQa
+        : Pref.defaultVideoQaCellular;
+  
+    if (currentVideoQa.value == null) {
+      return;
+    }
+  
+    if (data.dash == null) {
+      return;
+    }
+  
+    final targetQuality = _resolveAvailableVideoQuality(
+      preferredQuality,
+    );
+  
+    if (currentVideoQa.value!.code == targetQuality) {
+      _usingInitialHalfScreenQuality = false;
+      plPlayerController.cacheVideoQa = preferredQuality;
+      return;
+    }
+  
+    final targetVideo = findVideoByQa(targetQuality);
+    final targetVideoUrl = VideoUtils.getCdnUrl(
+      targetVideo.playUrls,
+      defaultCDNService: _currentCdnService,
+    );
+    final switched = await plPlayerController.switchVideoPlayer(
+      targetSource: NetworkSource(
+        videoSource: targetVideoUrl,
+        audioSource: audioUrl,
+        cdnService: _currentCdnService,
+      ),
+      width: targetVideo.width,
+      height: targetVideo.height,
+    );
+    if (!switched || !isPageActive) {
+      return;
+    }
+
+    _usingInitialHalfScreenQuality = false;
+    plPlayerController.cacheVideoQa = preferredQuality;
+    firstVideo = targetVideo;
+    videoUrl = targetVideoUrl;
+    currentDecodeFormats = VideoDecodeFormatType.fromString(
+      targetVideo.codecs!,
+    );
+    currentVideoQa.value = VideoQuality.fromCode(targetQuality);
+    _setVideoHeight();
+  }
+
   VideoItem findVideoByQa(int qa, {bool setCodecs = false}) {
     /// 根据currentVideoQa和currentDecodeFormats 重新设置videoUrl
     final videoList = data.dash!.video!.where((i) => i.id == qa).toList();
@@ -693,8 +913,10 @@ class VideoDetailController extends GetxController
 
   /// 更新画质、音质
   void updatePlayer() {
+    if (!isPageActive) return;
     final currentVideoQa = this.currentVideoQa.value;
     if (currentVideoQa == null) return;
+    final autoplay = plPlayerController.playerStatus.isPlaying;
     _autoPlay.value = true;
     playedTime = plPlayerController.videoPlayerController?.state.position;
     plPlayerController
@@ -702,7 +924,7 @@ class VideoDetailController extends GetxController
       ..buffered.value = 0;
 
     firstVideo = findVideoByQa(currentVideoQa.code, setCodecs: true);
-    videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
+    _setVideoPlayUrls(firstVideo.playUrls);
 
     /// 根据currentAudioQa 重新设置audioUrl
     if (currentAudioQa != null) {
@@ -710,18 +932,25 @@ class VideoDetailController extends GetxController
         (i) => i.id == currentAudioQa!.code,
         orElse: () => data.dash!.audio!.first,
       );
-      audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
+      _setAudioPlayUrls(firstAudio.playUrls);
     }
 
-    playerInit();
+    playerInit(autoplay: autoplay);
   }
 
-  Future<void>? initPlayerIfNeeded(bool autoFullScreenFlag) {
-    if (_autoPlay.value ||
+  Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
+    // 快速点进又退出：播放器还没建就直接放弃，省掉创建+销毁这一整对开销。
+    if (_exiting || isClosed || _routeLeaving) return null;
+    final shouldInit = _autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
             (isFileSource
                 ? true
-                : videoPlayerKey.currentState?.mounted == true)) {
+                : videoPlayerKey.currentState?.mounted == true);
+    logStartup('init_if_needed.decision', {
+      'shouldInit': shouldInit,
+      'autoFullScreenFlag': autoFullScreenFlag,
+    });
+    if (shouldInit) {
       return playerInit(
         autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
       );
@@ -733,9 +962,31 @@ class VideoDetailController extends GetxController
     bool? autoplay,
     bool autoFullScreenFlag = false,
   }) async {
-    Duration? seek = defaultST ?? playedTime;
-    if (seek == .zero) seek = null;
-    seek ??= getFirstSegment();
+    logStartup('player_init.enter', {
+      'requestedAutoplay': autoplay,
+      'effectiveAutoplay': autoplay ?? _autoPlay.value,
+      'autoFullScreenFlag': autoFullScreenFlag,
+    });
+    if (!isPageActive) {
+      logStartup('player_init.skip.inactive');
+      return;
+    }
+    final revealCoverOnInit =
+        showVideoCover.value && (autoplay ?? _autoPlay.value);
+    Duration? seek = defaultST;
+    final playedTimeMilliseconds = playedTime?.inMilliseconds;
+    if (seek == null && playedTimeMilliseconds != null) {
+      seek = _resumePosition(playedTimeMilliseconds);
+    }
+    if (isInteractiveVideo) {
+      seek ??= Duration.zero;
+    } else if (seek == null || seek == Duration.zero) {
+      seek = getFirstSegment();
+    }
+    logStartup('player_init.set_source.before', {
+      'effectiveAutoplay': autoplay ?? _autoPlay.value,
+      'revealCoverOnInit': revealCoverOnInit,
+    });
     await plPlayerController.setDataSource(
       isFileSource
           ? FileSource(
@@ -744,10 +995,7 @@ class VideoDetailController extends GetxController
               isMp4: entry.mediaType == 1,
               hasDashAudio: entry.hasDashAudio,
             )
-          : NetworkSource(
-              videoSource: videoUrl!,
-              audioSource: audioUrl,
-            ),
+          : _networkSource(),
       seekTo: seek,
       duration: data.timeLength == null
           ? null
@@ -761,18 +1009,34 @@ class VideoDetailController extends GetxController
       seasonId: isUgc ? null : seasonId,
       pgcType: isUgc ? null : pgcType,
       videoType: videoType,
-      onInit: () {
+      onVideoOutputReady: () {
+        logStartup('player_init.output_ready');
+        if (!isPageActive) return;
         videoState.value = true;
+      },
+      onInit: () {
+        logStartup('player_init.on_init', {
+          'revealCoverOnInit': revealCoverOnInit,
+        });
+        if (!isPageActive) return;
+        if (revealCoverOnInit) {
+          showVideoCover.value = false;
+          blackVideoCover.value = false;
+        }
         setSubtitle(vttSubtitlesIndex.value);
       },
       width: firstVideo.width,
       height: firstVideo.height,
       volume: volume,
       autoFullScreenFlag: autoFullScreenFlag,
-      rotate: _rotate,
+      videoPageTag: heroTag,
     );
 
-    if (isClosed) return;
+    logStartup('player_init.set_source.after');
+    if (!isPageActive) {
+      logStartup('player_init.skip.after_source');
+      return;
+    }
 
     if (plPlayerController.enableBlock) {
       initSkip();
@@ -830,101 +1094,155 @@ class VideoDetailController extends GetxController
 
   Volume? volume;
 
+  Duration _resumePosition(int progress) {
+    if (isInteractiveVideo) {
+      return Duration.zero;
+    }
+    final timeLength = data.timeLength;
+    if (progress <= 0) {
+      return Duration.zero;
+    }
+    if (timeLength == null || timeLength <= 0) {
+      return Duration(milliseconds: progress);
+    }
+
+    // Avoid reaching EOF while Android is still replacing vo=null with the
+    // real GPU surface. Keep at least three seconds away from EOF.
+    final endGuardMilliseconds = (timeLength ~/ 20).clamp(3000, 5000);
+    if (progress >= timeLength ||
+        timeLength - progress <= endGuardMilliseconds) {
+      return Duration.zero;
+    }
+    return Duration(milliseconds: progress);
+  }
+
   // 视频链接
   /// TODO: merge [DownloadHttp.getVideoUrl].
   Future<void> queryVideoUrl({
     bool fromReset = false,
     bool autoFullScreenFlag = false,
   }) async {
+    logStartup('query.enter', {
+      'fromReset': fromReset,
+      'autoFullScreenFlag': autoFullScreenFlag,
+    });
     if (isFileSource) {
-      return initPlayerIfNeeded(autoFullScreenFlag);
+      logStartup('query.file_source');
+      return _initPlayerIfNeeded(autoFullScreenFlag);
     }
     if (isQuerying) {
+      logStartup('query.skip.busy');
       return;
     }
     isQuerying = true;
+    final queryId = ++_startupQuerySequence;
+    _startupActiveQuery = queryId;
+    logStartup('query.begin');
     try {
-      await _queryVideoUrl(fromReset, autoFullScreenFlag);
-    } finally {
-      isQuerying = false;
-    }
-  }
+      _restoreLocalSteinProgressIfNeeded();
+      if (!isPageActive) {
+        isQuerying = false;
+        logStartup('query.skip.inactive');
+        return;
+      }
+      if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
+        querySponsorBlock(bvid: bvid, cid: cid.value);
+      }
+      // 播放地址请求不依赖网络类型，先发出去，省掉一次串行等待。
+      final urlFuture = VideoHttp.videoUrl(
+        cid: cid.value,
+        bvid: bvid,
+        epid: epId,
+        seasonId: seasonId,
+        tryLook: plPlayerController.tryLook,
+        videoType: _actualVideoType ?? videoType,
+        language: currLang.value,
+        voiceBalance: plPlayerController.enableAudioNormalization,
+      );
+      if (!_initialVideoQualitySelected) {
+        _initialVideoQualitySelected = true;
 
-  @pragma('vm:prefer-inline')
-  Future<void> _queryVideoUrl(bool fromReset, bool autoFullScreenFlag) async {
-    if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
-      querySponsorBlock(bvid: bvid, cid: cid.value);
-    }
-    if (PlatformUtils.isMobile || Platform.isLinux) {
-      final isWiFi = await ConnectivityUtils.isWiFi;
-      if (plPlayerController.cacheVideoQa == null) {
+        logStartup('query.connectivity.wait');
+        final isWiFi = await ConnectivityUtils.isWiFi;
+        logStartup('query.connectivity.ready', {'isWiFi': isWiFi});
+        _videoQualityOnWiFi = isWiFi;
+
+        final willStartFullScreen =
+            plPlayerController.isFullScreen.value ||
+            (autoFullScreenFlag &&
+                _autoPlay.value &&
+                plPlayerController.autoEnterFullScreen);
+
+        _usingInitialHalfScreenQuality = !willStartFullScreen;
+
+        final int initialVideoQuality;
+
+        if (_usingInitialHalfScreenQuality) {
+          initialVideoQuality = Pref.defaultVideoQaHalfScreen;
+        } else if (isWiFi) {
+          initialVideoQuality = Pref.defaultVideoQa;
+        } else {
+          initialVideoQuality = Pref.defaultVideoQaCellular;
+        }
+
         plPlayerController
-          ..cacheVideoQa = isWiFi
-              ? Pref.defaultVideoQa
-              : Pref.defaultVideoQaCellular
+          ..cacheVideoQa = initialVideoQuality
           ..cacheAudioQa = isWiFi
               ? Pref.defaultAudioQa
               : Pref.defaultAudioQaCellular;
       }
-      preferCodecs = isWiFi ? Pref.preferCodecs : Pref.preferCodecsCellular;
-    }
 
-    final result = await _getVideoUrl(VideoQuality.hdrVivid.code);
+      logStartup('query.http.wait');
+      final result = await urlFuture;
 
-    if (result case Success(:final response)) {
-      data = response;
-      if (data.dash != null) await _supplementVideoQualities();
+      logStartup('query.http.result', {
+        'resultType': result.runtimeType.toString(),
+      });
+      if (result case Success(:final response)) {
+        data = response;
+        logStartup('query.media_shape', {
+          'dashPresent': data.dash != null,
+          'durlPresent': data.durl != null,
+          'videoTracks': data.dash?.video?.length,
+          'audioTracks': data.dash?.audio?.length,
+        });
 
-      languages.value = data.language?.items;
-      currLang.value = data.curLanguage;
+        languages.value = data.language?.items;
+        currLang.value = data.curLanguage;
 
-      volume = data.volume;
+        volume = data.volume;
 
-      if (!fromReset) {
-        final progress = args.remove('progress');
-        if (progress != null) {
-          defaultST = Duration(milliseconds: progress);
-        } else {
-          defaultST = Duration(milliseconds: data.lastPlayTime);
-        }
-      }
-
-      if (!isUgc && !fromReset && plPlayerController.enablePgcSkip) {
-        if (data.clipInfoList case final clipInfoList?) {
-          resetBlock();
-          handleSBData(clipInfoList);
-        }
-      }
-
-      if (data.acceptDesc?.contains('试看') == true) {
-        SmartDialog.showToast(
-          '该视频为专属视频，仅提供试看',
-          displayTime: const Duration(seconds: 3),
-        );
-      }
-      final dash = data.dash;
-      if (dash == null) {
-        if (data.durl case final durl?) {
-          // it will cause all files to be opened simultaneously
-          if (durl.length > 1) {
-            // TODO: refa
-            final sb = StringBuffer('edl://!no_chapters;');
-            for (var i in durl) {
-              final video = VideoUtils.getCdnUrl(i.playUrls);
-              sb.write('%${video.length}%$video,length=${i.length! / 1000};');
-            }
-            videoUrl = sb.toString();
+        if (!fromReset) {
+          final progress = args.remove('progress');
+          if (isInteractiveVideo) {
+            defaultST = Duration.zero;
+          } else if (progress != null) {
+            defaultST = Duration(milliseconds: progress);
           } else {
-            videoUrl = VideoUtils.getCdnUrl(durl.single.playUrls);
+            defaultST = _resumePosition(data.lastPlayTime);
           }
+        }
 
-          audioUrl = '';
+        if (!isUgc && !fromReset && plPlayerController.enablePgcSkip) {
+          if (data.clipInfoList case final clipInfoList?) {
+            resetBlock();
+            handleSBData(clipInfoList);
+          }
+        }
+
+        if (data.acceptDesc?.contains('试看') == true) {
+          SmartDialog.showToast(
+            '该视频为专属视频，仅提供试看',
+            displayTime: const Duration(seconds: 3),
+          );
+        }
+        if (data.dash == null && data.durl != null) {
+          final first = data.durl!.first;
+          _setVideoPlayUrls(first.playUrls);
+          _clearAudioPlayUrls();
 
           // 实际为FLV/MP4格式，但已被淘汰，这里仅做兜底处理
-          final videoQuality = VideoQuality.fromFormat(
-            data.quality!,
-            data.supportFormats,
-          );
+          final videoQuality = VideoQuality.fromCode(data.quality!);
           firstVideo = VideoItem(
             id: data.quality!,
             baseUrl: videoUrl,
@@ -934,58 +1252,118 @@ class VideoDetailController extends GetxController
           _setVideoHeight();
           currentDecodeFormats = VideoDecodeFormatType.AVC;
           currentVideoQa.value = videoQuality;
-          await initPlayerIfNeeded(autoFullScreenFlag);
+          logStartup('query.init.wait', {'format': 'durl'});
+          await _initPlayerIfNeeded(autoFullScreenFlag);
+          logStartup('query.init.returned', {'format': 'durl'});
+          isQuerying = false;
           return;
-        } else {
+        }
+        if (data.dash == null) {
+          logStartup('query.skip.no_media');
           SmartDialog.showToast('视频资源不存在');
           _autoPlay.value = false;
+          blackVideoCover.value = false;
           videoState.value = false;
           if (plPlayerController.isFullScreen.value) {
             plPlayerController.triggerFullScreen(status: false);
           }
+          isQuerying = false;
           return;
         }
-      }
-
-      final cacheVideoQa = plPlayerController.cacheVideoQa!;
-      final (
-        int targetQuality,
-        FormatItem targetFormat,
-        VideoDecodeFormatType targetDecode,
-        VideoItem targetVideo,
-      ) = VideoUtils.findTargetVideo(
-        dash.video!,
-        cacheVideoQa,
-        response.acceptQuality,
-        response.supportFormats!,
-        preferCodecs,
-      );
-      firstVideo = targetVideo;
-      currentDecodeFormats = targetDecode;
-      currentVideoQa.value = VideoQuality.fromCode(targetQuality);
-      _setVideoHeight();
-      videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
-
-      AudioItem? firstAudio;
-      final audioList = dash.audio;
-      if (audioList != null && audioList.isNotEmpty) {
-        firstAudio = VideoUtils.findTargetAudio(
-          audioList,
-          plPlayerController.cacheAudioQa,
+        final List<VideoItem> videoList = data.dash!.video!;
+        // if (kDebugMode) debugPrint("allVideosList:${allVideosList}");
+        // 当前可播放的最高质量视频
+        final targetVideoQa = _resolveAvailableVideoQuality(
+          plPlayerController.cacheVideoQa!,
         );
-        audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
-        currentAudioQa = AudioQuality.fromCode(firstAudio.id);
+
+        currentVideoQa.value = VideoQuality.fromCode(targetVideoQa);
+
+        /// 优先顺序 设置中指定解码格式 -> 当前可选的首个解码格式
+        final supportFormats = data.supportFormats!;
+
+        // 根据画质选编码格式
+        currentDecodeFormats = VideoUtils.selectCodec(
+          supportFormats
+              .firstWhere(
+                (e) => e.quality == targetVideoQa,
+                orElse: () => supportFormats.first,
+              )
+              .codecs!,
+          preferCodecs,
+        );
+
+        /// 取出符合当前画质的videoList
+        final videosList = videoList
+            .where((e) => e.quality.code == targetVideoQa)
+            .toList();
+
+        /// 取出符合当前解码格式的videoItem
+        firstVideo = videosList.firstWhere(
+          (e) => currentDecodeFormats.codes.any(e.codecs!.startsWith),
+          orElse: () => videosList.first,
+        );
+        _setVideoHeight();
+
+        _setVideoPlayUrls(firstVideo.playUrls);
+
+        /// 优先顺序 设置中指定质量 -> 当前可选的最高质量
+        AudioItem? firstAudio;
+        final audioList = data.dash?.audio;
+        if (audioList != null && audioList.isNotEmpty) {
+          final List<int> audioIds = audioList.map((map) => map.id!).toList();
+          int closestNumber = audioIds.findClosestTarget(
+            (e) => e <= plPlayerController.cacheAudioQa,
+            (a, b) => a > b ? a : b,
+          );
+          if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
+              audioIds.any((e) => e > plPlayerController.cacheAudioQa)) {
+            closestNumber = AudioQuality.k192.code;
+          }
+          firstAudio = audioList.firstWhere(
+            (e) => e.id == closestNumber,
+            orElse: () => audioList.first,
+          );
+          _setAudioPlayUrls(firstAudio.playUrls);
+          if (firstAudio.id case final int id?) {
+            currentAudioQa = AudioQuality.fromCode(id);
+          }
+        } else {
+          _clearAudioPlayUrls();
+        }
+        logStartup('query.init.wait', {'format': 'dash'});
+        await _initPlayerIfNeeded(autoFullScreenFlag);
+        logStartup('query.init.returned', {'format': 'dash'});
+      } else if (_exiting || isClosed || _routeLeaving) {
+        // 用户已经退出：请求被取消不算错误，不弹提示也不动状态。
+        logStartup('query.failed.ignored');
       } else {
-        audioUrl = '';
+        logStartup('query.failed');
+        _autoPlay.value = false;
+        blackVideoCover.value = false;
+        videoState.value = false;
+        if (plPlayerController.isFullScreen.value) {
+          plPlayerController.triggerFullScreen(status: false);
+        }
+        // 转场动画还在跑的时候弹提示会抢帧，等路由转场结束再弹。
+        _afterTransition(result.toast);
       }
-      await initPlayerIfNeeded(autoFullScreenFlag);
-    } else {
-      _autoPlay.value = false;
-      videoState.value = false;
-      if (plPlayerController.isFullScreen.value) {
-        plPlayerController.triggerFullScreen(status: false);
+      isQuerying = false;
+    } catch (error, stackTrace) {
+      if (_exiting || isClosed || _routeLeaving) {
+        // 退出过程中的异常（请求取消等）不再上报，避免打断转场。
+        logStartup('query.error.ignored');
+        return;
       }
-      result.toast();
+      logStartup('query.error', {
+        'queryId': queryId,
+        'errorType': error.runtimeType.toString(),
+        'errorFrames': StartupLog.callers(stackTrace),
+      });
+      rethrow;
+    } finally {
+      logStartup('query.end', {'queryId': queryId});
+      if (_startupActiveQuery == queryId) _startupActiveQuery = null;
     }
   }
 
@@ -1035,7 +1413,7 @@ class VideoDetailController extends GetxController
   // 设定字幕轨道
   Future<void> setSubtitle(int index) async {
     if (index <= 0) {
-      await plPlayerController.videoPlayerController?.setSubtitleTrack(.no());
+      await plPlayerController.setSubtitleTrack(.no());
       vttSubtitlesIndex.value = index;
       return;
     }
@@ -1047,7 +1425,7 @@ class VideoDetailController extends GetxController
       if (subtitle.isData) {
         subUri = 'memory://$subUri';
       }
-      await plPlayerController.videoPlayerController?.setSubtitleTrack(
+      await plPlayerController.setSubtitleTrack(
         SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
       );
       vttSubtitlesIndex.value = index;
@@ -1069,11 +1447,40 @@ class VideoDetailController extends GetxController
   }
 
   // interactive video
+  bool isInteractiveVideo = false;
   int? graphVersion;
   EdgeInfoData? steinEdgeInfo;
+  late final RxList<StoryList> steinProgressList = <StoryList>[].obs;
   late final RxBool showSteinEdgeInfo = false.obs;
+  bool _selectingSteinChoice = false;
+  bool _steinProgressInitialized = false;
+  InteractiveVideoProgress? _localSteinProgress;
 
-  Future<void> getSteinEdgeInfo([int? edgeId]) async {
+  void _restoreLocalSteinProgressIfNeeded() {
+    if (_steinProgressInitialized || graphVersion != null) return;
+    _steinProgressInitialized = true;
+
+    try {
+      final introCtr = Get.find<UgcIntroController>(tag: heroTag);
+      if (!introCtr.videoDetail.value.hasInteractiveVideoLabel) return;
+      isInteractiveVideo = true;
+
+      final progress = InteractiveVideoProgressRepository.get(bvid);
+      if (progress == null) return;
+      _localSteinProgress = progress;
+      steinProgressList.assignAll(progress.toStoryList());
+
+      final restoredCid = progress.currentEntry.cid;
+      if (restoredCid != cid.value) {
+        cid.value = restoredCid;
+        introCtr.cid.value = restoredCid;
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('_restoreLocalSteinProgressIfNeeded: $e');
+    }
+  }
+
+  Future<EdgeInfoData?> getSteinEdgeInfo([int? edgeId]) async {
     steinEdgeInfo = null;
     try {
       final res = await Request().get(
@@ -1085,7 +1492,9 @@ class VideoDetailController extends GetxController
         },
       );
       if (res.data['code'] == 0) {
-        steinEdgeInfo = EdgeInfoData.fromJson(res.data['data']);
+        final edgeInfo = EdgeInfoData.fromJson(res.data['data']);
+        steinEdgeInfo = edgeInfo;
+        return edgeInfo;
       } else {
         if (kDebugMode) {
           debugPrint('getSteinEdgeInfo error: ${res.data['message']}');
@@ -1094,6 +1503,92 @@ class VideoDetailController extends GetxController
     } catch (e) {
       if (kDebugMode) debugPrint('getSteinEdgeInfo: $e');
     }
+    return null;
+  }
+
+  Future<void> selectSteinChoice(Choice choice) async {
+    final edgeId = choice.id;
+    if (_selectingSteinChoice || edgeId == null) return;
+
+    _selectingSteinChoice = true;
+    try {
+      final edgeInfo = await getSteinEdgeInfo(edgeId);
+      if (edgeInfo == null) return;
+      final changed = await Get.find<UgcIntroController>(
+        tag: heroTag,
+      ).onChangeEpisode(choice, isStein: true);
+      if (changed) {
+        await _appendLocalSteinProgress(
+          edgeId: edgeId,
+          cid: cid.value,
+          title: choice.option,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('selectSteinChoice: $e');
+    } finally {
+      _selectingSteinChoice = false;
+    }
+  }
+
+  Future<void> rewindSteinProgress(StoryList progress) async {
+    if (progress.cid == null || progress.edgeId == null) return;
+
+    try {
+      final changed = await Get.find<UgcIntroController>(
+        tag: heroTag,
+      ).onChangeEpisode(progress, isStein: true);
+      if (!changed) return;
+      await _setCurrentLocalSteinProgress(progress.cursor);
+      await getSteinEdgeInfo(progress.edgeId);
+    } catch (e) {
+      if (kDebugMode) debugPrint('rewindSteinProgress: $e');
+    }
+  }
+
+  Future<void> _appendLocalSteinProgress({
+    required int edgeId,
+    required int cid,
+    String? title,
+  }) async {
+    final current = _localSteinProgress;
+    final entries = current == null
+        ? <InteractiveVideoProgressEntry>[]
+        : current.entries.take(current.currentIndex + 1).toList();
+    entries.add(
+      InteractiveVideoProgressEntry(
+        edgeId: edgeId,
+        cid: cid,
+        title: title,
+      ),
+    );
+    await _saveLocalSteinProgress(
+      InteractiveVideoProgress(
+        entries: entries,
+        currentIndex: entries.length - 1,
+      ),
+    );
+  }
+
+  Future<void> _setCurrentLocalSteinProgress(int? index) async {
+    final current = _localSteinProgress;
+    if (current == null ||
+        index == null ||
+        index < 0 ||
+        index >= current.entries.length) {
+      return;
+    }
+    await _saveLocalSteinProgress(
+      InteractiveVideoProgress(entries: current.entries, currentIndex: index),
+    );
+  }
+
+  Future<void> _saveLocalSteinProgress(
+    InteractiveVideoProgress progress,
+  ) async {
+    _localSteinProgress = progress;
+    steinProgressList.assignAll(progress.toStoryList());
+    await InteractiveVideoProgressRepository.put(bvid, progress);
   }
 
   late bool continuePlayingPart = Pref.continuePlayingPart;
@@ -1114,16 +1609,23 @@ class VideoDetailController extends GetxController
       // interactive video
       if (isUgc && graphVersion == null) {
         try {
-          if (ugcIntroCtr.videoDetail.value.rights?.isSteinGate == 1) {
+          if (introCtr.videoDetail.value.hasInteractiveVideoLabel) {
+            isInteractiveVideo = true;
             graphVersion = response.interaction?.graphVersion;
-            getSteinEdgeInfo();
+            if (graphVersion != null) {
+              unawaited(
+                getSteinEdgeInfo(_localSteinProgress?.currentEntry.edgeId),
+              );
+            }
           }
         } catch (e) {
           if (kDebugMode) debugPrint('handle stein: $e');
         }
       }
 
-      if (isUgc && continuePlayingPart) {
+      if (isInteractiveVideo) {
+        continuePlayingPart = false;
+      } else if (isUgc && continuePlayingPart) {
         continuePlayingPart = false;
         final lastCid = response.lastPlayCid;
         if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
@@ -1237,8 +1739,71 @@ class VideoDetailController extends GetxController
     }
   }
 
+  /// 已经进入退出流程：后续的请求回包、播放器初始化都不再做了。
+  bool _exiting = false;
+
+  /// 路由转场未结束时延后执行，避免和入场动画抢帧。
+  void _afterTransition(VoidCallback action) {
+    void run() {
+      if (_exiting || isClosed) return;
+      action();
+    }
+
+    final ModalRoute<dynamic>? route = Get.routing.route is ModalRoute
+        ? Get.routing.route as ModalRoute<dynamic>
+        : null;
+    final Animation<double>? animation = route?.animation;
+    if (animation == null ||
+        animation.isCompleted ||
+        animation.status == AnimationStatus.dismissed) {
+      run();
+      return;
+    }
+    bool done = false;
+    late final void Function(AnimationStatus) listener;
+    void finish() {
+      if (done) return;
+      done = true;
+      animation.removeStatusListener(listener);
+      run();
+    }
+
+    listener = (AnimationStatus status) {
+      if (status == AnimationStatus.completed) finish();
+    };
+
+    animation.addStatusListener(listener);
+    // 兜底：动画被打断也要弹出来。
+    Future<void>.delayed(const Duration(milliseconds: 700), finish);
+  }
+
+
+  /// 路由正在返回（可能还没走到 pop）：请求回包一律当作已退出处理。
+  ///
+  /// 退出信号来自卡片转场，没有卡片矩形（比如从链接直接进详情页）时不会触发，
+  /// 起播请求又恰好在这时候失败，就会弹出「服务器异常」并让整页重建，卡住转场。
+  bool get _routeLeaving {
+    final Object? current = Get.routing.route;
+    final ModalRoute<dynamic>? route = current is ModalRoute ? current : null;
+    final Animation<double>? animation = route?.animation;
+    if (animation == null) return false;
+    return animation.status == AnimationStatus.reverse ||
+        animation.status == AnimationStatus.dismissed;
+  }
+
+  /// 退出转场一开始就停掉播放：转场期间不需要新的视频帧。
+  void _onTransitionExit() {
+    if (isClosed) return;
+    _exiting = true;
+    plPlayerController.pause(notify: false);
+  }
+
   @override
   void onClose() {
+    videoCardExitRequests.removeListener(_onTransitionExit);
+    setPageActive(false);
+    _fullScreenQualityWorker?.dispose();
+    _fullScreenQualityWorker = null;
     cid.close();
     if (isFileSource) {
       cacheLocalProgress();
@@ -1264,6 +1829,7 @@ class VideoDetailController extends GetxController
     defaultST = null;
     videoUrl = null;
     audioUrl = null;
+    _cdnService = null;
 
     // danmaku
     savedDanmaku = null;
@@ -1295,9 +1861,13 @@ class VideoDetailController extends GetxController
 
       // interactive video
       if (!isStein) {
+        isInteractiveVideo = false;
         graphVersion = null;
+        steinProgressList.clear();
+        steinEdgeInfo = null;
+        _steinProgressInitialized = false;
+        _localSteinProgress = null;
       }
-      steinEdgeInfo = null;
       showSteinEdgeInfo.value = false;
     }
   }

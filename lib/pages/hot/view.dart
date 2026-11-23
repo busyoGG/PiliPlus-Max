@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/home_header_overlay.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
@@ -60,6 +61,8 @@ class _HotPageState extends State<HotPage>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
+      // 下拉刷新的指示器要落在顶栏下面，不然会被顶栏毛玻璃挡住。
+      edgeOffset: HomeHeaderOverlay.insetOf(context),
       onRefresh: controller.onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -68,7 +71,11 @@ class _HotPageState extends State<HotPage>
           if (Pref.showHotRcmd)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const .only(left: 12, top: 12, right: 12),
+                padding: .only(
+                  left: 12,
+                  top: 12 + HomeHeaderOverlay.insetOf(context),
+                  right: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: .spaceEvenly,
                   children: [
@@ -109,7 +116,10 @@ class _HotPageState extends State<HotPage>
               ),
             ),
           SliverPadding(
-            padding: const EdgeInsets.only(top: 7, bottom: 100),
+            padding: EdgeInsets.only(
+              top: 7 + (Pref.showHotRcmd ? 0 : HomeHeaderOverlay.insetOf(context)),
+              bottom: 100,
+            ),
             sliver: Obx(
               () => _buildBody(controller.loadingState.value),
             ),

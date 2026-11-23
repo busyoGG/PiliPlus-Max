@@ -219,8 +219,7 @@ class _HistoryPageState extends State<HistoryPage>
                   return HistoryItem(
                     item: item,
                     ctr: _historyController,
-                    onDelete: (kid, business) =>
-                        _historyController.delHistory(item),
+                    onDelete: _historyController.delHistory,
                   );
                 },
                 itemCount: response.length,

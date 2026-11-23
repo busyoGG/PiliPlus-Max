@@ -6,6 +6,7 @@ import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/models_new/history/tab.dart';
 import 'package:PiliPlus/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliPlus/pages/history/base_controller.dart';
+import 'package:PiliPlus/services/history_archive_repository.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -29,6 +30,11 @@ class HistoryController
 
   int? max;
   int? viewAt;
+  final _repository = HistoryArchiveRepository.instance;
+  final Set<String> _cloudKeys = {};
+  List<HistoryItemModel>? _localItems;
+  bool _usingLocal = false;
+  bool _lastResponseWasLocal = false;
 
   @override
   RxInt get rxCount => baseCtr.checkedCount;
@@ -47,6 +53,10 @@ class HistoryController
   Future<void> onRefresh() {
     max = null;
     viewAt = null;
+    _cloudKeys.clear();
+    _localItems = null;
+    _usingLocal = false;
+    _lastResponseWasLocal = false;
     return super.onRefresh();
   }
 
@@ -57,16 +67,29 @@ class HistoryController
 
   @override
   bool customHandleResponse(bool isRefresh, Success<HistoryData> response) {
-    final data = response.response;
-    final last = data.list?.lastOrNull;
-    if (last == null) {
+    HistoryData data = response.response;
+    if (_lastResponseWasLocal) {
       isEnd = true;
-      max = viewAt = null;
-    } else {
-      isEnd = false;
-      max = last.history.oid;
-      viewAt = last.viewAt;
+      final localItems = data.list;
+      final currentItems = loadingState.value.dataOrNull;
+      if (!isRefresh &&
+          localItems?.isNotEmpty == true &&
+          currentItems != null) {
+        currentItems
+          ..addAll(localItems!)
+          ..sort(_compareByViewAt);
+        loadingState.refresh();
+        return true;
+      }
+      return false;
     }
+    isEnd = data.list.isNullOrEmpty;
+    max = (data.cursorMax ?? 0) > 0
+        ? data.cursorMax
+        : data.list?.lastOrNull?.history.oid;
+    viewAt = (data.cursorViewAt ?? 0) > 0
+        ? data.cursorViewAt
+        : data.list?.lastOrNull?.viewAt;
 
     if (isRefresh && type == null) {
       final tab = data.tab;
@@ -84,7 +107,10 @@ class HistoryController
     final res = await UserHttp.historyStatus(account: account);
     if (res case Success(:final response)) {
       baseCtr.pauseStatus.value = response;
-      GStorage.localCache.put(LocalCacheKey.historyPause, response);
+      await GStorage.localCache.putAll({
+        LocalCacheKey.historyPause: response,
+        LocalCacheKey.historyPauseAccountMid: account.mid,
+      });
     } else {
       res.toast();
     }
@@ -109,18 +135,27 @@ class HistoryController
 
   Future<void> _onDelete(Set<HistoryItemModel> removeList) async {
     SmartDialog.showLoading(msg: '请求中');
-    final res = await UserHttp.delHistory(
-      removeList
-          .map((item) => '${item.history.business}_${item.kid}')
-          .join(','),
-      account: account,
-    );
-    SmartDialog.dismiss();
-    if (res.isSuccess) {
-      afterDelete(removeList);
+    final cloudItems = removeList.where((item) => !item.localOnly).toSet();
+    LoadingState<void>? cloudResult;
+    if (cloudItems.isNotEmpty) {
+      cloudResult = await UserHttp.delHistory(
+        cloudItems
+            .map((item) => '${item.history.business}_${item.kid}')
+            .join(','),
+        account: account,
+      );
+    }
+    if (cloudResult == null || cloudResult.isSuccess) {
+      await _repository.deleteItems(
+        removeList.where((item) => item.localOnly || item.hasLocalCopy),
+      );
+      _localItems?.removeWhere(removeList.contains);
+      await afterDelete(removeList);
+      SmartDialog.dismiss();
       SmartDialog.showToast('已删除');
     } else {
-      res.toast();
+      SmartDialog.dismiss();
+      cloudResult.toast();
     }
   }
 
@@ -136,12 +171,47 @@ class HistoryController
   }
 
   @override
-  Future<LoadingState<HistoryData>> customGetData() => UserHttp.historyList(
-    type: type ?? 'all',
-    max: max,
-    viewAt: viewAt,
-    account: account,
-  );
+  Future<LoadingState<HistoryData>> customGetData() async {
+    if (_usingLocal) return Success(HistoryData(list: const []));
+
+    final cloudResult = await UserHttp.historyList(
+      type: type ?? 'all',
+      max: max,
+      viewAt: viewAt,
+      account: account,
+    );
+    if (cloudResult case Success(:final response)) {
+      final cloudItems = response.list ?? const <HistoryItemModel>[];
+      if (cloudItems.isNotEmpty) {
+        _lastResponseWasLocal = false;
+        _repository.markCloudItems(cloudItems);
+        _cloudKeys.addAll(cloudItems.map(_repository.recordKeyForItem));
+        return Success(response);
+      }
+      return Success(
+        HistoryData(tab: response.tab, list: _beginLocalSupplement()),
+      );
+    }
+
+    final localItems = _beginLocalSupplement();
+    if (localItems.isNotEmpty) return Success(HistoryData(list: localItems));
+    _usingLocal = false;
+    _lastResponseWasLocal = false;
+    return cloudResult;
+  }
+
+  List<HistoryItemModel> _beginLocalSupplement() {
+    _usingLocal = true;
+    _lastResponseWasLocal = true;
+    _localItems = _repository.localItems(
+      type: type,
+      excludeKeys: _cloudKeys,
+    );
+    return _localItems!;
+  }
+
+  int _compareByViewAt(HistoryItemModel a, HistoryItemModel b) =>
+      (b.viewAt ?? 0).compareTo(a.viewAt ?? 0);
 
   @override
   void onClose() {
