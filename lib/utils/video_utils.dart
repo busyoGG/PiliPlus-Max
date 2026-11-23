@@ -7,6 +7,8 @@ import 'package:PiliPlus/models_new/live/live_room_play_info/codec.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 
 abstract final class VideoUtils {
   static CDNService cdnService = Pref.defaultCDNService;
@@ -205,4 +207,40 @@ abstract final class VideoUtils {
       preferredRank,
     );
   }
+
+  static String get cdnDescription => cdnServices.indexed
+      .map((item) => '${item.$1 + 1}. ${item.$2.desc}')
+      .join('；');
+
+
+
+  static void setCdnServices(Iterable<CDNService> services) {
+    final ordered = services.take(3).toList();
+    cdnServices = ordered.isEmpty ? [CDNService.backupUrl] : ordered;
+    _cdnRotationIndex = 0;
+  }
+
+
+
+  static int get cdnRotationIndex => _cdnRotationIndex;
+
+
+  static List<CDNService> cdnServices = Pref.cdnServices;
+
+
+
+  static CDNService takeNextCdnService() {
+    final index = _cdnRotationIndex % cdnServices.length;
+    final service = cdnServices[index];
+    _cdnRotationIndex = (index + 1) % cdnServices.length;
+    unawaited(
+      GStorage.setting.put(
+        SettingBoxKey.cdnRotationIndex,
+        _cdnRotationIndex,
+      ),
+    );
+    return service;
+  }
+
+
 }
