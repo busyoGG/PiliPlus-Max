@@ -92,22 +92,8 @@ class _DownloadPanelState extends State<DownloadPanel> {
 
   @override
   void dispose() {
-    _downloadService.flagNotifier.remove(_syncDownloadState);
     _listController.dispose();
     super.dispose();
-  }
-
-  void _syncDownloadState() {
-    cidSet
-      ..clear()
-      ..addAll(_downloadService.downloadList.map((e) => e.cid))
-      ..addAll(_downloadService.waitDownloadQueue.map((e) => e.cid));
-    completedCidSet
-      ..clear()
-      ..addAll(_downloadService.downloadList.map((e) => e.cid));
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   @override
@@ -318,34 +304,17 @@ class _DownloadPanelState extends State<DownloadPanel> {
           SmartDialog.showToast('hasParts');
         }
         if (isDownloadAll) {
-          var hasNewDownload = false;
           for (int i = 0; i < pages.length; i++) {
-            hasNewDownload =
-                _onDownload(
-                  index: i,
-                  episode: pages[i],
-                  parent: episode,
-                ) ||
-                hasNewDownload;
+            _onDownload(
+              index: i,
+              episode: pages[i],
+              parent: episode,
+            );
           }
-          return hasNewDownload;
+          return true;
         }
         return false;
       }
-    }
-
-    final cid = episode.cid;
-    // on download
-    if (cid == null) {
-      SmartDialog.showToast('null cid');
-      return false;
-    }
-
-    if (cidSet.contains(cid)) {
-      if (kDebugMode) {
-        SmartDialog.showToast('downloaded');
-      }
-      return false;
     }
 
     try {
@@ -459,25 +428,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             return Material(
               type: MaterialType.transparency,
               child: InkWell(
-                onTap: () async {
-                  if (hasParts) {
-                    final confirmed = await showConfirmDialog(
-                      context: context,
-                      title: const Text('是否缓存该视频的全部分P？'),
-                    );
-                    if (!confirmed || !context.mounted) {
-                      return;
-                    }
-                    if (_onDownload(
-                      index: index,
-                      episode: episode,
-                      isFromList: true,
-                      isDownloadAll: true,
-                    )) {
-                      setState(() {});
-                    }
-                    return;
-                  }
+                onTap: () {
                   if (_onDownload(
                     index: index,
                     episode: episode,
@@ -650,12 +601,9 @@ class _DownloadPanelState extends State<DownloadPanel> {
           ),
           _buildBottomBtn(
             text: '查看缓存',
-            onTap: () async {
-              await Navigator.of(context).push(
-                GetPageRoute(page: () => const DownloadPage()),
-              );
-              _syncDownloadState();
-            },
+            onTap: () => Navigator.of(context).push(
+              GetPageRoute(page: () => const DownloadPage()),
+            ),
           ),
         ],
       ),

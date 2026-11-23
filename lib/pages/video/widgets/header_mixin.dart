@@ -71,7 +71,6 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         void setOptions() => danmakuController?.updateOption(
           DanmakuOptions.get(
             notFullscreen: !isFullScreen,
-            isLive: isLive,
             speed: plPlayerController.playbackSpeed,
           ),
         );
@@ -123,27 +122,11 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         }
 
         void updateStrokeWidth(double val) {
-  DanmakuOptions.danmakuStrokeWidth = val;
-  setState(() {});
-  setOptions();
+          DanmakuOptions.danmakuStrokeWidth = val;
+          setState(() {});
+          setOptions();
+        }
 
-  // false 表示只刷新样式，不重置高频弹幕统计状态。
-  plPlayerController
-      .onDanmakuMergeSettingsChanged
-      ?.call(false);
-}
-void updateShadowRadius(double val) {
-  DanmakuOptions.danmakuShadowRadius =
-      val.toPrecision(1);
-
-  setState(() {});
-  setOptions();
-
-  // 仅重建高频置顶层，不重置已经统计的高频弹幕。
-  plPlayerController
-      .onDanmakuMergeSettingsChanged
-      ?.call(false);
-}
         void updateFontWeight(double val) {
           DanmakuOptions.danmakuFontWeight = val.toInt();
           setState(() {});
@@ -165,15 +148,7 @@ void updateShadowRadius(double val) {
           DanmakuOptions.danmakuWeight = val.toInt();
           setState(() {});
         }
-void updateHighLikeThreshold(String value) {
-  final parsed = int.tryParse(value);
-  if (parsed == null) {
-    return;
-  }
 
-  DanmakuOptions.highLikeDanmakuThreshold =
-      parsed.clamp(0, 999999).toInt();
-}
         void onUpdateBlockType(int blockType, bool blocked) {
           if (blocked) {
             DanmakuOptions.blockTypes.remove(blockType);

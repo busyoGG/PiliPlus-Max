@@ -17,20 +17,6 @@ class AiConclusionPanel extends CommonSlidePage {
   @override
   State<AiConclusionPanel> createState() => _AiDetailState();
 
-  static String buildCopyText(AiConclusionResult res) {
-    final subtitleParts = res.webSubtitleParts.toList(growable: false);
-    if (subtitleParts.isNotEmpty) {
-      return subtitleParts
-          .map(
-            (item) =>
-                '${DurationUtils.formatDuration(item.startTimestamp)} '
-                '${item.content!.trim()}',
-          )
-          .join('\n');
-    }
-    return res.fallbackSubtitle?.trim() ?? '';
-  }
-
   static Widget buildContent(
     BuildContext context,
     ThemeData theme,

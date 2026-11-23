@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart'
     show BorderRadius, Radius, BoxConstraints, ButtonStyle, VisualDensity;
 
 abstract final class Style {
+  static const BorderRadius borderRadius6 = BorderRadius.all(Radius.circular(6));
+
   static const cardSpace = 8.0;
   static const safeSpace = 12.0;
   static const mdRadius = BorderRadius.all(imgRadius);

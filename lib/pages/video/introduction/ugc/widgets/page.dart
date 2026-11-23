@@ -29,7 +29,6 @@ class PagePanel extends StatefulWidget {
   final List<Part>? parts;
 
   final Set<int>? cidSet;
-  final Set<int>? completedCidSet;
   final bool Function(Part part)? onDownload;
 
   final bool showList; // ugc side panel

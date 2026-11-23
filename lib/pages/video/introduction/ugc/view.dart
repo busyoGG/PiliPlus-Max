@@ -14,6 +14,7 @@ import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/common/widgets/stat/stat.dart';
 import 'package:PiliPlus/common/widgets/translucent_column.dart';
 import 'package:PiliPlus/http/sponsor_block.dart';
+import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/desc_v2.dart';
 import 'package:PiliPlus/models_new/video/video_detail/episode.dart';
@@ -41,9 +42,6 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -128,18 +126,12 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   const SizedBox(height: 8),
                   _buildTitle(isLoading, isHorizontal, videoDetail),
                   const SizedBox(height: 8),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: introController.enableAi ? 36 : 0,
-                    ),
-                    child: Stack(
-                      alignment: .centerLeft,
-                      clipBehavior: .none,
-                      children: [
-                        _buildInfo(videoDetail.stat, videoDetail.pubdate),
-                        if (introController.enableAi) _aiBtn,
-                      ],
-                    ),
+                  Stack(
+                    clipBehavior: .none,
+                    children: [
+                      _buildInfo(videoDetail.stat, videoDetail.pubdate),
+                      if (introController.enableAi) _aiBtn,
+                    ],
                   ),
                   if (introController.showArgueMsg)
                     if (videoDetail.argueInfo?.argueMsg case final argueMsg?
@@ -277,18 +269,12 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
 
   List<Widget> _infos(VideoDetailData videoDetail) => [
     const SizedBox(height: 8, width: .infinity),
-    StreamBuilder(
-      stream: GStorage.setting.watch(key: SettingBoxKey.videoDetailUseAv),
-      builder: (context, _) {
-        final videoId = _videoId(videoDetail);
-        return GestureDetector(
-          onTap: () => Utils.copyText(videoId),
-          child: Text(
-            videoId,
-            style: TextStyle(fontSize: 14, color: colorScheme.secondary),
-          ),
-        );
-      },
+    GestureDetector(
+      onTap: () => Utils.copyText('${videoDetail.bvid}'),
+      child: Text(
+        videoDetail.bvid ?? '',
+        style: TextStyle(fontSize: 14, color: colorScheme.secondary),
+      ),
     ),
     if (videoDetail.descV2 case final descV2? when descV2.isNotEmpty) ...[
       const SizedBox(height: 8),
@@ -307,18 +293,6 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
       }),
     ),
   ];
-
-  String _videoId(VideoDetailData videoDetail) {
-    final bvid = videoDetail.bvid ?? '';
-    if (!Pref.videoDetailUseAv) return bvid;
-    if (videoDetail.aid case final aid?) return 'av$aid';
-    if (bvid.isEmpty) return '';
-    try {
-      return 'av${IdUtils.bv2av(bvid)}';
-    } catch (_) {
-      return bvid;
-    }
-  }
 
   WidgetSpan _labelWidget(String text, Color bgColor, Color textColor) {
     return WidgetSpan(
@@ -998,7 +972,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   }
 
   Widget get _aiBtn => Positioned(
-    right: 0,
+    right: 8,
     child: Center(
       child: GestureDetector(
         behavior: .opaque,
@@ -1006,26 +980,23 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           if (introController.aiConclusionResult == null) {
             await introController.aiConclusion();
           }
-          if (introController.aiConclusionResult case final result?) {
-            if (result.hasSubtitle) {
+          if (introController.aiConclusionResult case AiConclusionResult(
+            :final summary,
+            :final outline,
+          )) {
+            if (summary?.isNotEmpty == true || outline?.isNotEmpty == true) {
               widget.showAiBottomSheet();
             } else {
-              SmartDialog.showToast('当前视频没有可显示的字幕');
+              SmartDialog.showToast("当前视频不支持AI视频总结");
             }
           }
         },
-        child: SizedBox.square(
-          dimension: 36,
-          child: Align(
-            alignment: .center,
-            child: Image.asset(
-              semanticLabel: 'AI总结',
-              Assets.ai,
-              height: 18,
-              width: 18,
-              cacheHeight: 18.cacheSize(context),
-            ),
-          ),
+        child: Image.asset(
+          semanticLabel: 'AI总结',
+          Assets.ai,
+          height: 18,
+          width: 18,
+          cacheHeight: 18.cacheSize(context),
         ),
       ),
     ),
