@@ -1236,7 +1236,7 @@ ValueChanged<bool>? onDanmakuMergeSettingsChanged;
     await instance.pause();
     await instance.triggerFullScreen(status: false);
     if (forcePortrait && PlatformUtils.isMobile) {
-      await portraitUpMode();
+      await followSystemMode();
     }
     return true;
   }
@@ -4717,10 +4717,11 @@ void onSeekStart({bool fromGesture = false}) {
   bool get isCloseAll => _isCloseAll;
 
   Future<void>? resetScreenRotation() {
+    // 退出全屏回到系统默认，不强制竖屏，避免顶掉用户的方向锁定。
     if (horizontalScreen) {
       return fullMode();
     } else {
-      return portraitUpMode();
+      return followSystemMode();
     }
   }
 

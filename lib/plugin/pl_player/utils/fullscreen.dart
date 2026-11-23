@@ -56,6 +56,11 @@ Future<void>? landscapeRightMode() {
   return _setPreferredOrientations(const [.landscapeRight]);
 }
 
+/// 交还给系统：不限制方向，用户的方向锁定与自动旋转照常生效。
+Future<void>? followSystemMode() {
+  return _setPreferredOrientations(const <DeviceOrientation>[]);
+}
+
 Future<void>? fullMode() {
   return _setPreferredOrientations(
     const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],

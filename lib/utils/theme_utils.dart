@@ -36,33 +36,10 @@ abstract final class ThemeUtils {
     final fontWeight = Pref.appFontWeight;
     final fontFamily = FontUtils.fontFamily;
 
-    TextTheme? textTheme;
-    if (fontWeight != .normal) {
-      final textStyle = TextStyle(fontWeight: fontWeight);
-      textTheme = TextTheme(
-        displayLarge: textStyle,
-        displayMedium: textStyle,
-        displaySmall: textStyle,
-        headlineLarge: textStyle,
-        headlineMedium: textStyle,
-        headlineSmall: textStyle,
-        titleLarge: textStyle,
-        titleMedium: textStyle,
-        titleSmall: textStyle,
-        bodyLarge: textStyle,
-        bodyMedium: textStyle,
-        bodySmall: textStyle,
-        labelLarge: textStyle,
-        labelMedium: textStyle,
-        labelSmall: textStyle,
-      );
-    }
-
     final theme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       fontFamily: fontFamily,
-      textTheme: textTheme,
       appBarTheme: AppBarTheme(
         elevation: 0,
         titleSpacing: 0,
@@ -166,10 +143,40 @@ abstract final class ThemeUtils {
         },
       ),
     );
+    // 字重只覆盖字重，颜色沿用主题自带的一套；整份替换会让没有显式指定
+    // 颜色的文字退化成默认黑色，在深色背景下等于看不见。
+    final ThemeData weighted = fontWeight == .normal
+        ? theme
+        : theme.copyWith(
+            textTheme: _withFontWeight(theme.textTheme, fontWeight),
+          );
     if (isDark && Pref.isPureBlackTheme) {
-      return darkenTheme(theme);
+      return darkenTheme(weighted);
     }
-    return theme;
+    return weighted;
+  }
+
+  /// 给主题里的每一档字体加字重，保留原有字号与颜色。
+  static TextTheme _withFontWeight(TextTheme base, FontWeight fontWeight) {
+    TextStyle? apply(TextStyle? style) =>
+        style?.copyWith(fontWeight: fontWeight);
+    return base.copyWith(
+      displayLarge: apply(base.displayLarge),
+      displayMedium: apply(base.displayMedium),
+      displaySmall: apply(base.displaySmall),
+      headlineLarge: apply(base.headlineLarge),
+      headlineMedium: apply(base.headlineMedium),
+      headlineSmall: apply(base.headlineSmall),
+      titleLarge: apply(base.titleLarge),
+      titleMedium: apply(base.titleMedium),
+      titleSmall: apply(base.titleSmall),
+      bodyLarge: apply(base.bodyLarge),
+      bodyMedium: apply(base.bodyMedium),
+      bodySmall: apply(base.bodySmall),
+      labelLarge: apply(base.labelLarge),
+      labelMedium: apply(base.labelMedium),
+      labelSmall: apply(base.labelSmall),
+    );
   }
 
   static ThemeData darkenTheme(ThemeData theme) {
