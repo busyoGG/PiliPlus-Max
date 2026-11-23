@@ -247,3 +247,42 @@ class _OuterShadowPainter extends CustomPainter {
   bool shouldRepaint(_OuterShadowPainter oldDelegate) =>
       oldDelegate.radius != radius || oldDelegate.shadows != shadows;
 }
+
+/// 圆形毛玻璃容器：给下拉刷新这类自带圆形外观的控件套背后模糊。
+class FrostedOval extends StatelessWidget {
+  const FrostedOval({
+    super.key,
+    required this.child,
+    this.sigma,
+    this.tintAlpha = 0.35,
+  });
+
+  final Widget child;
+  final double? sigma;
+  final double tintAlpha;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AppBlur.enabled) return child;
+    final double value = sigma ?? AppBlur.barSigma;
+    if (value <= 0) return child;
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(
+          sigmaX: value,
+          sigmaY: value,
+          tileMode: ui.TileMode.clamp,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Theme.of(
+              context,
+            ).colorScheme.surface.withValues(alpha: tintAlpha),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}

@@ -7,6 +7,7 @@
 import 'dart:async' show Completer;
 import 'dart:io' show Platform;
 
+import 'package:PiliPlus/common/widgets/blur/app_blur.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
@@ -593,13 +594,24 @@ class RefreshIndicatorState extends State<RefreshIndicator>
                     scale: _scaleFactor,
                     child: AnimatedBuilder(
                       animation: _positionController,
-                      builder: (context, child) => RefreshProgressIndicator(
-                        value: showIndeterminateIndicator ? null : _value.value,
-                        valueColor: _valueColor,
-                        backgroundColor: widget.backgroundColor,
-                        strokeWidth: widget.strokeWidth,
-                        elevation: widget.elevation,
-                      ),
+                      builder: (context, child) {
+                        final bool frosted = AppBlur.enabled;
+                        return FrostedOval(
+                          sigma: AppBlur.barSigma,
+                          child: RefreshProgressIndicator(
+                            value: showIndeterminateIndicator
+                                ? null
+                                : _value.value,
+                            valueColor: _valueColor,
+                            // 毛玻璃时把底色和投影交给 FrostedOval，只留进度环。
+                            backgroundColor: frosted
+                                ? Colors.transparent
+                                : widget.backgroundColor,
+                            strokeWidth: widget.strokeWidth,
+                            elevation: frosted ? 0 : widget.elevation,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),

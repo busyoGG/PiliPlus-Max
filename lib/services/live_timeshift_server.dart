@@ -131,9 +131,20 @@ class LiveTimeshiftServer {
   /// 本地缓存回看秒数。
   int get cacheSpanSeconds => _cacheSpan;
 
+  /// 服务端探测到的回看窗口（秒）。
+  int get serverWindowSeconds => _windowSeconds;
+
+  /// 深度探测是否已有结果。
+  bool get probeDone => _probeDone;
+
   /// 可回看的秒数：服务端回看窗口与本地缓存取大者。
-  int get seekWindowSeconds =>
-      _windowSeconds > _cacheSpan ? _windowSeconds : _cacheSpan;
+  ///
+  /// 还没探测出结果时至少给出一个播放列表长度，让进度条一进直播间就出现，
+  /// 这段范围里的分片都还在实时列表里，拖回去一定取得到。
+  int get seekWindowSeconds {
+    final int span = _windowSeconds > _cacheSpan ? _windowSeconds : _cacheSpan;
+    return span > playlistSpan ? span : playlistSpan;
+  }
 
   bool get isReady => _server != null && _liveSeq >= 0;
 

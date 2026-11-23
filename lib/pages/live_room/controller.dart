@@ -426,11 +426,12 @@ class LiveRoomController extends GetxController {
     });
   }
 
-  /// 回看深度够长才打开进度条，避免刚起播时只能往回拖几秒。
+  /// 服务端已经能给出至少一个播放列表长度的回看范围就打开进度条，
+  /// 这样第一次进直播间也能立刻看到进度条，探测结果回来后再变长。
   void _enableTimeShift(LiveTimeshiftServer server) {
     if (plPlayerController.timeShiftEnabled.value) return;
     final total = server.seekWindowSeconds;
-    if (total < 30) return;
+    if (total < 2) return;
     plPlayerController
       ..timeShiftEnabled.value = true
       ..timeShiftSeek = _onTimeShiftSeek;
@@ -663,7 +664,7 @@ class LiveRoomController extends GetxController {
 
   /// 多抓几次 playinfo，换出新 CDN 节点/路径，提高深历史命中率。
   Future<void> _augmentTimeShiftSources(LiveTimeshiftServer server) async {
-    if (server.seekWindowSeconds <= 60) {
+    if (server.probeDone && server.serverWindowSeconds <= 0) {
       // 服务端没有深历史时多抓 playinfo 只会白耗流量
       debugPrint('[LiveTimeshift] 无可回看历史，跳过补充候选源');
       return;

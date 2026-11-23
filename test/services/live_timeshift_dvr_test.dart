@@ -154,7 +154,8 @@ void main() {
         expect(status, 200);
       }
       expect(server.cacheSpanSeconds, 4);
-      expect(server.seekWindowSeconds, 4);
+      // 进度条长度至少是一个播放列表，缓存还短时就先按列表长度展示。
+      expect(server.seekWindowSeconds, server.playlistSpan);
       final hits = cdn.segmentHits;
       final cached = server.liveSeq - 4;
       final (status, bytes) = await get(_segUri(port, cached));
