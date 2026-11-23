@@ -363,3 +363,12 @@ class NoOverscrollIndicator extends CustomScrollBehavior {
     ScrollableDetails details,
   ) => child;
 }
+
+const Set<PointerDeviceKind> desktopDragDevices = <PointerDeviceKind>{
+  PointerDeviceKind.touch,
+  PointerDeviceKind.stylus,
+  PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.trackpad,
+  PointerDeviceKind.unknown,
+  PointerDeviceKind.mouse,
+};

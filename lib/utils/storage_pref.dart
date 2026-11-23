@@ -1794,4 +1794,8 @@ static int get playerControlDisplayDurationSeconds {
 
   static bool get filterIntro =>
       _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
+
+  static double get refreshDragPercentage =>
+      _setting.get(SettingBoxKey.refreshDragPercentage, defaultValue: 1.0);
+
 }

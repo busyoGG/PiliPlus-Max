@@ -50,6 +50,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter/scheduler.dart';
 
 WebViewEnvironment? webViewEnvironment;
 

@@ -18,6 +18,7 @@ import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 
 class DynMentionPanel extends StatefulWidget {
   const DynMentionPanel({

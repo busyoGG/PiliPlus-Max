@@ -545,6 +545,7 @@ abstract final class PageUtils {
     bool off = false,
     bool isVertical = false,
     Dimension? dimension,
+    Rect? originRect,
     int? rootRpId,
     int? secondRpId,
   }) {
