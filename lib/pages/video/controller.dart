@@ -40,6 +40,7 @@ import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
 import 'package:PiliPlus/pages/sponsor_block/block_mixin.dart';
+import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:PiliPlus/pages/video/download_panel/view.dart';
 import 'package:PiliPlus/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
@@ -216,7 +217,7 @@ class VideoDetailController extends GetxController
   RxBool get startupAutoplay => _autoPlay;
 
   final videoPlayerKey = GlobalKey();
-  final childKey = GlobalKey<ScaffoldState>();
+  final childKey = GlobalKey<MiniScaffoldState>();
 
   final plPlayerController = PlPlayerController.getInstance()
     ..brightness.value = -1;
@@ -654,7 +655,6 @@ class VideoDetailController extends GetxController
         );
       } else {
         childKey.currentState?.showBottomSheet(
-          backgroundColor: Colors.transparent,
           constraints: const BoxConstraints(),
           (context) => panel(),
         );
@@ -1371,7 +1371,6 @@ class VideoDetailController extends GetxController
       );
     } else {
       childKey.currentState?.showBottomSheet(
-        backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),
         (context) => PostPanel(
           videoDetailController: this,
@@ -1900,7 +1899,6 @@ class VideoDetailController extends GetxController
       );
     } else {
       childKey.currentState?.showBottomSheet(
-        backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),
         (context) => NoteListPage(
           oid: aid,
