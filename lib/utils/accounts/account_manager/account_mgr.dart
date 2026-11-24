@@ -1,4 +1,5 @@
 // edit from package:dio_cookie_manager
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/http/api.dart';
@@ -14,8 +15,9 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
 
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
@@ -44,7 +46,7 @@ class AccountManager extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final path = options.path;
 
-    final account = _bindRequestAccount(options);
+    late final Account account = options.extra['account'] ?? _findAccount(path);
 
     if (account is NoAccount || _skipCookie(path)) return handler.next(options);
 
@@ -98,7 +100,7 @@ class AccountManager extends Interceptor {
                 : '';
             handler.next(options);
           })
-          .catchError((Object e, StackTrace s) {
+          .catchError((dynamic e, StackTrace s) {
             final err = DioException(
               requestOptions: options,
               error: e,
@@ -111,9 +113,14 @@ class AccountManager extends Interceptor {
 
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    if (_boundRequestAccount(response.requestOptions) case final account?) {
+    final options = response.requestOptions;
+    final path = options.path;
+    if (options.extra['account'] is NoAccount ||
+        path.startsWith(HttpString.appBaseUrl) ||
+        _skipCookie(path)) {
+      return handler.next(response);
+    } else {
       final future = _saveCookies(
-        account,
         response,
       ).whenComplete(() => handler.next(response));
       assert(() {
@@ -128,40 +135,38 @@ class AccountManager extends Interceptor {
         );
         return true;
       }());
-    } else {
-      return handler.next(response);
     }
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final options = err.requestOptions;
-    if (options.responseType == ResponseType.stream) {
+    if (err.requestOptions.responseType == ResponseType.stream) {
       return handler.next(err);
     }
-
-    if (options.method != 'POST') toast(err);
-
-    if (err.response case final res?) {
-      if (_boundRequestAccount(options) case final account?) {
-        _saveCookies(account, res).then(
-          (_) => handler.next(err),
-          onError: (Object e, StackTrace s) => handler.next(
-            DioException(
-              requestOptions: options,
-              error: e,
-              stackTrace: s,
-            ),
-          ),
-        );
-        return;
-      }
+    if (err.requestOptions.method != 'POST') {
+      toast(err);
     }
-    return handler.next(err);
+    if (err.response != null &&
+        !err.response!.requestOptions.path.startsWith(HttpString.appBaseUrl)) {
+      _saveCookies(
+        err.response!,
+      ).whenComplete(() => handler.next(err)).catchError(
+        (dynamic e, StackTrace s) {
+          final error = DioException(
+            requestOptions: err.response!.requestOptions,
+            error: e,
+            stackTrace: s,
+          );
+          handler.next(error);
+        },
+      );
+    } else {
+      handler.next(err);
+    }
   }
 
   static void toast(DioException err) {
-    const skipShow = [
+    const List<String> skipShow = [
       'heartbeat',
       'history/report',
       'roomEntryAction',
@@ -172,17 +177,38 @@ class AccountManager extends Interceptor {
       'biliimg.com',
       'site/getCoin',
     ];
-    String url = err.requestOptions.uri.toString();
-    if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url\n$err');
+    final String url = err.requestOptions.uri.toString();
+    if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url');
     if (skipShow.any(url.contains) ||
         (url.contains('skipSegments') && err.requestOptions.method == 'GET')) {
-      // skip
-    } else {
-      dioError(err).then((res) => SmartDialog.showToast(res + url));
+      return;
     }
+    // 请求被主动取消（用户离开页面等）不提示。
+    if (err.type == DioExceptionType.cancel) {
+      return;
+    }
+    // 返回过程中失败不提示：提示会弹在退出转场上面，既抢帧又误导。
+    if (_isLeaving()) {
+      return;
+    }
+    dioError(err).then((res) => SmartDialog.showToast(res + url));
   }
 
-  static Future<void> _saveCookies(Account account, Response response) async {
+  /// 当前路由是否正在返回（预测性返回拖动中或退出转场中）。
+  static bool _isLeaving() {
+    final Object? current = Get.routing.route;
+    final Animation<double>? animation = current is ModalRoute
+        ? current.animation
+        : null;
+    if (animation == null) return false;
+    return animation.status == AnimationStatus.reverse ||
+        animation.status == AnimationStatus.dismissed;
+  }
+
+  Future<void> _saveCookies(Response response) async {
+    final Account account =
+        response.requestOptions.extra['account'] ??
+        _findAccount(response.requestOptions.path);
     final setCookies = response.headers[HttpHeaders.setCookieHeader];
     if (setCookies == null || setCookies.isEmpty) {
       return;
@@ -214,13 +240,13 @@ class AccountManager extends Interceptor {
     await account.onChange();
   }
 
-  static bool _skipCookie(String path) {
+  bool _skipCookie(String path) {
     return path.startsWith(blockServer) ||
         path.contains('hdslb.com') ||
         path.contains('biliimg.com');
   }
 
-  static Account _findAccount(String path) => ApiType.loginApi.contains(path)
+  Account _findAccount(String path) => ApiType.loginApi.contains(path)
       ? AnonymousAccount()
       : Accounts.get(
           AccountType.values.firstWhere(
@@ -228,22 +254,6 @@ class AccountManager extends Interceptor {
             orElse: () => AccountType.main,
           ),
         );
-
-  static Account _bindRequestAccount(RequestOptions options) {
-    assert(options.extra['account'] is Account?);
-    return options.extra['account'] ??= _findAccount(options.path);
-  }
-
-  static Account? _boundRequestAccount(RequestOptions options) {
-    final path = options.path;
-    final account = options.extra['account'] as Account;
-    if (account is NoAccount ||
-        path.startsWith(HttpString.appBaseUrl) ||
-        _skipCookie(path)) {
-      return null;
-    }
-    return account;
-  }
 
   static Future<String> dioError(DioException error) async {
     switch (error.type) {
