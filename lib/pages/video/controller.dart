@@ -128,8 +128,6 @@ class VideoDetailController extends GetxController
   late PlayUrlModel data;
   final RxBool videoState = false.obs;
   final RxBool showVideoCover = true.obs;
-  final RxBool blackVideoCover = false.obs;
-  final RxBool keepInitialVideoViewport = false.obs;
 
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
@@ -146,15 +144,9 @@ class VideoDetailController extends GetxController
   bool _isPageActive = false;
   bool get isPageActive => _isPageActive && !isClosed;
 
-  int _startupPlayAttempt = 0;
+  final int _startupPlayAttempt = 0;
   int _startupQuerySequence = 0;
   int? _startupActiveQuery;
-
-  int recordStartupPlayIntent(String origin) {
-    final attempt = ++_startupPlayAttempt;
-    logStartup('intent.received', {'origin': origin});
-    return attempt;
-  }
 
   void logStartup(String event, [Map<String, Object?> details = const {}]) {
     if (!StartupLog.enabled) return;
@@ -175,14 +167,10 @@ class VideoDetailController extends GetxController
         'preInitPlayer': plPlayerController.preInitPlayer,
         'videoState': videoState.value,
         'showCover': showVideoCover.value,
-        'blackCover': blackVideoCover.value,
         'coverTapEnabled': showVideoCover.value && !_autoPlay.value,
         'startWaitOverlay': _autoPlay.value &&
-            (blackVideoCover.value ||
-                (!showVideoCover.value &&
-                    !(videoState.value &&
-                        plPlayerController.videoController != null))),
-        'keepViewport': keepInitialVideoViewport.value,
+            !showVideoCover.value &&
+            !(videoState.value && plPlayerController.videoController != null),
         'widgetMounted': videoPlayerKey.currentState?.mounted == true,
         'outputPresent': plPlayerController.videoController != null,
         'sourceLoadedForPage':
@@ -487,7 +475,6 @@ class VideoDetailController extends GetxController
       _autoPlay.value = autoplay;
     }
     showVideoCover.value = !_autoPlay.value;
-    keepInitialVideoViewport.value = showVideoCover.value;
     videoType = args['videoType'];
     if (videoType == VideoType.pgc) {
       if (!isLoginVideo) {
@@ -1017,7 +1004,6 @@ class VideoDetailController extends GetxController
         if (!isPageActive) return;
         if (revealCoverOnInit) {
           showVideoCover.value = false;
-          blackVideoCover.value = false;
         }
         setSubtitle(vttSubtitlesIndex.value);
       },
@@ -1238,7 +1224,6 @@ class VideoDetailController extends GetxController
           logStartup('query.skip.no_media');
           SmartDialog.showToast('视频资源不存在');
           _autoPlay.value = false;
-          blackVideoCover.value = false;
           videoState.value = false;
           if (plPlayerController.isFullScreen.value) {
             plPlayerController.triggerFullScreen(status: false);
@@ -1316,7 +1301,6 @@ class VideoDetailController extends GetxController
       } else {
         logStartup('query.failed');
         _autoPlay.value = false;
-        blackVideoCover.value = false;
         videoState.value = false;
         if (plPlayerController.isFullScreen.value) {
           plPlayerController.triggerFullScreen(status: false);
@@ -1428,7 +1412,6 @@ class VideoDetailController extends GetxController
   EdgeInfoData? steinEdgeInfo;
   late final RxList<StoryList> steinProgressList = <StoryList>[].obs;
   late final RxBool showSteinEdgeInfo = false.obs;
-  bool _selectingSteinChoice = false;
   bool _steinProgressInitialized = false;
   InteractiveVideoProgress? _localSteinProgress;
 
@@ -1482,31 +1465,6 @@ class VideoDetailController extends GetxController
     return null;
   }
 
-  Future<void> selectSteinChoice(Choice choice) async {
-    final edgeId = choice.id;
-    if (_selectingSteinChoice || edgeId == null) return;
-
-    _selectingSteinChoice = true;
-    try {
-      final edgeInfo = await getSteinEdgeInfo(edgeId);
-      if (edgeInfo == null) return;
-      final changed = await Get.find<UgcIntroController>(
-        tag: heroTag,
-      ).onChangeEpisode(choice, isStein: true);
-      if (changed) {
-        await _appendLocalSteinProgress(
-          edgeId: edgeId,
-          cid: cid.value,
-          title: choice.option,
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('selectSteinChoice: $e');
-    } finally {
-      _selectingSteinChoice = false;
-    }
-  }
-
   Future<void> rewindSteinProgress(StoryList progress) async {
     if (progress.cid == null || progress.edgeId == null) return;
 
@@ -1520,30 +1478,6 @@ class VideoDetailController extends GetxController
     } catch (e) {
       if (kDebugMode) debugPrint('rewindSteinProgress: $e');
     }
-  }
-
-  Future<void> _appendLocalSteinProgress({
-    required int edgeId,
-    required int cid,
-    String? title,
-  }) async {
-    final current = _localSteinProgress;
-    final entries = current == null
-        ? <InteractiveVideoProgressEntry>[]
-        : current.entries.take(current.currentIndex + 1).toList();
-    entries.add(
-      InteractiveVideoProgressEntry(
-        edgeId: edgeId,
-        cid: cid,
-        title: title,
-      ),
-    );
-    await _saveLocalSteinProgress(
-      InteractiveVideoProgress(
-        entries: entries,
-        currentIndex: entries.length - 1,
-      ),
-    );
   }
 
   Future<void> _setCurrentLocalSteinProgress(int? index) async {
