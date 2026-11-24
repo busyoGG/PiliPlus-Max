@@ -15,6 +15,9 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models_new/member_card_info/data.dart';
 import 'package:PiliPlus/models_new/relation/data.dart';
+import 'package:PiliPlus/models_new/video/video_play_info/subtitle.dart';
+import 'package:PiliPlus/utils/subtitle_utils.dart';
+import 'package:PiliPlus/grpc/dm.dart';
 import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
@@ -779,28 +782,136 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   // ai总结
+  // AI小助手字幕；接口字幕不可用时回退到播放器字幕。
   static Future<AiConclusionResult?> getAiConclusion(
     String bvid,
     int cid,
-    int? mid,
-  ) async {
-    if (!Accounts.heartbeat.isLogin) {
-      SmartDialog.showToast("账号未登录");
-      return null;
-    }
-    SmartDialog.showLoading(msg: '正在获取AI总结');
-    final res = await VideoHttp.aiConclusion(
-      bvid: bvid,
-      cid: cid,
-      upMid: mid,
-    );
-    SmartDialog.dismiss();
-    if (res case Success(:final response)) {
-      return response.modelResult;
-    } else if (res is Error && res.code == 1) {
-      SmartDialog.showToast("AI处理中，请稍后再试");
+    int? mid, {
+    List<Subtitle>? subtitles,
+  }) async {
+    String subtitleError = '当前视频无可用AI小助手字幕';
+    if (Accounts.heartbeat.isLogin) {
+      SmartDialog.showLoading(msg: '正在获取AI小助手字幕');
+      try {
+        final res = await VideoHttp.aiConclusion(
+          bvid: bvid,
+          cid: cid,
+          upMid: mid,
+        );
+        if (res case Success(:final response)) {
+          final result = response.modelResult;
+          if (result?.webSubtitleParts.isNotEmpty == true) {
+            return result;
+          }
+          if (result?.summary?.trim().isNotEmpty == true ||
+              result?.outline?.isNotEmpty == true) {
+            subtitleError = '网页版AI小助手仅返回总结，未返回字幕';
+          }
+        } else if (res case Error(code: 1)) {
+          subtitleError = 'AI小助手字幕仍在处理中';
+        } else if (res case Error(:final errMsg)
+            when errMsg?.isNotEmpty == true) {
+          subtitleError = 'AI小助手字幕获取失败：$errMsg';
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('get ai conclusion: $e');
+        subtitleError = 'AI小助手字幕获取失败';
+      } finally {
+        SmartDialog.dismiss();
+      }
     } else {
-      SmartDialog.showToast("当前视频暂不支持AI视频总结");
+      subtitleError = '账号未登录，无法获取AI小助手字幕';
+    }
+
+    SmartDialog.showLoading(msg: '正在获取播放器字幕');
+    try {
+      final subtitleResult = await _getPlayerSubtitle(
+        bvid,
+        cid,
+        subtitles,
+      );
+      if (subtitleResult != null) {
+        return subtitleResult;
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('get player subtitle: $e');
+    } finally {
+      SmartDialog.dismiss();
+    }
+
+    SmartDialog.showToast('$subtitleError，且未获取到播放器字幕');
+    return null;
+  }
+
+  static Future<AiConclusionResult?> _getPlayerSubtitle(
+    String bvid,
+    int cid,
+    List<Subtitle>? cachedSubtitles,
+  ) async {
+    final subtitles = List<Subtitle>.of(cachedSubtitles ?? const []);
+
+    if (subtitles.isEmpty) {
+      try {
+        final playInfo = await VideoHttp.playInfo(bvid: bvid, cid: cid);
+        if (playInfo case Success(:final response)) {
+          subtitles.addAll(response.subtitle?.subtitles ?? const []);
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('get web subtitles: $e');
+      }
+    }
+
+    if (subtitles.isEmpty) {
+      try {
+        final dmView = await DmGrpc.dmView(IdUtils.bv2av(bvid), cid);
+        if (dmView case Success(:final response)
+            when response.hasSubtitle() &&
+                response.subtitle.subtitles.isNotEmpty) {
+          subtitles.addAll(
+            response.subtitle.subtitles.map(
+              (item) => Subtitle(
+                lan: item.lan,
+                lanDoc: item.lanDoc,
+                subtitleUrl: item.subtitleUrl.replaceFirst(
+                  RegExp('^https?:'),
+                  '',
+                ),
+                isAi: item.type == .AI,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('get grpc subtitles: $e');
+      }
+    }
+
+    // 中文优先；同一语言范围内AI字幕优先于人工字幕。
+    subtitles.sort();
+    final candidates = [
+      ...subtitles.where((item) => item.lan.contains('zh') && item.isAi),
+      ...subtitles.where((item) => item.lan.contains('zh') && !item.isAi),
+      ...subtitles.where((item) => !item.lan.contains('zh') && item.isAi),
+      ...subtitles.where((item) => !item.lan.contains('zh') && !item.isAi),
+    ];
+    for (final subtitle in candidates) {
+      final url = subtitle.subtitleUrl;
+      if (url == null || url.isEmpty) continue;
+      try {
+        final content = await VideoHttp.vttSubtitles(
+          url.replaceFirst(RegExp('^https?:'), ''),
+          format: SubtitleFormat.srt,
+        );
+        if (content?.trim().isNotEmpty == true) {
+          return AiConclusionResult(
+            fallbackSubtitle: content,
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('get ${subtitle.lan} subtitle: $e');
+        }
+      }
     }
     return null;
   }
@@ -810,6 +921,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       bvid,
       cid.value,
       videoDetail.value.owner?.mid,
+      subtitles: videoDetailCtr.subtitles.toList(growable: false),
     );
   }
 
