@@ -23,6 +23,8 @@ import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
+import 'package:PiliPlus/utils/extension/theme_ext.dart';
 
 class FavDetailPage extends StatefulWidget {
   const FavDetailPage({super.key});
@@ -85,7 +87,13 @@ class _FavDetailPageState extends State<FavDetailPage>
                               controller.setIsPlayAll(
                                 details.localPosition.dx < controller.dx,
                               ),
-                          child: FloatingActionButton.extended(
+child: FloatingActionButton.extended(
+                            backgroundColor: Theme.of(context).uiColor(
+                              ThemeUiElement.favPlayAllBackground,
+                            ),
+                            foregroundColor: Theme.of(context).uiColor(
+                              ThemeUiElement.favPlayAllContent,
+                            ),
                             onPressed: () {
                               if (controller.isPlayAll.value) {
                                 controller.toViewPlayAll();
