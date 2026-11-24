@@ -22,6 +22,11 @@ abstract class SearchNumData<T> {
 }
 
 class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
+  int? numPages;
+  bool? hasNext;
+
+  bool hasMore(int page) => hasNext ?? (numPages == null || page < numPages!);
+
   SearchVideoData({
     super.numResults,
     super.list,
