@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/page_transition/video_container_transform.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/select_mask.dart';
@@ -49,7 +50,7 @@ class HistoryItem extends StatelessWidget {
       child: InkWell(
         onTap: enableMultiSelect
             ? () => ctr.onSelect(item)
-            : () => onPushHistory(item),
+            : () => onPushHistory(item, originRect: videoCardRectOf(context)),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Stack(
@@ -238,7 +239,7 @@ class HistoryItem extends StatelessWidget {
   }
 }
 
-Future<void> onPushHistory(HistoryItemModel item) async {
+Future<void> onPushHistory(HistoryItemModel item, {Rect? originRect}) async {
   final business = item.history.business;
   if (business?.contains('article') == true) {
     PageUtils.toDupNamed(
@@ -289,6 +290,7 @@ Future<void> onPushHistory(HistoryItemModel item) async {
     if (cid != null) {
       // TODO: dimension
       PageUtils.toVideoPage(
+        originRect: originRect,
         aid: aid,
         bvid: bvid,
         cid: cid,

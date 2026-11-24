@@ -94,6 +94,22 @@ List<SettingsModel> get playSettings => [
     defaultVal: PlatformUtils.isMobile,
   ),
   const SwitchModel(
+    title: '电池电量显示百分比',
+    subtitle: '关闭后显示竖排电量图标',
+    leading: Icon(Icons.battery_full),
+    setKey: SettingBoxKey.showBatteryPercentage,
+    defaultVal: true,
+  ),
+  const SwitchModel(
+    title: '显示 mpv 帧率与丢帧',
+    subtitle:
+        '帧率：根据最近 10 帧估算的每秒输出画面数；'
+        '已丢帧：因来不及显示而累计跳过的画面数，不含解码阶段丢帧',
+    leading: Icon(Icons.speed_outlined),
+    setKey: SettingBoxKey.showMpvOutputFps,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '双击快退/快进',
     subtitle: '左侧双击快退/右侧双击快进，关闭则双击均为暂停/播放',
     leading: Icon(Icons.touch_app_outlined),

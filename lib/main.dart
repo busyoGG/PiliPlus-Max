@@ -328,7 +328,13 @@ class MyApp extends StatelessWidget {
         FlutterSmartDialog.observer,
       ],
       scrollBehavior: PlatformUtils.isDesktop
-          ? const CustomScrollBehavior()
+          ? CustomScrollBehavior(
+              customDragDevices: PlatformUtils.isDesktop
+                  ? desktopDragDevices
+                  : null,
+              verticalInertiaScale: Pref.verticalScrollInertiaScale,
+              verticalDecelerationScale: Pref.verticalScrollDecelerationScale,
+            )
           : null,
     );
   }
