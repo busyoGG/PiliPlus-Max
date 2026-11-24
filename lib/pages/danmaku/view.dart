@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:PiliPlus/models/common/danmaku_merge_mode.dart';
 import 'package:PiliPlus/pages/danmaku/burst_danmaku_aggregator.dart';
 import 'package:PiliPlus/utils/local_font_manager.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
@@ -47,10 +46,6 @@ class _PlDanmakuState extends State<PlDanmaku> {
   final BurstDanmakuAggregator _burstAggregator =
     BurstDanmakuAggregator();
 
-List<BurstDanmakuSnapshot> _burstSnapshots = const [];
-
-int? _lastBurstPositionMs;
-
   @override
   void initState() {
     super.initState();
@@ -79,16 +74,13 @@ int? _lastBurstPositionMs;
   void _handleDanmakuMergeSettingsChanged(bool reset) {
     if (reset) {
       _burstAggregator.reset();
-      _lastBurstPositionMs = null;
     }
 
     if (!mounted) {
       return;
     }
 
-    setState(() {
-      _burstSnapshots = _burstAggregator.activeSnapshots;
-    });
+    setState(() {});
   }
 
   @override

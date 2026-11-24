@@ -77,13 +77,6 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
     final thicknessScale =
         plPlayerController.playerControlBarThicknessScale;
     final controlHeight = 30.0 * thicknessScale;
-    final alignControlsWithTitle = isFullScreen && isPortrait;
-    Widget alignWithTitle(Widget control) => alignControlsWithTitle
-        ? Transform.translate(
-            offset: Offset(0, -8 * thicknessScale),
-            child: control,
-          )
-        : control;
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
     Widget child;

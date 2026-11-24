@@ -87,6 +87,19 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showFsScreenshotBtn,
     defaultVal: true,
   ),
+  SplitModel(
+    watchKey: SettingBoxKey.skipOpDurationSeconds,
+    normalModel: NormalModel.split(
+      title: '全屏显示跳过 OP 按钮',
+      getSubtitle: () => '当前：' + Pref.skipOpDurationSeconds.toString() + '秒；点击设置跳过时长',
+      leading: const Icon(Icons.fast_forward_rounded),
+    ),
+    switchModel: const SwitchModel.split(
+      setKey: SettingBoxKey.showFsSkipOpBtn,
+      defaultVal: true,
+      onTap: _showSkipOpDurationDialog,
+    ),
+  ),
   SwitchModel(
     title: '全屏显示电池电量',
     leading: const Icon(Icons.battery_3_bar),
@@ -108,6 +121,13 @@ List<SettingsModel> get playSettings => [
     leading: Icon(Icons.speed_outlined),
     setKey: SettingBoxKey.showMpvOutputFps,
     defaultVal: false,
+  ),
+  NormalModel(
+    title: '播放控件显示时间',
+    getSubtitle: () =>
+        '当前：' + Pref.playerControlDisplayDurationSeconds.toString() + '秒；无操作后自动隐藏',
+    leading: const Icon(Icons.timer_outlined),
+    onTap: _showPlayerControlDisplayDurationDialog,
   ),
   const SwitchModel(
     title: '双击快退/快进',
@@ -172,6 +192,20 @@ List<SettingsModel> get playSettings => [
     subtitle: '高能进度条反应了在时域上，单位时间内弹幕发送量的变化趋势',
     leading: Icon(Icons.show_chart),
     setKey: SettingBoxKey.showDmChart,
+    defaultVal: false,
+  ),
+  NormalModel(
+    title: '全屏弹幕开关位置',
+    getSubtitle: () =>
+        '当前：' + (Pref.fullScreenDanmakuToggleOnLeft ? '左侧' : '右侧'),
+    leading: const Icon(Icons.horizontal_distribute_outlined),
+    onTap: _showFullScreenDanmakuTogglePositionDialog,
+  ),
+  const SwitchModel(
+    title: '记住弹幕开关状态',
+    subtitle: '关闭后，每次打开新视频都使用上方的默认弹幕开关状态',
+    leading: Icon(Icons.history_toggle_off_outlined),
+    setKey: SettingBoxKey.rememberDanmakuSwitchState,
     defaultVal: false,
   ),
   const SwitchModel(

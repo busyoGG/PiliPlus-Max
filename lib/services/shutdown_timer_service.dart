@@ -13,9 +13,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPicker;
-import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/device_utils.dart';
 
 enum _ShutdownType with EnumWithLabel {
   pause('暂停视频'),
@@ -285,8 +283,6 @@ class ShutdownTimerService {
   }
 }
 
-const _kSqueeze = 1.25;
-const _kItemExtent = 38.0;
 typedef ShutdownStatefulWidgetBuilder = Widget Function(
   BuildContext context,
   Widget countdown,

@@ -68,6 +68,22 @@ class HistoryController
   @override
   bool customHandleResponse(bool isRefresh, Success<HistoryData> response) {
     final data = response.response;
+    // 本地存档补位：云端这一次没有任何新增时，把本地记录接在后面并按观看时间排序。
+    if (_lastResponseWasLocal) {
+      isEnd = true;
+      final localItems = data.list;
+      final currentItems = loadingState.value.dataOrNull;
+      if (!isRefresh &&
+          localItems?.isNotEmpty == true &&
+          currentItems != null) {
+        currentItems
+          ..addAll(localItems!)
+          ..sort(_compareByViewAt);
+        loadingState.refresh();
+        return true;
+      }
+      return false;
+    }
     final last = data.list?.lastOrNull;
     if (last == null) {
       isEnd = true;

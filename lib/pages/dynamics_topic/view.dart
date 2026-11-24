@@ -44,12 +44,8 @@ class DynTopicPage extends StatefulWidget {
 
 class _DynTopicPageState extends State<DynTopicPage>
     with DynMixin, SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
-  static const double _fabRevealDistance = 72.0;
-
   late EdgeInsets padding;
   late ColorScheme colorScheme;
-  double _fabUpwardDistance = 0.0;
-  bool _fabHiddenByScroll = false;
   final DynTopicController _controller = Get.put(
     DynTopicController(),
     tag: Utils.generateRandomString(8),
@@ -60,42 +56,6 @@ class _DynTopicPageState extends State<DynTopicPage>
     super.didChangeDependencies();
     colorScheme = ColorScheme.of(context);
     padding = MediaQuery.viewPaddingOf(context);
-  }
-
-  bool _handleFabScroll(ScrollNotification notification) {
-    if (notification.depth != 0 ||
-        notification.metrics.axis != Axis.vertical) {
-      return false;
-    }
-
-    if (notification is! ScrollUpdateNotification) {
-      return false;
-    }
-
-    final delta = notification.scrollDelta ?? 0.0;
-
-    if (delta > 0) {
-      _fabUpwardDistance = 0.0;
-
-      if (!_fabHiddenByScroll) {
-        _fabHiddenByScroll = true;
-        hideFab();
-      }
-    } else if (delta < 0 && _fabHiddenByScroll) {
-      _fabUpwardDistance += -delta;
-
-      final reachedTop =
-          notification.metrics.pixels <=
-          notification.metrics.minScrollExtent + 0.5;
-
-      if (_fabUpwardDistance >= _fabRevealDistance || reachedTop) {
-        _fabUpwardDistance = 0.0;
-        _fabHiddenByScroll = false;
-        showFab();
-      }
-    }
-
-    return false;
   }
 
   @override

@@ -128,8 +128,6 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
   late bool isPortrait;
   late double maxWidth;
   late double maxHeight;
-  double _fabUpwardDistance = 0.0;
-  bool _fabHiddenByScroll = false;
 
   @override
   void didChangeDependencies() {
