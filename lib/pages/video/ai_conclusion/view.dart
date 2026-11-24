@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
@@ -24,6 +25,14 @@ class AiConclusionPanel extends CommonSlidePage {
     Key? key,
     bool tap = true,
   }) {
+    final subtitleParts = res.webSubtitleParts.toList(growable: false);
+    final fallbackSubtitle = res.fallbackSubtitle?.trim();
+    final subtitleCopyText = subtitleParts.isNotEmpty
+        ? subtitleParts
+              .map((e) => e.content ?? '')
+              .where((e) => e.isNotEmpty)
+              .join(String.fromCharCode(10))
+        : (fallbackSubtitle ?? '');
     final outline = res.outline;
     final hasOutline = outline != null && outline.isNotEmpty;
     return SelectionArea(
@@ -126,6 +135,79 @@ class AiConclusionPanel extends CommonSlidePage {
                 },
               ),
             ),
+          if (subtitleParts.isNotEmpty ||
+              fallbackSubtitle?.isNotEmpty == true) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 14, right: 14, top: 12),
+                child: Row(
+                  children: [
+                    const Text(
+                      '字幕',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => Utils.copyText(
+                        subtitleCopyText,
+                        toastText: '已复制全部内容',
+                      ),
+                      icon: const Icon(Icons.copy_all_outlined, size: 18),
+                      label: const Text('复制全部'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: 14,
+                right: 14,
+                bottom: !tap
+                    ? 0
+                    : MediaQuery.viewPaddingOf(context).bottom + 100,
+              ),
+              sliver: subtitleParts.isNotEmpty
+                  ? SliverList.builder(
+                      itemCount: subtitleParts.length,
+                      itemBuilder: (context, index) {
+                        final item = subtitleParts[index];
+                        final start = item.startTimestamp;
+                        return Padding(
+                          padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+                          child: Text.rich(
+                            TextSpan(
+                              style: const TextStyle(fontSize: 14, height: 1.5),
+                              children: [
+                                if (start != null)
+                                  TextSpan(
+                                    text:
+                                        DurationUtils.formatDuration(
+                                          start.round(),
+                                        ) +
+                                        ' ',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                TextSpan(text: item.content ?? ''),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : SliverToBoxAdapter(
+                      child: Text(
+                        fallbackSubtitle!,
+                        style: const TextStyle(fontSize: 14, height: 1.5),
+                      ),
+                    ),
+            ),
+          ],
         ],
       ),
     );
