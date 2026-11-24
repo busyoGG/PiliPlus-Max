@@ -122,6 +122,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showMpvOutputFps,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '显示缓冲速度',
+    subtitle: '缓冲速度每 500ms 刷新；无法获取有效速度时仅显示“加载中”',
+    leading: Icon(Icons.cloud_download_outlined),
+    setKey: SettingBoxKey.showBufferingInfo,
+    defaultVal: true,
+  ),
   NormalModel(
     title: '播放控件显示时间',
     getSubtitle: () =>
