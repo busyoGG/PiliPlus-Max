@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/search/search_type.dart';
 import 'package:PiliPlus/models/common/search/video_search_type.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
@@ -10,9 +9,51 @@ import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+
+mixin SearchVideoMixin on SearchVideoController {
+  late bool _hasJump2Video = false;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _jump2Video();
+  }
+
+  @override
+  bool customHandleResponse(bool isRefresh, Success<SearchVideoData> response) {
+    if (isRefresh && !_hasJump2Video) {
+      _hasJump2Video = true;
+      _onPushDetail(response.response.list);
+    }
+    return super.customHandleResponse(isRefresh, response);
+  }
+
+  void _onPushDetail(List<SearchVideoItemModel>? resultList) {
+    try {
+      final aid = int.tryParse(keyword);
+      if (aid != null && resultList?.firstOrNull?.aid == aid) {
+        PiliScheme.videoPush(aid, null, showDialog: false);
+      }
+    } catch (_) {}
+  }
+
+  void _jump2Video() {
+    if (IdUtils.avRegexExact.hasMatch(keyword)) {
+      _hasJump2Video = true;
+      PiliScheme.videoPush(
+        int.parse(keyword.substring(2)),
+        null,
+        showDialog: false,
+      );
+    } else if (IdUtils.bvRegexExact.hasMatch(keyword)) {
+      _hasJump2Video = true;
+      PiliScheme.videoPush(null, keyword, showDialog: false);
+    }
+  }
+}
 
 class SearchVideoController
     extends SearchPanelController<SearchVideoData, SearchVideoItemModel> {
@@ -22,99 +63,19 @@ class SearchVideoController
     required super.tag,
   });
 
-  late bool hasJump2Video = false;
-
   @override
   void onInit() {
     super.onInit();
-    videoDurationType = VideoDurationType.all;
-    videoZoneType = VideoZoneType.all;
+    videoDurationType = .all;
+    videoZoneType = .all;
     DateTime now = DateTime.now();
     pubBeginDate = DateTime(now.year, now.month, 1, 0, 0, 0);
     pubEndDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-
-    jump2Video();
   }
 
   @override
   List<SearchVideoItemModel>? getDataList(SearchVideoData response) {
     return response.list;
-  }
-
-  @override
-  Future<LoadingState<SearchVideoData>> customGetData() async {
-    final begin = pubBegin;
-    final end = pubEnd;
-    if (begin == null && end == null) {
-      return super.customGetData();
-    }
-    final requestOrder = order;
-    final requestDuration = videoDurationType;
-    final requestZone = videoZoneType;
-    while (true) {
-      final result = await super.customGetData();
-      if (result is! Success<SearchVideoData>) {
-        return result;
-      }
-      final data = result.response;
-      final rawList = data.list;
-      // 接口可能忽略发布时间参数，展示前必须按实际发布时间校验。
-      data.list = rawList?.where((item) {
-        final pubdate = item.pubdate;
-        return pubdate != null &&
-            (begin == null || pubdate >= begin) &&
-            (end == null || pubdate <= end);
-      }).toList();
-      if (isClosed ||
-          pubBegin != begin ||
-          pubEnd != end ||
-          order != requestOrder ||
-          videoDurationType != requestDuration ||
-          videoZoneType != requestZone ||
-          rawList == null ||
-          rawList.isEmpty ||
-          data.list!.isNotEmpty ||
-          !data.hasMore(page)) {
-        return result;
-      }
-      // 空的是筛选后的列表，原始结果仍有下一页时不能提前结束。
-      page++;
-    }
-  }
-
-  @override
-  bool customHandleResponse(bool isRefresh, Success<SearchVideoData> response) {
-    isEnd = !response.response.hasMore(page);
-    searchResultController?.count[searchType.index] =
-        response.response.numResults ?? 0;
-    if (searchType == SearchType.video && !hasJump2Video && isRefresh) {
-      hasJump2Video = true;
-      onPushDetail(response.response.list);
-    }
-    return false;
-  }
-
-  void onPushDetail(List<SearchVideoItemModel>? resultList) {
-    try {
-      int? aid = int.tryParse(keyword);
-      if (aid != null && resultList?.firstOrNull?.aid == aid) {
-        PiliScheme.videoPush(aid, null, showDialog: false);
-      }
-    } catch (_) {}
-  }
-
-  void jump2Video() {
-    if (IdUtils.avRegexExact.hasMatch(keyword)) {
-      hasJump2Video = true;
-      PiliScheme.videoPush(
-        int.parse(keyword.substring(2)),
-        null,
-        showDialog: false,
-      );
-    } else if (IdUtils.bvRegexExact.hasMatch(keyword)) {
-      hasJump2Video = true;
-      PiliScheme.videoPush(null, keyword, showDialog: false);
-    }
   }
 
   final Rx<ArchiveFilterType> selectedType = ArchiveFilterType.totalrank.obs;
@@ -123,7 +84,6 @@ class SearchVideoController
   late DateTime pubEndDate;
   bool customPubBeginDate = false;
   bool customPubEndDate = false;
-  static final _earliestPubDate = DateTime(2009, 6, 26);
 
   void onShowFilterDialog(BuildContext context) {
     showModalBottomSheet(
@@ -149,7 +109,7 @@ class SearchVideoController
                 showDatePicker(
                   context: context,
                   initialDate: isFirst ? pubBeginDate : pubEndDate,
-                  firstDate: _earliestPubDate,
+                  firstDate: isFirst ? DateTime(2009, 6, 26) : pubBeginDate,
                   lastDate: isFirst ? pubEndDate : DateTime.now(),
                 ).then((selectedDate) {
                   if (selectedDate != null) {
@@ -159,19 +119,18 @@ class SearchVideoController
                     } else {
                       customPubEndDate = true;
                       pubEndDate = selectedDate;
-                      if (pubEndDate.isBefore(pubBeginDate)) {
-                        // 自动对齐不算手动选择起始日期，继续使用完整历史范围。
-                        pubBeginDate = pubEndDate;
-                        customPubBeginDate = false;
-                      }
                     }
                     pubTimeType = null;
                     SmartDialog.dismiss();
-                    // 时间筛选需要有效的起止参数，未手动设置起始日期时
-                    // 使用最早可选日期作为实际下限，显示值仍可与终止日期对齐。
                     pubBegin =
-                        (customPubBeginDate ? pubBeginDate : _earliestPubDate)
-                            .millisecondsSinceEpoch ~/
+                        DateTime(
+                          pubBeginDate.year,
+                          pubBeginDate.month,
+                          pubBeginDate.day,
+                          0,
+                          0,
+                          0,
+                        ).millisecondsSinceEpoch ~/
                         1000;
                     pubEnd =
                         DateTime(
@@ -221,8 +180,6 @@ class SearchVideoController
                         text: e.label,
                         onTap: (text) {
                           pubTimeType = e;
-                          customPubBeginDate = false;
-                          customPubEndDate = false;
                           DateTime now = DateTime.now();
                           if (e == VideoPubTimeType.all) {
                             pubBegin = null;

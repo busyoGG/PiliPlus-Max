@@ -1,4 +1,4 @@
-import 'dart:async' show Completer, StreamSubscription;
+import 'dart:async' show StreamSubscription, Timer;
 
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/search.dart';
@@ -23,6 +23,7 @@ class SearchPanelController<R extends SearchNumData<T>, T>
   final String tag;
   final String keyword;
   final SearchType searchType;
+  SearchType get searchType_ => searchType;
 
   // sort
   // common
@@ -42,9 +43,6 @@ class SearchPanelController<R extends SearchNumData<T>, T>
   Rx<ArticleZoneType>? articleZoneType; // int? categoryId;
 
   SearchResultController? searchResultController;
-  Future<void>? _queryFuture;
-  Future<void>? _reloadFuture;
-  bool _reloadRequested = false;
 
   void onSortSearch({
     bool getBack = true,
@@ -95,25 +93,17 @@ class SearchPanelController<R extends SearchNumData<T>, T>
 
   String? gaiaVtoken;
 
-  @override
-  Future<void> queryData([bool isRefresh = true]) async {
-    if (_queryFuture != null) {
-      return;
-    }
-    final completer = Completer<void>();
-    _queryFuture = completer.future;
-    try {
-      await super.queryData(isRefresh);
-    } finally {
-      isLoading = false;
-      _queryFuture = null;
-      completer.complete();
+  Timer? _timer;
+  void _stopTimer() {
+    if (_timer != null) {
+      _timer!.cancel();
+      _timer = null;
     }
   }
 
   @override
   Future<LoadingState<R>> customGetData() => SearchHttp.searchByType<R>(
-    searchType: searchType,
+    searchType: searchType_,
     keyword: keyword,
     page: page,
     order: order,
@@ -125,34 +115,30 @@ class SearchPanelController<R extends SearchNumData<T>, T>
     pubBegin: pubBegin,
     pubEnd: pubEnd,
     gaiaVtoken: gaiaVtoken,
-    onSuccess: (String gaiaVtoken) {
-      this.gaiaVtoken = gaiaVtoken;
-      queryData(page == 1);
-    },
+    onSuccess: _onSuccess,
   );
+
+  void _onSuccess(String gaiaVtoken) {
+    this.gaiaVtoken = gaiaVtoken;
+    SmartDialog.showLoading(onDismiss: _stopTimer);
+    _timer = Timer(const Duration(milliseconds: 500), _onRequery);
+  }
+
+  void _onRequery() {
+    _stopTimer();
+    SmartDialog.dismiss(status: .loading);
+    if (!isClosed) queryData(page == 1);
+  }
 
   @override
   Future<void> onReload() {
-    _reloadRequested = true;
-    return _reloadFuture ??= _reloadWithLatestFilters();
+    scrollController.jumpToTop();
+    return super.onReload();
   }
 
-  Future<void> _reloadWithLatestFilters() async {
-    try {
-      do {
-        // 等当前查询结束后再重置分页，避免筛选刷新被 isLoading 跳过。
-        while (_queryFuture != null) {
-          await _queryFuture!;
-        }
-        if (isClosed) {
-          return;
-        }
-        _reloadRequested = false;
-        scrollController.jumpToTop();
-        await super.onReload();
-      } while (_reloadRequested);
-    } finally {
-      _reloadFuture = null;
-    }
+  @override
+  void onClose() {
+    _stopTimer();
+    super.onClose();
   }
 }

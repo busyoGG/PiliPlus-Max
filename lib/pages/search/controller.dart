@@ -6,13 +6,14 @@ import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/search/suggest.dart';
 import 'package:PiliPlus/models_new/search/search_rcmd/data.dart';
 import 'package:PiliPlus/models_new/search/search_trending/data.dart';
+import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 mixin DebounceStreamMixin<T> {
@@ -84,7 +85,6 @@ class SSearchController extends GetxController
   final String tag;
 
   final searchFocusNode = FocusNode();
-  final scrollController = ScrollController(keepScrollOffset: false);
   final controller = TextEditingController();
   final _baseCtr = Get.putOrFind(BaseSearchController.new);
 
@@ -119,7 +119,6 @@ class SSearchController extends GetxController
     super.onInit();
     final params = Get.parameters;
     hintText = params['hintText'];
-    initIndex = Get.arguments?['initIndex'] ?? 0;
     final text = params['text'];
     if (text != null) {
       controller.text = text;
@@ -128,7 +127,7 @@ class SSearchController extends GetxController
     if (searchSuggestion) {
       subInit();
       searchSuggestList = <SearchSuggestItem>[].obs;
-      refreshSuggestions();
+      if (text != null) onValueChanged(text);
     }
 
     if (enableSearchRcmd) {
@@ -152,13 +151,6 @@ class SSearchController extends GetxController
     }
   }
 
-  void refreshSuggestions() {
-    final value = controller.text;
-    if (searchSuggestion && value.isNotEmpty) {
-      unawaited(onValueChanged(value));
-    }
-  }
-
   void onClear() {
     if (controller.value.text != '') {
       controller.clear();
@@ -171,51 +163,56 @@ class SSearchController extends GetxController
   }
 
   // 搜索
-  void submit() {
+  Future<void> submit() async {
     if (controller.text.isEmpty) {
-      if (hintText.isNullOrEmpty) {
-        return;
-      }
+      if (hintText.isNullOrEmpty) return;
       controller.text = hintText!;
       validateUid();
     }
 
+    final text = controller.text;
+
+    if (await PiliScheme.routePushFromUrl(text, selfHandle: true)) {
+      return;
+    }
+
     if (recordSearchHistory.value) {
-      historyList
-        ..remove(controller.text)
-        ..insert(0, controller.text);
-      GStorage.historyWord.put('cacheList', historyList);
+      final index = historyList.indexOf(text);
+      if (index != 0) {
+        if (index != -1) historyList.removeAt(index);
+        historyList.insert(0, text);
+        GStorage.historyWord.put('cacheList', historyList);
+      }
     }
 
     searchFocusNode.unfocus();
-    Get.offNamedUntil<void>(
+    Get.toNamed(
       '/searchResult',
-      ModalRoute.withName('/'),
-      parameters: {
-        'keyword': controller.text,
-      },
-      arguments: {
-        'initIndex': initIndex,
-      },
-    );
+      parameters: {'tag': tag, 'keyword': text},
+      arguments: {'initIndex': initIndex, 'fromSearch': true},
+    )?.then((val) {
+      searchFocusNode.requestFocus();
+      if (val is bool && val) {
+        onValueChanged(text);
+      }
+    });
   }
 
   Future<void> queryRecommendList() async {
     recommendData.value = await SearchHttp.searchRecommend();
   }
 
-  void onClickKeyword(String keyword) {
+  void onClickKeyword(String keyword, {bool clearSuggest = true}) {
     controller.text = keyword;
     validateUid();
 
-    if (searchSuggestion) searchSuggestList.clear();
+    if (searchSuggestion && clearSuggest) searchSuggestList.clear();
     submit();
   }
 
   @override
   Future<void> onValueChanged(String value) async {
     final res = await SearchHttp.searchSuggest(term: value);
-    if (value != controller.text) return;
     if (res case Success(:final response)) {
       if (response.tag?.isNotEmpty == true) {
         searchSuggestList.value = response.tag!;
@@ -243,7 +240,6 @@ class SSearchController extends GetxController
   void onClose() {
     subDispose();
     searchFocusNode.dispose();
-    scrollController.dispose();
     controller.dispose();
     super.onClose();
   }
