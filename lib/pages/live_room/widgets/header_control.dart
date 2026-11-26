@@ -26,6 +26,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:PiliPlus/pages/live_room/widgets/pk_battle_badge.dart';
 
 class LiveHeaderControl extends StatefulWidget {
   const LiveHeaderControl({
@@ -76,7 +77,6 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
     final isFullScreen = this.isFullScreen;
     final thicknessScale =
         plPlayerController.playerControlBarThicknessScale;
-    final controlHeight = 30.0 * thicknessScale;
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
     Widget child;
@@ -124,6 +124,18 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
       padding: const .symmetric(horizontal: 14, vertical: 13),
       child: Row(
         children: [
+          Obx(() {
+            final pk = liveController.pkBattle.value;
+            if (pk == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: PkBattleBadge(
+                item: pk,
+                onTap: () => showPkBattleSheet(item: pk),
+              ),
+            );
+          }),
+
           if (isFullScreen || plPlayerController.isDesktopPip)
             ComBtn(
               height: btnHeight,

@@ -47,6 +47,7 @@ import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:PiliPlus/models_new/live/live_pk_battle/pk_battle_info.dart';
 
 class LiveRoomController extends GetxController {
   void updateBlockRules(Object keywords, Object uids) {}
@@ -110,6 +111,12 @@ class LiveRoomController extends GetxController {
   List<RichTextItem>? savedDanmaku;
   int builtLength = 0;
   final messages = <dynamic>[].obs;
+
+  /// PK 对方主播信息，PK 结束后清空。
+  final pkBattle = Rxn<PkBattleInfo>();
+
+  Timer? _pkClearTimer;
+
   bool get shouldRefresh => builtLength != messages.length;
   late final fsSC = Rxn<SuperChatItem>();
   late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
@@ -914,6 +921,29 @@ class LiveRoomController extends GetxController {
     messages.addOnly(msg);
   }
 
+  void _updatePkBattle(Map<dynamic, dynamic> obj) {
+    final Map<String, dynamic> json = obj.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+    final PkBattleInfo next = PkBattleInfo.fromJson(json);
+    _pkClearTimer?.cancel();
+    _pkClearTimer = null;
+    // PROCESS 消息只有票数，保留上一份房间与主播信息。
+    if (next.roomId == null && pkBattle.value == null) {
+      return;
+    }
+    pkBattle.value = next.merge(pkBattle.value);
+  }
+
+  void _schedulePkClear() {
+    _pkClearTimer?.cancel();
+    _pkClearTimer = Timer(const Duration(seconds: 10), () {
+      if (!isClosed) {
+        pkBattle.value = null;
+      }
+    });
+  }
+
   @pragma('vm:notify-debugger-on-exception')
   void _danmakuListener(dynamic obj) {
     try {
@@ -1018,6 +1048,19 @@ class LiveRoomController extends GetxController {
           break;
         case 'ROOM_CHANGE':
           title.value = obj['data']['title'];
+          break;
+        case 'PK_BATTLE_PRE':
+        case 'PK_BATTLE_PRE_NEW':
+        case 'PK_BATTLE_START':
+        case 'PK_BATTLE_START_NEW':
+        case 'PK_BATTLE_PROCESS':
+        case 'PK_BATTLE_PROCESS_NEW':
+          _updatePkBattle(obj);
+          break;
+        case 'PK_BATTLE_END':
+        case 'PK_BATTLE_FINAL_PROCESS':
+          _updatePkBattle(obj);
+          _schedulePkClear();
           break;
       }
     } catch (e, s) {
