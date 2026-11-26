@@ -96,7 +96,7 @@ void main() {
       expect(info.face, 'f');
     });
 
-    test('fromPkInfo returns null when only the local anchor exists', () {
+    test('fromPkInfo falls back to all members when only self matches', () {
       final info = PkBattleInfo.fromPkInfo(<String, dynamic>{
         'data': <String, dynamic>{
           'members': <dynamic>[
@@ -104,7 +104,8 @@ void main() {
           ],
         },
       }, selfUid: 111);
-      expect(info, isNull);
+      expect(info, isNotNull);
+      expect(info!.uid, 111);
     });
   });
 

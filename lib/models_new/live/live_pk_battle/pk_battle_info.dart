@@ -95,7 +95,8 @@ class PkBattleInfo {
     if (rawMembers is! List || rawMembers.isEmpty) {
       return const <PkBattleInfo>[];
     }
-    final List<PkBattleInfo> result = <PkBattleInfo>[];
+    final List<PkBattleInfo> all = <PkBattleInfo>[];
+    final List<PkBattleInfo> others = <PkBattleInfo>[];
     for (final Object? raw in rawMembers) {
       if (raw is! Map) continue;
       final Map<String, dynamic> member = raw.map(
@@ -103,24 +104,26 @@ class PkBattleInfo {
       );
       final int? uid = pickInt(member['uid']);
       final int? roomId = pickInt(member['room_id']);
-      if ((selfUid != null && uid == selfUid) ||
-          (selfRoomId != null && roomId == selfRoomId)) {
-        continue;
-      }
       if (uid == null && roomId == null) {
         continue;
       }
-      result.add(
-        PkBattleInfo(
-          status: 2,
-          uid: uid,
-          roomId: roomId,
-          uname: member['uname'] as String?,
-          face: member['face'] as String?,
-        ),
+      final PkBattleInfo item = PkBattleInfo(
+        status: 2,
+        uid: uid,
+        roomId: roomId,
+        uname: member['uname'] as String?,
+        face: member['face'] as String?,
       );
+      all.add(item);
+      final bool isSelf = (selfUid != null && uid == selfUid) ||
+          (selfRoomId != null && roomId == selfRoomId);
+      if (!isSelf) {
+        others.add(item);
+      }
     }
-    return result;
+    // 过滤后为空说明 members 里所有人 room_id 都等于本房间（多路连麦的常见形态），
+    // 这时宁可全展示，也好过什么都不显示。
+    return others.isEmpty ? all : others;
   }
 
   /// 第一个连线对象（兼容旧调用）。
