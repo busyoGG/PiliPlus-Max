@@ -505,6 +505,23 @@ abstract final class LiveHttp {
     }
   }
 
+  /// 通过主播 uid 反查其直播间 room_id。
+  static Future<int?> liveRoomIdByUid(int uid) async {
+    try {
+      final res = await Request().get(
+        Api.liveInfoByUser,
+        queryParameters: <String, dynamic>{'uid': uid},
+      );
+      if (res.data['code'] == 0) {
+        final Object? roomId = (res.data['data'] as Map?)?['room_id'];
+        if (roomId is int) return roomId > 0 ? roomId : null;
+        final int? parsed = int.tryParse(roomId?.toString() ?? '');
+        return (parsed != null && parsed > 0) ? parsed : null;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future<LoadingState<void>> liveSetSilent({
     required String type,
     required int level,

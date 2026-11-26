@@ -73,5 +73,38 @@ void main() {
       expect(info.uname, 'nested_battle');
       expect(info.status, 2);
     });
+
+    test('fromPkInfo picks the member that is not the local anchor', () {
+      final info = PkBattleInfo.fromPkInfo(<String, dynamic>{
+        'cmd': 'PK_INFO',
+        'data': <String, dynamic>{
+          'members': <dynamic>[
+            <String, dynamic>{'uid': 111, 'uname': 'me', 'room_id': 5},
+            <String, dynamic>{
+              'uid': '222',
+              'uname': 'rival',
+              'room_id': '6001',
+              'face': 'f',
+            },
+          ],
+        },
+      }, selfUid: 111);
+      expect(info, isNotNull);
+      expect(info!.uid, 222);
+      expect(info.roomId, 6001);
+      expect(info.uname, 'rival');
+      expect(info.face, 'f');
+    });
+
+    test('fromPkInfo returns null when only the local anchor exists', () {
+      final info = PkBattleInfo.fromPkInfo(<String, dynamic>{
+        'data': <String, dynamic>{
+          'members': <dynamic>[
+            <String, dynamic>{'uid': 111, 'room_id': 5},
+          ],
+        },
+      }, selfUid: 111);
+      expect(info, isNull);
+    });
   });
 }

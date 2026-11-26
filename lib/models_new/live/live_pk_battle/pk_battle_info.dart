@@ -3,6 +3,13 @@
 /// 直播间弹幕流里的 PK_BATTLE_* / PK_BATTLE_FINAL_PROCESS 消息字段各不相同：
 /// PRE/START 带 room_id/uname/face，PROCESS 只带票数，因此解析时容错取值，
 /// 缺字段时保留上一份数据。
+int? pickInt(Object? value) => switch (value) {
+  final int v => v,
+  final String v => int.tryParse(v),
+  final num v => v.toInt(),
+  _ => null,
+};
+
 class PkBattleInfo {
   const PkBattleInfo({
     this.pkId,
@@ -74,5 +81,40 @@ class PkBattleInfo {
       face: pick('face') as String?,
       endTime: toInt(pick('end_time')),
     );
+  }
+
+  /// PK_INFO（多人连麦/PK）消息里的对方主播。
+  static PkBattleInfo? fromPkInfo(
+    Map<String, dynamic> json, {
+    int? selfUid,
+  }) {
+    final Object? rawData = json['data'];
+    final Map<dynamic, dynamic> data = rawData is Map ? rawData : json;
+    final Object? rawMembers = data['members'] ?? json['members'];
+    if (rawMembers is! List || rawMembers.isEmpty) {
+      return null;
+    }
+    for (final Object? raw in rawMembers) {
+      if (raw is! Map) continue;
+      final Map<String, dynamic> member = raw.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+      final int? uid = pickInt(member['uid']);
+      if (selfUid != null && uid == selfUid) {
+        continue;
+      }
+      final int? roomId = pickInt(member['room_id']);
+      if (uid == null && roomId == null) {
+        continue;
+      }
+      return PkBattleInfo(
+        status: 2,
+        uid: uid,
+        roomId: roomId,
+        uname: member['uname'] as String?,
+        face: member['face'] as String?,
+      );
+    }
+    return null;
   }
 }

@@ -318,6 +318,10 @@ abstract final class Api {
 
   static const String sendLiveMsg = '${HttpString.liveBaseUrl}/msg/send';
 
+  // 通过 uid 查直播间
+  static const String liveInfoByUser =
+      '${HttpString.liveBaseUrl}/xlive/web-interface/v1/index/getInfoByUser';
+
   // 直播间详情 H5
   static const String liveRoomInfoH5 =
       '${HttpString.liveBaseUrl}/xlive/web-room/v1/index/getH5InfoByRoom';

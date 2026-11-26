@@ -1,5 +1,5 @@
 import 'dart:async' show Timer, StreamSubscription, unawaited;
-import 'dart:convert' show jsonDecode;
+import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
@@ -921,6 +921,23 @@ class LiveRoomController extends GetxController {
     messages.addOnly(msg);
   }
 
+  void _updatePkInfo(Map<dynamic, dynamic> obj) {
+    final Map<String, dynamic> json = obj.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+    final PkBattleInfo? info = PkBattleInfo.fromPkInfo(
+      json,
+      selfUid: roomInfoH5.value?.roomInfo?.uid,
+    );
+    if (info == null) {
+      return;
+    }
+    _pkClearTimer?.cancel();
+    _pkClearTimer = null;
+    // PK_INFO 是对端状态快照，直接替换。
+    pkBattle.value = info;
+  }
+
   void _updatePkBattle(Map<dynamic, dynamic> obj) {
     final Map<String, dynamic> json = obj.map(
       (key, value) => MapEntry(key.toString(), value),
@@ -954,7 +971,19 @@ class LiveRoomController extends GetxController {
   void _danmakuListener(dynamic obj) {
     try {
       if (_traceCmd) {
-        print('LIVECMD: ' + obj['cmd'].toString());
+        final String cmd = obj['cmd'].toString();
+        print('LIVECMD: $cmd');
+        if (cmd.contains('PK') || cmd.contains('MULTI') || cmd.contains('LINK')) {
+          // logcat 单行有长度上限，分片打印避免截断。
+          final String raw = jsonEncode(obj);
+          for (int i = 0; i < raw.length; i += 700) {
+            final String part = raw.substring(
+              i,
+              math.min(i + 700, raw.length),
+            );
+            print('LIVEPK: $part');
+          }
+        }
       }
       // logger.i(' 原始弹幕消息 ======> ${jsonEncode(obj)}');
       switch (obj['cmd']) {
@@ -1057,6 +1086,9 @@ class LiveRoomController extends GetxController {
           break;
         case 'ROOM_CHANGE':
           title.value = obj['data']['title'];
+          break;
+        case 'PK_INFO':
+          _updatePkInfo(obj);
           break;
         case final String cmd when cmd.startsWith('PK_BATTLE'):
           _updatePkBattle(obj);

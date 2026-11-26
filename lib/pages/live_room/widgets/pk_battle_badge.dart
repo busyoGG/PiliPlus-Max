@@ -88,6 +88,19 @@ class PkAvatar extends StatelessWidget {
   }
 }
 
+/// 进入 PK 对方的直播间。部分消息只给 uid，这里用 uid 反查 room_id。
+Future<void> openPkBattleTarget(PkBattleInfo item) async {
+  int? roomId = item.roomId;
+  final int? uid = item.uid;
+  if (roomId == null && uid != null) {
+    roomId = await LiveHttp.liveRoomIdByUid(uid);
+  }
+  if (roomId == null) {
+    return;
+  }
+  PageUtils.toLiveRoom(roomId);
+}
+
 /// 弹出对方直播间信息面板。
 Future<void> showPkBattleSheet({required PkBattleInfo item}) {
   return showModalBottomSheet<void>(
@@ -205,12 +218,13 @@ class _PkBattleSheetState extends State<PkBattleSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: widget.item.roomId == null
+                    onPressed: (widget.item.roomId == null &&
+                            widget.item.uid == null)
                         ? null
                         : () {
-                            final int roomId = widget.item.roomId!;
+                            final PkBattleInfo item = widget.item;
                             Get.back();
-                            PageUtils.toLiveRoom(roomId);
+                            openPkBattleTarget(item);
                           },
                     child: const Text('进入直播间'),
                   ),
