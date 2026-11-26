@@ -124,18 +124,6 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
       padding: const .symmetric(horizontal: 14, vertical: 13),
       child: Row(
         children: [
-          Obx(() {
-            final pk = liveController.pkBattle;
-            if (pk == null) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: PkBattleBadge(
-                item: pk,
-                onTap: () => showPkBattleSheet(item: pk),
-              ),
-            );
-          }),
-
           if (isFullScreen || plPlayerController.isDesktopPip)
             ComBtn(
               height: btnHeight,
