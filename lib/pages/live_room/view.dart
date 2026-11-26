@@ -471,13 +471,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               ],
             ),
           ),
-          if (showPk && !isFullScreen) PkBattleBar(items: pkItems),
           Offstage(
             offstage: isFullScreen,
             child: SizedBox(
               width: maxWidth,
-              height: max(0, bottomHeight - (showPk ? 30 : 0)),
-              child: _buildBottomWidget,
+              height: max(0, bottomHeight),
+              // 胶囊和评论区分上下两段，不会互相遮挡。
+              child: Column(
+                children: [
+                  if (showPk) PkBattleBar(items: pkItems),
+                  Expanded(child: _buildBottomWidget),
+                ],
+              ),
             ),
           ),
         ],
@@ -487,55 +492,70 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Widget _buildPP(bool isFullScreen) {
     final bottomHeight = 70 + padding.bottom;
-    final videoHeight = isFullScreen
-        ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
-        : maxHeight - bottomHeight;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          bottom: isFullScreen ? 0 : bottomHeight,
-          child: videoPlayerPanel(
-            width: maxWidth,
-            height: videoHeight,
-            isFullScreen,
-            needDm: isFullScreen,
-            alignment: isFullScreen ? Alignment.center : Alignment.topCenter,
+    const double pkBarHeight = 34;
+    return Obx(() {
+      final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles.value;
+      // PK 胶囊单独占一行，不吃播放器控件栏的位置。
+      // 全屏时视频占满，胶囊改用浮层，避免挤压画面。
+      final double barHeight =
+          (pkItems.isEmpty || isFullScreen) ? 0 : pkBarHeight;
+      final videoHeight = isFullScreen
+          ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
+          : maxHeight - bottomHeight;
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: videoHeight - barHeight,
+            child: videoPlayerPanel(
+              width: maxWidth,
+              height: videoHeight - barHeight,
+              isFullScreen,
+              needDm: isFullScreen,
+              alignment: isFullScreen ? Alignment.center : Alignment.topCenter,
+            ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 55 + bottomHeight,
-          height: maxHeight * 0.32,
-          child: Offstage(
-            offstage: isFullScreen,
-            child: _buildChatWidget(true),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 55 + bottomHeight,
+            height: maxHeight * 0.32,
+            child: Offstage(
+              offstage: isFullScreen,
+              child: _buildChatWidget(true),
+            ),
           ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: bottomHeight,
-          child: Obx(() {
-            final List<PkBattleInfo> pkItems =
-                _liveRoomController.pkBattles.value;
-            if (pkItems.isEmpty) return const SizedBox.shrink();
-            return PkBattleBar(items: pkItems);
-          }),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: bottomHeight,
-          child: Offstage(
-            offstage: isFullScreen,
-            child: _buildInputWidget,
+          if (pkItems.isNotEmpty && !isFullScreen)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: videoHeight - barHeight,
+              height: barHeight,
+              child: PkBattleBar(items: pkItems),
+            ),
+          if (pkItems.isNotEmpty && isFullScreen)
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 56,
+              child: PkBattleBar(items: pkItems),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: bottomHeight,
+            child: Offstage(
+              offstage: isFullScreen,
+              child: _buildInputWidget,
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   Widget get onlineWidget => GestureDetector(
