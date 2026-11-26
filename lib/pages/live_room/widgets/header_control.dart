@@ -125,7 +125,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
       child: Row(
         children: [
           Obx(() {
-            final pk = liveController.pkBattle.value;
+            final pk = liveController.pkBattle;
             if (pk == null) return const SizedBox.shrink();
             return Padding(
               padding: const EdgeInsets.only(right: 8),

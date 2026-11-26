@@ -115,7 +115,10 @@ class LiveRoomController extends GetxController {
   final messages = <dynamic>[].obs;
 
   /// PK 对方主播信息，PK 结束后清空。
-  final pkBattle = Rxn<PkBattleInfo>();
+  final pkBattles = <PkBattleInfo>[].obs;
+
+  /// 兼容旧调用：第一个连线对象。
+  PkBattleInfo? get pkBattle => pkBattles.isEmpty ? null : pkBattles.first;
 
   Timer? _pkClearTimer;
 
@@ -967,7 +970,7 @@ class LiveRoomController extends GetxController {
     );
     unawaited(_dumpPkDebug('PK_INFO', json));
     final int? selfUid = roomInfoH5.value?.roomInfo?.uid;
-    final PkBattleInfo? info = PkBattleInfo.fromPkInfo(
+    final List<PkBattleInfo> items = PkBattleInfo.fromPkInfoList(
       json,
       selfUid: selfUid,
       selfRoomId: roomId,
@@ -976,18 +979,19 @@ class LiveRoomController extends GetxController {
       _dumpPkDebug('PARSED', <String, dynamic>{
         'selfUid': selfUid,
         'selfRoomId': roomId,
-        'pickedUid': info?.uid,
-        'pickedRoomId': info?.roomId,
-        'pickedName': info?.uname,
+        'picked': <String>[
+          for (final PkBattleInfo item in items)
+            '${item.uname}/${item.roomId}',
+        ],
       }),
     );
-    if (info == null) {
+    if (items.isEmpty) {
       return;
     }
     _pkClearTimer?.cancel();
     _pkClearTimer = null;
     // PK_INFO 是对端状态快照，直接替换。
-    pkBattle.value = info;
+    pkBattles.assignAll(items);
   }
 
   void _updatePkBattle(Map<dynamic, dynamic> obj) {
@@ -1002,17 +1006,17 @@ class LiveRoomController extends GetxController {
       return;
     }
     // PROCESS 消息只有票数，保留上一份房间与主播信息。
-    if (next.roomId == null && pkBattle.value == null) {
+    if (next.roomId == null && pkBattle == null) {
       return;
     }
-    pkBattle.value = next.merge(pkBattle.value);
+    pkBattles.assignAll(<PkBattleInfo>[next.merge(pkBattle)]);
   }
 
   void _schedulePkClear() {
     _pkClearTimer?.cancel();
     _pkClearTimer = Timer(const Duration(seconds: 10), () {
       if (!isClosed) {
-        pkBattle.value = null;
+        pkBattles.clear();
       }
     });
   }

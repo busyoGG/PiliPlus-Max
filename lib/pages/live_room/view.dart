@@ -56,6 +56,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
+import 'package:PiliPlus/models_new/live/live_pk_battle/pk_battle_info.dart';
 import 'package:PiliPlus/pages/live_room/widgets/pk_battle_badge.dart';
 
 const baseWhite = Color(0xFFEEEEEE);
@@ -443,27 +444,32 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
         : height;
     final bottomHeight = maxHeight - padding.top - height - kToolbarHeight;
-    return Column(
-      children: [
-        SizedBox(
-          width: maxWidth,
-          height: videoHeight,
-          child: videoPlayerPanel(
-            isFullScreen,
+    return Obx(() {
+      final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles;
+      final bool showPk = pkItems.isNotEmpty && !isFullScreen;
+      return Column(
+        children: [
+          SizedBox(
             width: maxWidth,
             height: videoHeight,
+            child: videoPlayerPanel(
+              isFullScreen,
+              width: maxWidth,
+              height: videoHeight,
+            ),
           ),
-        ),
-        Offstage(
-          offstage: isFullScreen,
-          child: SizedBox(
-            width: maxWidth,
-            height: max(0, bottomHeight),
-            child: _buildBottomWidget,
+          if (showPk) PkBattleBar(items: pkItems),
+          Offstage(
+            offstage: isFullScreen,
+            child: SizedBox(
+              width: maxWidth,
+              height: max(0, bottomHeight - (showPk ? 30 : 0)),
+              child: _buildBottomWidget,
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   Widget _buildPP(bool isFullScreen) {
@@ -492,6 +498,19 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           child: Offstage(
             offstage: isFullScreen,
             child: _buildChatWidget(true),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: bottomHeight,
+          child: Offstage(
+            offstage: isFullScreen,
+            child: Obx(() {
+              final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles;
+              if (pkItems.isEmpty) return const SizedBox.shrink();
+              return PkBattleBar(items: pkItems);
+            }),
           ),
         ),
         Positioned(
@@ -614,17 +633,6 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               },
             ),
       actions: [
-          Obx(() {
-            final pk = _liveRoomController.pkBattle.value;
-            if (pk == null) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: PkBattleBadge(
-                item: pk,
-                onTap: () => showPkBattleSheet(item: pk),
-              ),
-            );
-          }),
         // IconButton(
         //   tooltip: '刷新',
         //   onPressed: _liveRoomController.queryLiveUrl,

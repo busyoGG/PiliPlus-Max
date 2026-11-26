@@ -47,6 +47,39 @@ class PkBattleBadge extends StatelessWidget {
   }
 }
 
+/// 播放器下方的连线条：多人连麦时并排展示所有对象。
+class PkBattleBar extends StatelessWidget {
+  const PkBattleBar({super.key, required this.items, this.padding});
+
+  final List<PkBattleInfo> items;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 8),
+      child: SizedBox(
+        height: 28,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            final PkBattleInfo item = items[index];
+            return PkBattleBadge(
+              item: item,
+              onTap: () => showPkBattleSheet(item: item),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class PkAvatar extends StatelessWidget {
   const PkAvatar({super.key, this.url, this.size = 36, this.radius});
 

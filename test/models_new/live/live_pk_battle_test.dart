@@ -107,4 +107,24 @@ void main() {
       expect(info, isNull);
     });
   });
+
+  test('fromPkInfoList returns every connected member except self', () {
+    final Map<String, dynamic> json = <String, dynamic>{
+      'cmd': 'PK_INFO',
+      'data': <String, dynamic>{
+        'members': <dynamic>[
+          <String, dynamic>{'uid': 1, 'uname': 'self', 'room_id': 100},
+          <String, dynamic>{'uid': 2, 'uname': 'a', 'room_id': 200},
+          <String, dynamic>{'uid': 3, 'uname': 'b', 'room_id': 300},
+        ],
+      },
+    };
+    final List<PkBattleInfo> list = PkBattleInfo.fromPkInfoList(
+      json,
+      selfUid: 1,
+      selfRoomId: 100,
+    );
+    expect(list.length, 2);
+    expect(list.map((PkBattleInfo e) => e.uname).toList(), <String>['a', 'b']);
+  });
 }

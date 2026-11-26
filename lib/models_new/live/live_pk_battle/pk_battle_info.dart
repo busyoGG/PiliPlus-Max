@@ -83,8 +83,8 @@ class PkBattleInfo {
     );
   }
 
-  /// PK_INFO（多人连麦/PK）消息里的对方主播。
-  static PkBattleInfo? fromPkInfo(
+  /// PK_INFO（多人连麦/PK）消息里的所有连线对象（排除自己）。
+  static List<PkBattleInfo> fromPkInfoList(
     Map<String, dynamic> json, {
     int? selfUid,
     int? selfRoomId,
@@ -93,8 +93,9 @@ class PkBattleInfo {
     final Map<dynamic, dynamic> data = rawData is Map ? rawData : json;
     final Object? rawMembers = data['members'] ?? json['members'];
     if (rawMembers is! List || rawMembers.isEmpty) {
-      return null;
+      return const <PkBattleInfo>[];
     }
+    final List<PkBattleInfo> result = <PkBattleInfo>[];
     for (final Object? raw in rawMembers) {
       if (raw is! Map) continue;
       final Map<String, dynamic> member = raw.map(
@@ -109,14 +110,30 @@ class PkBattleInfo {
       if (uid == null && roomId == null) {
         continue;
       }
-      return PkBattleInfo(
-        status: 2,
-        uid: uid,
-        roomId: roomId,
-        uname: member['uname'] as String?,
-        face: member['face'] as String?,
+      result.add(
+        PkBattleInfo(
+          status: 2,
+          uid: uid,
+          roomId: roomId,
+          uname: member['uname'] as String?,
+          face: member['face'] as String?,
+        ),
       );
     }
-    return null;
+    return result;
+  }
+
+  /// 第一个连线对象（兼容旧调用）。
+  static PkBattleInfo? fromPkInfo(
+    Map<String, dynamic> json, {
+    int? selfUid,
+    int? selfRoomId,
+  }) {
+    final List<PkBattleInfo> list = fromPkInfoList(
+      json,
+      selfUid: selfUid,
+      selfRoomId: selfRoomId,
+    );
+    return list.isEmpty ? null : list.first;
   }
 }
