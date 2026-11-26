@@ -522,6 +522,30 @@ abstract final class LiveHttp {
     return null;
   }
 
+  /// 拉取官方当前 PK / 多人连麦信息，data 结构与弹幕 PK_INFO 一致。
+  static Future<Map<String, dynamic>?> livePkInfo(
+    int roomId, {
+    int? uid,
+  }) async {
+    try {
+      final res = await Request().get(
+        Api.livePkInfo,
+        queryParameters: <String, dynamic>{
+          'room_id': roomId,
+          'platform': 'web',
+          if (uid != null && uid > 0) 'uid': uid,
+        },
+      );
+      if (res.data['code'] == 0) {
+        final Object? data = res.data['data'];
+        if (data is Map) {
+          return Map<String, dynamic>.from(data);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future<LoadingState<void>> liveSetSilent({
     required String type,
     required int level,

@@ -321,6 +321,9 @@ abstract final class Api {
   // 通过 uid 查直播间
   static const String liveInfoByUser =
       '${HttpString.liveBaseUrl}/xlive/web-interface/v1/index/getInfoByUser';
+  /// 官方当前 PK / 多人连麦信息（匿名可用）。
+  static const String livePkInfo =
+      '${HttpString.liveBaseUrl}/xlive/general-interface/v2/pk/info';
 
   // 直播间详情 H5
   static const String liveRoomInfoH5 =

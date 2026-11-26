@@ -123,6 +123,9 @@ class LiveRoomController extends GetxController {
 
   Timer? _pkClearTimer;
 
+  /// 官方接口轮询：不依赖弹幕推送也能拿到 PK / 多人连麦名单。
+  Timer? _pkPollTimer;
+
   bool get shouldRefresh => builtLength != messages.length;
   late final fsSC = Rxn<SuperChatItem>();
   late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
@@ -478,6 +481,8 @@ class LiveRoomController extends GetxController {
   /// 拖动进度条：改写窗口偏移并重启本地播放列表（连续拖动只重启一次）。
   Future<void> _onTimeShiftSeek(Duration target) async {
     _timeShiftSeekTimer?.cancel();
+    _pkPollTimer?.cancel();
+    _pkPollTimer = null;
     _timeShiftSeekTimer = Timer(const Duration(milliseconds: 250), () {
       unawaited(_restartAtTimeShift(target));
     });
@@ -908,6 +913,7 @@ class LiveRoomController extends GetxController {
 
   void initDm(LiveDmInfoData info) {
     _restorePkCache();
+    _startPkPoll();
     if (info.hostList.isNullOrEmpty) {
       return;
     }
@@ -977,18 +983,47 @@ class LiveRoomController extends GetxController {
     });
   }
 
-  void _updatePkInfo(Map<dynamic, dynamic> obj) {
+  void _startPkPoll() {
+    _pkPollTimer?.cancel();
+    unawaited(_pollPkInfo());
+    _pkPollTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => unawaited(_pollPkInfo()),
+    );
+  }
+
+  Future<void> _pollPkInfo() async {
+    if (isClosed) return;
+    final Map<String, dynamic>? data = await LiveHttp.livePkInfo(
+      roomId,
+      uid: roomInfoH5.value?.roomInfo?.uid,
+    );
+    if (isClosed) return;
+    final Object? members = data?['members'];
+    if (data == null || members is! List || members.isEmpty) {
+      return;
+    }
+    _updatePkInfo(<dynamic, dynamic>{
+      'cmd': 'PK_INFO',
+      'data': data,
+    }, quiet: true);
+  }
+
+  void _updatePkInfo(Map<dynamic, dynamic> obj, {bool quiet = false}) {
     final Map<String, dynamic> json = obj.map(
       (key, value) => MapEntry(key.toString(), value),
     );
-    unawaited(_dumpPkDebug('PK_INFO', json));
+    if (!quiet) {
+      unawaited(_dumpPkDebug('PK_INFO', json));
+    }
     final int? selfUid = roomInfoH5.value?.roomInfo?.uid;
     final List<PkBattleInfo> items = PkBattleInfo.fromPkInfoList(
       json,
       selfUid: selfUid,
       selfRoomId: roomId,
     );
-    unawaited(
+    if (!quiet) {
+      unawaited(
       _dumpPkDebug('PARSED', <String, dynamic>{
         'selfUid': selfUid,
         'selfRoomId': roomId,
@@ -997,7 +1032,8 @@ class LiveRoomController extends GetxController {
             '${item.uname}/${item.roomId}',
         ],
       }),
-    );
+      );
+    }
     if (items.isEmpty) {
       return;
     }
