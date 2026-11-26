@@ -115,10 +115,11 @@ class LiveRoomController extends GetxController {
   final messages = <dynamic>[].obs;
 
   /// PK 对方主播信息，PK 结束后清空。
-  final pkBattles = <PkBattleInfo>[].obs;
+  final pkBattles = Rx<List<PkBattleInfo>>(<PkBattleInfo>[]);
 
   /// 兼容旧调用：第一个连线对象。
-  PkBattleInfo? get pkBattle => pkBattles.isEmpty ? null : pkBattles.first;
+  PkBattleInfo? get pkBattle =>
+      pkBattles.value.isEmpty ? null : pkBattles.value.first;
 
   Timer? _pkClearTimer;
 
@@ -991,7 +992,7 @@ class LiveRoomController extends GetxController {
     _pkClearTimer?.cancel();
     _pkClearTimer = null;
     // PK_INFO 是对端状态快照，直接替换。
-    pkBattles.assignAll(items);
+    pkBattles.value = items;
   }
 
   void _updatePkBattle(Map<dynamic, dynamic> obj) {
@@ -1009,14 +1010,14 @@ class LiveRoomController extends GetxController {
     if (next.roomId == null && pkBattle == null) {
       return;
     }
-    pkBattles.assignAll(<PkBattleInfo>[next.merge(pkBattle)]);
+    pkBattles.value = <PkBattleInfo>[next.merge(pkBattle)!];
   }
 
   void _schedulePkClear() {
     _pkClearTimer?.cancel();
     _pkClearTimer = Timer(const Duration(seconds: 10), () {
       if (!isClosed) {
-        pkBattles.clear();
+        pkBattles.value = const <PkBattleInfo>[];
       }
     });
   }
@@ -1024,11 +1025,25 @@ class LiveRoomController extends GetxController {
   @pragma('vm:notify-debugger-on-exception')
   static const bool _traceCmd = bool.fromEnvironment('PILI_LIVE_CMD');
 
+  final Set<String> _seenCmds = <String>{};
+
   void _danmakuListener(dynamic obj) {
     try {
       if (_traceCmd) {
         final String cmd = obj['cmd'].toString();
         print('LIVECMD: $cmd');
+        if (_seenCmds.add(cmd)) {
+          unawaited(_dumpPkDebug('CMD', <String, dynamic>{'cmd': cmd}));
+        }
+        if (cmd.contains('PK') || cmd.contains('LINK') ||
+            cmd.contains('MULTI')) {
+          unawaited(
+            _dumpPkDebug('RAW', <String, dynamic>{
+              'cmd': cmd,
+              'raw': jsonEncode(obj),
+            }),
+          );
+        }
         if (cmd.contains('PK') || cmd.contains('MULTI') || cmd.contains('LINK')) {
           // logcat 单行有长度上限，分片打印避免截断。
           final String raw = jsonEncode(obj);

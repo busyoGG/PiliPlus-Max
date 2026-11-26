@@ -445,7 +445,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         : height;
     final bottomHeight = maxHeight - padding.top - height - kToolbarHeight;
     return Obx(() {
-      final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles;
+      final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles.value;
       final bool showPk = pkItems.isNotEmpty && !isFullScreen;
       return Column(
         children: [
@@ -507,7 +507,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           child: Offstage(
             offstage: isFullScreen,
             child: Obx(() {
-              final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles;
+              final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles.value;
               if (pkItems.isEmpty) return const SizedBox.shrink();
               return PkBattleBar(items: pkItems);
             }),
