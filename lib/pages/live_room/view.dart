@@ -56,6 +56,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
+import 'package:PiliPlus/pages/live_room/widgets/pk_battle_badge.dart';
 
 const baseWhite = Color(0xFFEEEEEE);
 
@@ -613,6 +614,17 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               },
             ),
       actions: [
+          Obx(() {
+            final pk = _liveRoomController.pkBattle.value;
+            if (pk == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: PkBattleBadge(
+                item: pk,
+                onTap: () => showPkBattleSheet(item: pk),
+              ),
+            );
+          }),
         // IconButton(
         //   tooltip: '刷新',
         //   onPressed: _liveRoomController.queryLiveUrl,
@@ -624,6 +636,11 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             final liveUrl =
                 'https://live.bilibili.com/${_liveRoomController.roomId}';
             return <PopupMenuEntry>[
+              if (const bool.fromEnvironment('PILI_LIVE_CMD'))
+                PopupMenuItem(
+                  onTap: _liveRoomController.debugInjectPkInfo,
+                  child: const Text('Debug: 模拟 PK 卡片'),
+                ),
               PopupMenuItem(
                 onTap: () => Utils.copyText(liveUrl),
                 child: const Row(

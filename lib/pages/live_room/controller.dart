@@ -48,6 +48,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:PiliPlus/models_new/live/live_pk_battle/pk_battle_info.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class LiveRoomController extends GetxController {
   void updateBlockRules(Object keywords, Object uids) {}
@@ -921,13 +923,63 @@ class LiveRoomController extends GetxController {
     messages.addOnly(msg);
   }
 
+  /// 诊断用：把原始 PK 消息落盘到应用外部目录，方便 adb pull。
+  Future<void> _dumpPkDebug(String name, Map<String, dynamic> json) async {
+    if (!_traceCmd) return;
+    try {
+      final Directory? dir = await getExternalStorageDirectory();
+      if (dir == null) return;
+      final File file = File(dir.path + '/pk_debug.txt');
+      file.writeAsStringSync(
+        name + ' ' + jsonEncode(json) + '\n',
+        mode: FileMode.append,
+        flush: true,
+      );
+    } catch (_) {}
+  }
+
+  /// 诊断用：注入一条真实采集的 PK_INFO，验证玫瑰/面板/进房链路。
+  void debugInjectPkInfo() {
+    _updatePkInfo(<dynamic, dynamic>{
+      'cmd': 'PK_INFO',
+      'data': <String, dynamic>{
+        'members': <dynamic>[
+          <String, dynamic>{
+            'uid': 3747583222615478,
+            'uname': 'DebugSelf',
+            'room_id': roomId,
+          },
+          <String, dynamic>{
+            'uid': 3744996943465813,
+            'uname': 'DebugRival',
+            'room_id': 1747541484,
+            'face':
+                'https://i1.hdslb.com/bfs/face/619ef3e592e2b3f0a2b2b8b1e0a1c4b.jpg',
+          },
+        ],
+      },
+    });
+  }
+
   void _updatePkInfo(Map<dynamic, dynamic> obj) {
     final Map<String, dynamic> json = obj.map(
       (key, value) => MapEntry(key.toString(), value),
     );
+    unawaited(_dumpPkDebug('PK_INFO', json));
+    final int? selfUid = roomInfoH5.value?.roomInfo?.uid;
     final PkBattleInfo? info = PkBattleInfo.fromPkInfo(
       json,
-      selfUid: roomInfoH5.value?.roomInfo?.uid,
+      selfUid: selfUid,
+      selfRoomId: roomId,
+    );
+    unawaited(
+      _dumpPkDebug('PARSED', <String, dynamic>{
+        'selfUid': selfUid,
+        'selfRoomId': roomId,
+        'pickedUid': info?.uid,
+        'pickedRoomId': info?.roomId,
+        'pickedName': info?.uname,
+      }),
     );
     if (info == null) {
       return;

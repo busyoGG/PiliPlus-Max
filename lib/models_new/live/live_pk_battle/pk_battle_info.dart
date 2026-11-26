@@ -87,6 +87,7 @@ class PkBattleInfo {
   static PkBattleInfo? fromPkInfo(
     Map<String, dynamic> json, {
     int? selfUid,
+    int? selfRoomId,
   }) {
     final Object? rawData = json['data'];
     final Map<dynamic, dynamic> data = rawData is Map ? rawData : json;
@@ -100,10 +101,11 @@ class PkBattleInfo {
         (key, value) => MapEntry(key.toString(), value),
       );
       final int? uid = pickInt(member['uid']);
-      if (selfUid != null && uid == selfUid) {
+      final int? roomId = pickInt(member['room_id']);
+      if ((selfUid != null && uid == selfUid) ||
+          (selfRoomId != null && roomId == selfRoomId)) {
         continue;
       }
-      final int? roomId = pickInt(member['room_id']);
       if (uid == null && roomId == null) {
         continue;
       }
