@@ -895,7 +895,19 @@ class LiveRoomController extends GetxController {
     return queryLiveUrl();
   }
 
+  /// 房间号 -> 最近一次 PK 状态，页面重建后可直接恢复。
+  static final Map<int, List<PkBattleInfo>> _pkCache =
+      <int, List<PkBattleInfo>>{};
+
+  void _restorePkCache() {
+    final List<PkBattleInfo>? cached = _pkCache[roomId];
+    if (cached != null && cached.isNotEmpty) {
+      pkBattles.value = cached;
+    }
+  }
+
   void initDm(LiveDmInfoData info) {
+    _restorePkCache();
     if (info.hostList.isNullOrEmpty) {
       return;
     }
@@ -993,6 +1005,7 @@ class LiveRoomController extends GetxController {
     _pkClearTimer = null;
     // PK_INFO 是对端状态快照，直接替换。
     pkBattles.value = items;
+    _pkCache[roomId] = items;
   }
 
   void _updatePkBattle(Map<dynamic, dynamic> obj) {
@@ -1010,14 +1023,17 @@ class LiveRoomController extends GetxController {
     if (next.roomId == null && pkBattle == null) {
       return;
     }
-    pkBattles.value = <PkBattleInfo>[next.merge(pkBattle)!];
+    final List<PkBattleInfo> merged = <PkBattleInfo>[next.merge(pkBattle)!];
+    pkBattles.value = merged;
+    _pkCache[roomId] = merged;
   }
 
   void _schedulePkClear() {
     _pkClearTimer?.cancel();
-    _pkClearTimer = Timer(const Duration(seconds: 10), () {
+    _pkClearTimer = Timer(const Duration(seconds: 60), () {
       if (!isClosed) {
         pkBattles.value = const <PkBattleInfo>[];
+        _pkCache.remove(roomId);
       }
     });
   }
@@ -1033,7 +1049,13 @@ class LiveRoomController extends GetxController {
         final String cmd = obj['cmd'].toString();
         print('LIVECMD: $cmd');
         if (_seenCmds.add(cmd)) {
-          unawaited(_dumpPkDebug('CMD', <String, dynamic>{'cmd': cmd}));
+          final String raw = jsonEncode(obj);
+          unawaited(
+            _dumpPkDebug('CMD', <String, dynamic>{
+              'cmd': cmd,
+              'raw': raw.length > 2500 ? raw.substring(0, 2500) : raw,
+            }),
+          );
         }
         if (cmd.contains('PK') || cmd.contains('LINK') ||
             cmd.contains('MULTI')) {

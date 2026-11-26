@@ -446,19 +446,32 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     final bottomHeight = maxHeight - padding.top - height - kToolbarHeight;
     return Obx(() {
       final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles.value;
-      final bool showPk = pkItems.isNotEmpty && !isFullScreen;
+      final bool showPk = pkItems.isNotEmpty;
       return Column(
         children: [
           SizedBox(
             width: maxWidth,
             height: videoHeight,
-            child: videoPlayerPanel(
-              isFullScreen,
-              width: maxWidth,
-              height: videoHeight,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: videoPlayerPanel(
+                    isFullScreen,
+                    width: maxWidth,
+                    height: videoHeight,
+                  ),
+                ),
+                if (showPk && isFullScreen)
+                  Positioned(
+                    left: 8,
+                    right: 8,
+                    bottom: 56,
+                    child: PkBattleBar(items: pkItems),
+                  ),
+              ],
             ),
           ),
-          if (showPk) PkBattleBar(items: pkItems),
+          if (showPk && !isFullScreen) PkBattleBar(items: pkItems),
           Offstage(
             offstage: isFullScreen,
             child: SizedBox(
@@ -504,14 +517,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
           left: 0,
           right: 0,
           bottom: bottomHeight,
-          child: Offstage(
-            offstage: isFullScreen,
-            child: Obx(() {
-              final List<PkBattleInfo> pkItems = _liveRoomController.pkBattles.value;
-              if (pkItems.isEmpty) return const SizedBox.shrink();
-              return PkBattleBar(items: pkItems);
-            }),
-          ),
+          child: Obx(() {
+            final List<PkBattleInfo> pkItems =
+                _liveRoomController.pkBattles.value;
+            if (pkItems.isEmpty) return const SizedBox.shrink();
+            return PkBattleBar(items: pkItems);
+          }),
         ),
         Positioned(
           left: 0,
@@ -742,11 +753,29 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             width: width,
             height: height,
             margin: EdgeInsets.only(bottom: padding.bottom),
-            child: videoPlayerPanel(
-              isFullScreen,
-              fill: Colors.transparent,
-              width: width,
-              height: height,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: videoPlayerPanel(
+                    isFullScreen,
+                    fill: Colors.transparent,
+                    width: width,
+                    height: height,
+                  ),
+                ),
+                if (isFullScreen)
+                  Positioned(
+                    left: 8,
+                    right: 8,
+                    bottom: 56,
+                    child: Obx(() {
+                      final List<PkBattleInfo> pkItems =
+                          _liveRoomController.pkBattles.value;
+                      if (pkItems.isEmpty) return const SizedBox.shrink();
+                      return PkBattleBar(items: pkItems);
+                    }),
+                  ),
+              ],
             ),
           ),
           Offstage(
@@ -754,7 +783,17 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             child: SizedBox(
               width: rightWidth,
               height: videoHeight,
-              child: _buildBottomWidget,
+              child: Column(
+                children: [
+                  Obx(() {
+                    final List<PkBattleInfo> items =
+                        _liveRoomController.pkBattles.value;
+                    if (items.isEmpty) return const SizedBox.shrink();
+                    return PkBattleBar(items: items);
+                  }),
+                  Expanded(child: _buildBottomWidget),
+                ],
+              ),
             ),
           ),
         ],
