@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/constants.dart';
+import 'package:flutter/foundation.dart';
 import 'package:PiliPlus/http/api.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -512,13 +513,16 @@ abstract final class LiveHttp {
         Api.liveInfoByUser,
         queryParameters: <String, dynamic>{'uid': uid},
       );
+      if (const bool.fromEnvironment('PILI_LIVE_CMD')) { debugPrint('PKREQ: code=${res.data['code']} members=${(res.data['data'] is Map) ? ((res.data['data'] as Map)['members'] is List ? ((res.data['data'] as Map)['members'] as List).length : -1) : -2}'); }
       if (res.data['code'] == 0) {
         final Object? roomId = (res.data['data'] as Map?)?['room_id'];
         if (roomId is int) return roomId > 0 ? roomId : null;
         final int? parsed = int.tryParse(roomId?.toString() ?? '');
         return (parsed != null && parsed > 0) ? parsed : null;
       }
-    } catch (_) {}
+    } catch (e) {
+      if (const bool.fromEnvironment('PILI_LIVE_CMD')) { debugPrint("PKERR: " + e.toString()); }
+    }
     return null;
   }
 

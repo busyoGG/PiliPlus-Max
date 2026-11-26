@@ -1000,6 +1000,7 @@ class LiveRoomController extends GetxController {
     );
     if (isClosed) return;
     final Object? members = data?['members'];
+    if (const bool.fromEnvironment('PILI_LIVE_CMD')) { debugPrint("PKPOLL: " + (data == null ? "null" : (members is List ? members.length.toString() : "-1"))); }
     if (data == null || members is! List || members.isEmpty) {
       return;
     }
@@ -1041,6 +1042,7 @@ class LiveRoomController extends GetxController {
     _pkClearTimer = null;
     // PK_INFO 是对端状态快照，直接替换。
     pkBattles.value = items;
+      if (const bool.fromEnvironment('PILI_LIVE_CMD')) { debugPrint("PKSET: " + items.length.toString()); }
     _pkCache[roomId] = items;
   }
 
