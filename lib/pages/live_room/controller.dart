@@ -928,6 +928,10 @@ class LiveRoomController extends GetxController {
     final PkBattleInfo next = PkBattleInfo.fromJson(json);
     _pkClearTimer?.cancel();
     _pkClearTimer = null;
+    // 本房间自己的信息不作为「对方主播」展示。
+    if (next.roomId == roomId) {
+      return;
+    }
     // PROCESS 消息只有票数，保留上一份房间与主播信息。
     if (next.roomId == null && pkBattle.value == null) {
       return;
@@ -945,8 +949,13 @@ class LiveRoomController extends GetxController {
   }
 
   @pragma('vm:notify-debugger-on-exception')
+  static const bool _traceCmd = bool.fromEnvironment('PILI_LIVE_CMD');
+
   void _danmakuListener(dynamic obj) {
     try {
+      if (_traceCmd) {
+        print('LIVECMD: ' + obj['cmd'].toString());
+      }
       // logger.i(' 原始弹幕消息 ======> ${jsonEncode(obj)}');
       switch (obj['cmd']) {
         case 'DANMU_MSG':
@@ -1049,18 +1058,11 @@ class LiveRoomController extends GetxController {
         case 'ROOM_CHANGE':
           title.value = obj['data']['title'];
           break;
-        case 'PK_BATTLE_PRE':
-        case 'PK_BATTLE_PRE_NEW':
-        case 'PK_BATTLE_START':
-        case 'PK_BATTLE_START_NEW':
-        case 'PK_BATTLE_PROCESS':
-        case 'PK_BATTLE_PROCESS_NEW':
+        case final String cmd when cmd.startsWith('PK_BATTLE'):
           _updatePkBattle(obj);
-          break;
-        case 'PK_BATTLE_END':
-        case 'PK_BATTLE_FINAL_PROCESS':
-          _updatePkBattle(obj);
-          _schedulePkClear();
+          if (cmd.contains('END') || cmd.contains('SETTLE')) {
+            _schedulePkClear();
+          }
           break;
       }
     } catch (e, s) {

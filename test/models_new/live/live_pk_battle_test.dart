@@ -57,5 +57,21 @@ void main() {
       final info = PkBattleInfo.fromJson(<String, dynamic>{'pk_status': 5});
       expect(info.isEnded, isTrue);
     });
+
+    test('parses data.pk_battle_info nesting used by *_NEW messages', () {
+      final info = PkBattleInfo.fromJson(<String, dynamic>{
+        'cmd': 'PK_BATTLE_START_NEW',
+        'data': <String, dynamic>{
+          'pk_battle_info': <String, dynamic>{
+            'room_id': 7002,
+            'uname': 'nested_battle',
+            'pk_status': 2,
+          },
+        },
+      });
+      expect(info.roomId, 7002);
+      expect(info.uname, 'nested_battle');
+      expect(info.status, 2);
+    });
   });
 }

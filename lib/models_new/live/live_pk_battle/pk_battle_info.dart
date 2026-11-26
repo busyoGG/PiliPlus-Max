@@ -39,8 +39,25 @@ class PkBattleInfo {
   }
 
   factory PkBattleInfo.fromJson(Map<String, dynamic> json) {
-    final Object? raw = json['data'];
-    final Map<String, dynamic> data = raw is Map<String, dynamic> ? raw : json;
+    // 消息体可能是顶层字段、data 包裹，或 data.pk_battle_info / pk_info 再包一层。
+    Map<String, dynamic> asMap(Object? value) => switch (value) {
+      final Map<String, dynamic> map => map,
+      final Map<dynamic, dynamic> map => map.map(
+        (key, value) => MapEntry(key.toString(), value),
+      ),
+      _ => const <String, dynamic>{},
+    };
+    Map<String, dynamic> data = asMap(json['data']);
+    for (final String key in const <String>['pk_battle_info', 'pk_info']) {
+      final Map<String, dynamic> nested = asMap(data[key]);
+      if (nested.isNotEmpty) {
+        data = nested;
+        break;
+      }
+    }
+    if (data.isEmpty) {
+      data = json;
+    }
     Object? pick(String key) => data[key] ?? json[key];
     int? toInt(Object? value) => switch (value) {
       final int v => v,
